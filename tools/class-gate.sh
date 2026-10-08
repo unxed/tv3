@@ -1,10 +1,11 @@
 #!/bin/sh
-# The class migration gate covers every working file, including build caches.
+# The class migration gate: no type of the old object model in the Pascal sources of the tree.
 set -eu
 here=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 
-if LC_ALL=C grep -r -a -l -i --exclude-dir=.git --exclude=.git \
-    'obj[e]ct' "$here"; then
+# a type of the old object model: "= object" or "= packed object" (the method pointers "of object" and the class TObject are fine)
+if LC_ALL=C grep -r -l -i -E --include='*.pas' --include='*.pp' --include='*.inc' --include='*.dpr' --exclude-dir=.git \
+    '=[[:space:]]*(packed[[:space:]]+)?obj[e]ct([[:space:]]|\(|;|$)' "$here"; then
     echo "CLASS GATE FAIL: legacy type spelling is still present" >&2
     exit 1
 else
