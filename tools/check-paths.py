@@ -13,6 +13,7 @@ pat = re.compile(
     r"(?<![#\d(])'\\'"                # a backslash as a character (not #27'\' or Ord('\') of an escape sequence)
     r"|'[A-Za-z]?:\\"                  # a drive prefix: 'C:\...', ':\'
     r"|\[2\]\s*(=|<>)\s*':'"           # S[2] = ':'
+    r"|\[1\]\s*(=|<>)\s*'/'"           # S[1] = '/': a root test
     r"|\+\s*'/'|'/'\s*\+"              # a slash joined to a path
     r"|'\*\.\*'"                       # the DOS mask of every file
     r"|\(\s*'\\'\s*,\s*'/'\s*\)"       # ('\', '/')
@@ -84,7 +85,8 @@ if os.path.exists(base):
             old[a] = int(b)
 bad = [(f, n, old.get(f, 0)) for f, n in sorted(counts.items()) if n > old.get(f, 0)]
 for f, n, o in bad:
-    print('FAIL %s: %d paths spelled by hand (the baseline allows %d); use TvPath' % (f, n, o))
+    print('FAIL %s: %d paths spelled by hand (the baseline allows %d); use TvPath (if it is no path, such as the escape of a'
+          ' regular expression, raise the baseline with --update)' % (f, n, o))
     for h in hits[f]:
         print('    ' + h)
 if '-v' in sys.argv:
