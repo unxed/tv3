@@ -710,6 +710,9 @@ begin
   {$ENDIF}
 end;
 
+var
+  F2lRandomized: Boolean = False;
+
 function F2lNewClientId: AnsiString;
 const
   Alphabet = '0123456789abcdefghijklmnopqrstuvwxyz';
@@ -734,7 +737,12 @@ begin
       FillChar(Rnd[1], Length(Rnd), 0);
     FileClose(F);
   end;
-  Randomize;
+  { seeded once: the seed is the clock, and two IDs made within one tick of it (DOS: 55 ms) would be the same where there is no /dev/urandom }
+  if not F2lRandomized then
+  begin
+    Randomize;
+    F2lRandomized := True;
+  end;
   for I := 1 to Length(Rnd) do
   begin
     C := Alphabet[1 + ((Byte(Rnd[I]) + Random(256)) mod Length(Alphabet))];
