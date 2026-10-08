@@ -1,10 +1,16 @@
+Scope
+
+This license covers the files of this repository, with these exceptions:
+
+  - A file whose head says "Translated from magiblot/tvision" is a translation of that library. It is distributed under
+    the terms of COPYRIGHT.magiblot (the disclaimer of Borland International and the MIT license of magiblot and
+    contributors), which must be kept with it. The changes made in the translation are also under the license below.
+  - The generated tables src/tvcharset.inc, src/tvcp.inc and src/tvwidth.inc hold data derived from the Unicode
+    Character Database and the Unicode mapping tables of code pages: see THIRD-PARTY-NOTICES.md.
+
 MIT License
 
-Copyright (c) 2026 the authors of the dn project
-
-This license covers the files of this directory except those marked "Translated from magiblot/tvision", which are derived from that library
-and are covered by COPYRIGHT.magiblot (the Borland disclaimer and the MIT license of
-magiblot and contributors).
+Copyright (c) 2026 the authors of tv3 (see the history of the repository)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this
 software and associated documentation files (the "Software"), to deal in the Software
