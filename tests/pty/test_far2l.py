@@ -3,7 +3,7 @@
 1. The client (TvUnix): tvdemo is run in a terminal that answers as a far2l terminal (this script): the acknowledgement, the features, the palette,
    a key as an event, far2l0 at the end; TV_FAR2L=0 and TERM=linux do not ask.
 2. The server (TvVtView): tvterm runs tests/pty/f2lclient.py, which talks to the embedded terminal; the clipboard dialog is answered. Prints ALL OK."""
-import base64, os, struct, sys, time
+import base64, os, shutil, struct, sys, tempfile, time
 
 sys.path.insert(0, os.environ.get('PTY_TOOLS', os.path.join(os.path.dirname(__file__), '..', '..', 'tools')))
 from pty_screen import PtyTerm
@@ -72,8 +72,9 @@ t.close(0.5)
 
 # --- 2. the server ---
 client = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'f2lclient.py')
-cfg = '/tmp/tv3-f2l-test-%d' % os.getpid()
-t = PtyTerm([term, sys.executable, client], 100, 30, env={'TERM': 'xterm-256color', 'TV_FAR2L': '0', 'TV_CONFIG_DIR': cfg, 'HOME': '/tmp'})
+home = tempfile.mkdtemp(prefix='tv3-f2l-test-')
+cfg = os.path.join(home, 'config')
+t = PtyTerm([term, sys.executable, client], 100, 30, env={'TERM': 'xterm-256color', 'TV_FAR2L': '0', 'TV_CONFIG_DIR': cfg, 'HOME': home})
 ok = t.wait_for('Clipboard access', 8)
 txt = t.text()
 check('ACK yes' in txt, 'the embedded terminal acknowledges', txt)
@@ -89,5 +90,6 @@ txt = t.text()
 check('KEY C vk=51 ch=0071' in txt, 'a key goes to the program as a compact event', txt)
 check(t.wait_for('DONE', 3), 'far2l0 is taken', t.text())
 t.close(1)
+shutil.rmtree(home, ignore_errors=True)
 print('ALL OK' if not fails else '%d FAILED' % fails)
 sys.exit(1 if fails else 0)

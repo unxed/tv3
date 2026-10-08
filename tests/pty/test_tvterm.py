@@ -3,6 +3,7 @@
 usage: test_tvterm.py PATH/TO/tvterm   (tools/pty_screen.py is the terminal)"""
 import os
 import sys
+import tempfile
 
 sys.path.insert(0, os.environ.get('PTY_TOOLS', os.path.join(os.path.dirname(__file__), '..', '..', 'tools')))
 from pty_screen import PtyTerm
@@ -22,7 +23,8 @@ def check(cond, name, info=''):
             print(info)
 
 
-env = {'TERM': 'xterm-256color', 'PS1': '$ ', 'HOME': '/tmp', 'PATH': os.environ.get('PATH', '/usr/bin:/bin')}
+home = tempfile.TemporaryDirectory(prefix='tv3-tvterm-')
+env = {'TERM': 'xterm-256color', 'PS1': '$ ', 'HOME': home.name, 'PATH': os.environ.get('PATH', '/usr/bin:/bin')}
 t = PtyTerm([demo, '/bin/sh'], 80, 25, env=env)
 check(t.wait_for('$ ', 5), 'the shell starts in the window and shows its prompt', t.text())
 check('Terminal' in t.text().split('\n')[1], 'the window has its title')
