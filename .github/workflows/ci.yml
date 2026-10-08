@@ -16,6 +16,8 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fp-compiler fp-units-rtl fp-units-fcl fp-units-base fp-units-misc python3
       - name: The text of the repository (UTF-8, English, glyphs by name)
         run: python3 tools/text-policy.py
+      - name: Paths are spelled only by TvPath (a ratchet; tools/paths-baseline.txt)
+        run: python3 tools/check-paths.py
       - name: The library builds (every unit that is not for another system)
         run: |
           mkdir -p out/lib

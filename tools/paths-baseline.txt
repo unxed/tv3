@@ -1,0 +1,4 @@
+src/tvclipcmd.pas 2
+src/tvfar2l.pas 1
+src/tvtermio.pas 1
+src/tvwild.pas 1

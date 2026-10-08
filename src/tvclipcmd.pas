@@ -38,7 +38,7 @@ implementation
 {$IFDEF UNIX}
 
 uses
-  SysUtils, BaseUnix;
+  SysUtils, BaseUnix, TvPath;
 
 function Env(const Name: AnsiString): AnsiString;
 begin
@@ -150,7 +150,7 @@ begin
   Result := '';
   if Name = '' then
     Exit;
-  if Name[1] = '/' then
+  if PathIsRooted(Name) then
   begin
     if IsExec(Name) then
       Result := Name;
@@ -163,13 +163,13 @@ begin
   while P <= Length(Path) + 1 do
   begin
     Q := P;
-    while (Q <= Length(Path)) and (Path[Q] <> ':') do
+    while (Q <= Length(Path)) and (Path[Q] <> UnixPathRules.ListSep) do
       Inc(Q);
     Dir := Copy(Path, P, Q - P);
     if Dir = '' then
       Dir := '.';
-    if IsExec(Dir + '/' + Name) then
-      Exit(Dir + '/' + Name);
+    if IsExec(PathJoin(Dir, Name)) then
+      Exit(PathJoin(Dir, Name));
     P := Q + 1;
   end;
 end;
