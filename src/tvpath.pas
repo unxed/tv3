@@ -88,6 +88,9 @@ function PathName(const S: AnsiString): AnsiString; overload;
 function PathName(const S: AnsiString; const R: TPathRules): AnsiString; overload;
 function PathExt(const S: AnsiString): AnsiString; overload;
 function PathExt(const S: AnsiString; const R: TPathRules): AnsiString; overload;
+{ S with the extension Ext (with its dot, or '' for none) in place of its own. }
+function PathChangeExt(const S, Ext: AnsiString): AnsiString; overload;
+function PathChangeExt(const S, Ext: AnsiString; const R: TPathRules): AnsiString; overload;
 
 { The separators written as those of the system ('/' becomes '\' on DOS and Windows; nothing changes on Unix). }
 function PathNative(const S: AnsiString): AnsiString; overload;
@@ -355,6 +358,19 @@ end;
 function PathExt(const S: AnsiString): AnsiString;
 begin
   Result := PathExt(S, NativePathRules);
+end;
+
+function PathChangeExt(const S, Ext: AnsiString; const R: TPathRules): AnsiString;
+var
+  D, N, E: AnsiString;
+begin
+  PathSplit(S, D, N, E, R);
+  Result := D + N + Ext;
+end;
+
+function PathChangeExt(const S, Ext: AnsiString): AnsiString;
+begin
+  Result := PathChangeExt(S, Ext, NativePathRules);
 end;
 
 function PathNative(const S: AnsiString; const R: TPathRules): AnsiString;

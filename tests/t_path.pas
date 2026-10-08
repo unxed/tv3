@@ -75,6 +75,12 @@ begin
   Check(PathName('/a/b.c', U) = 'b.c', 'PathName');
   Check(PathExt('/a.d/b', U) = '', 'PathExt: no dot in the name');
   Check(PathExt('C:\a.d\b.PAS', D) = '.PAS', 'PathExt keeps the case');
+  Check(PathChangeExt('/a.d/b.txt', '.bak', U) = '/a.d/b.bak', 'PathChangeExt');
+  Check(PathChangeExt('/a.d/b', '.bak', U) = '/a.d/b.bak', 'PathChangeExt adds');
+  Check(PathChangeExt('/a/.profile', '.bak', U) = '/a/.profile.bak', 'PathChangeExt of a dot name');
+  Check(PathChangeExt('a.b\c', '.x', U) = 'a.x', 'Unix: the extension of a name with a backslash');
+  Check(PathChangeExt('a.b\c', '.x', D) = 'a.b\c.x', 'DOS: no extension after the separator');
+  Check(PathChangeExt('C:\a\b.txt', '', D) = 'C:\a\b', 'PathChangeExt removes');
 
   { the form of the system }
   Check(PathNative('a/b\c', U) = 'a/b\c', 'Unix: nothing changes');
