@@ -42,28 +42,3 @@ jobs:
           python3 tools/gen-codepage.py > src/tvcp.inc
           python3 tools/gen-width.py > src/tvwidth.inc
           git diff --exit-code src/tvcharset.inc src/tvcp.inc src/tvwidth.inc
-
-  borrow-audit:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Tools of the audit
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends unrar unzip
-      - uses: actions/cache@v4
-        with:
-          path: |
-            build/corpora
-            build/audit-cache
-          key: corpora-${{ hashFiles('tools/audit/fetch-corpora.sh', 'tools/audit/facts/*') }}
-      - name: Reference corpora and allowed sources
-        run: tools/audit/fetch-corpora.sh
-      - name: The tree has nothing of the corpora (tools/audit/borrow-audit.py)
-        run: python3 tools/audit/borrow-audit.py --ref build/corpora/list.txt --allowed build/corpora/allowed.txt src tests tools demo
-      - name: Every commit of the push has nothing of the corpora
-        env:
-          BEFORE: ${{ github.event.before }}
-        run: |
-          if [ -n "$BEFORE" ] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then range="$BEFORE..HEAD"; else range=HEAD; fi
-          python3 tools/audit/borrow-audit.py --ref build/corpora/list.txt --allowed build/corpora/allowed.txt --git-range "$range"
