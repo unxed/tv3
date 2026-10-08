@@ -222,6 +222,9 @@ class PtyTerm:
                 fcntl.ioctl(1, termios.TIOCSWINSZ, winsz)
             except OSError:
                 pass
+            # a shell starts the commands of `cmd &` with SIGINT and SIGQUIT ignored; a terminal starts its program with the defaults
+            for sig in (signal.SIGINT, signal.SIGQUIT):
+                signal.signal(sig, signal.SIG_DFL)
             if cwd:
                 os.chdir(cwd)
             os.environ.update(e)
