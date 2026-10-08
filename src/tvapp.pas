@@ -1029,9 +1029,18 @@ var
 begin
   Suspend;
   WriteShellMsg;
+  { the shell of the system: SHELL on Unix (COMSPEC there is a leftover of another system), COMSPEC elsewhere }
+{$IFDEF UNIX}
+  Shell := GetEnvironmentVariable('SHELL');
+{$ELSE}
   Shell := GetEnvironmentVariable('COMSPEC');
+{$ENDIF}
   if Shell = '' then
+{$IFDEF UNIX}
+    Shell := '/bin/sh';
+{$ELSE}
     Shell := GetEnvironmentVariable('SHELL');
+{$ENDIF}
   if Shell <> '' then
     ExecuteProcess(Shell, '');
   Resume;
