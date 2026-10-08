@@ -1122,6 +1122,18 @@ begin
   SetLength(Result, N);
 end;
 
+{ Pre: the introducer of a string (ESC _, ESC P, ESC ]) has just been read. A terminal sends the body of its reply with the introducer; a key (Alt and
+  _, P or ]) comes alone. True when a byte of a body follows within the time of a key sequence (it is given back to be read by ReadStringBody). }
+function StringBodyFollows(var Buf: TGetChBuf): Boolean;
+var
+  K: Integer;
+begin
+  K := Buf.In_^.Get;
+  Result := K >= 0;
+  if Result then
+    Buf.In_^.Unget(K);
+end;
+
 { A key of the far2l extensions (the fields of KEY_EVENT_RECORD) goes the way of the win32 input mode; a character above U+FFFF is given as its two halves. }
 function Far2lKey(const Ev: TF2lInput; var Event: TEvent; var State: TInputState): TParseResult;
 var
@@ -1280,8 +1292,10 @@ begin
     Ord('O'):
       Exit(ParseSs3Key(Buf, Event));
     Ord('_'):
-      Exit(ParseApc(Buf, Event, State));
+      if StringBodyFollows(Buf) then
+        Exit(ParseApc(Buf, Event, State));
     Ord('P'), Ord(']'):
+      if StringBodyFollows(Buf) then
       begin
         { the strings that the terminal answers to our questions: the probes of the clipboard (tvision does the same): the OSC 52 reply of alacritty and foot,
           the DCS reply of kitty (XTGETTCAP: the capability read-clipboard, hex), the OSC 60 reply of xterm (XTQALLOWED: allowWindowOps) say that the terminal

@@ -225,6 +225,14 @@ begin
   Check(not State.BracketedPaste, '... it is remembered');
   Check(Parse(E + ']52;c;AAAA' + #7 + 'x', Ev) = False, 'an OSC answer is skipped to the BEL');
   Check(BytePos = Length(Bytes), '... and the next byte is left');
+  Check(Parse(E + 'P1+r726561642d636c6970626f617264=31' + E + '\x', Ev) = False, 'a DCS answer is skipped to the ST');
+  Check(BytePos = Length(Bytes), '... and the next byte is left');
+  Check(State.Osc52Full, '... the capability read-clipboard of the answer is remembered');
+  { the introducer of a string with nothing after it is a key: Alt and P, ], _ (Alt+Shift+P is ESC P) }
+  Check(Key(E + 'P') = kbAltP, 'Esc P alone is Alt+P');
+  Check(Parse(E + 'P', Ev) and (Ev.What = evKeyDown) and ((Ev.ControlKeyState and kbLeftAlt) <> 0), 'Alt+P: the Alt bit');
+  Check(Parse(E + ']', Ev) and (Ev.What = evKeyDown) and ((Ev.ControlKeyState and kbLeftAlt) <> 0) and (Ev.Text[0] = ']'), 'Esc ] alone is Alt+]');
+  Check(Parse(E + '_', Ev) and (Ev.What = evKeyDown) and ((Ev.ControlKeyState and kbLeftAlt) <> 0) and (Ev.Text[0] = '_'), 'Esc _ alone is Alt+_');
   Check(Parse(E + '[12;34R', Ev) = False, 'the answer with the position of the cursor is skipped');
   Check(Parse(E + '[0n', Ev) = False, 'the answer to ESC [ 5 n (ESC [ 0 n) is skipped');
   Check(Parse('', Ev) = False, 'no input, no event');
