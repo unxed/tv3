@@ -6,6 +6,10 @@ set -eu
 here=$(cd "$(dirname "$0")/../.." && pwd)
 export CORPORA=${CORPORA:-${XDG_CACHE_HOME:-$HOME/.cache}/tv-audit}
 cd "$here"
+# one audit at a time on a cache: fetch-corpora.sh writes the lists of the corpora (tv3 and tve may share one cache)
+mkdir -p "$CORPORA"
+exec 9>"$CORPORA/.lock"
+flock 9
 tools/audit/fetch-corpora.sh
 allowed=""
 if [ -d tools/audit/facts ]; then allowed="--allowed $CORPORA/allowed.txt"; fi
