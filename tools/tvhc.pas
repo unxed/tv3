@@ -1,7 +1,6 @@
-(* TVHC: the help compiler of this Turbo Vision (MIT: tv/LICENSE). It makes the help file (.hlp) that
-  THelpFile of TvHelp reads, from the text of a help (.htx). The format of the text is that of the help compiler of Borland
-  Turbo Vision (the help of DN is written in it); the compiler is not a copy of it: the format was learned from the text of
-  DN and from the behaviour of the old tool.
+(* TVHC: the help compiler of this Turbo Vision (MIT, see LICENSE). It makes the help file (.hlp) that THelpFile of
+  TvHelp reads, from the text of a help (.htx), in the text format of the help compiler of Turbo Vision (the help of DN is
+  written in it).
 
   usage: tvhc INPUT.HTX OUTPUT.HLP [SYMBOLS.PAS] [options]
     SYMBOLS.PAS  (optional) a unit with the constants hcName = Number for the names of the topics
