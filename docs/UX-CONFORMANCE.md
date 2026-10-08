@@ -76,7 +76,7 @@ Abbreviations: `TCluster` etc. are in `tv3/src/tv<name>.pas`. "fixed" means the 
 
 ### Count
 
-46 rows: **36 conformant, 6 gap, 4 n/a.** The gaps: D.4, G.2b, L.2, E.7, M.1, and D.3 in tv3 (the demo has no help); R.1 is open in dn only. Rows 0.2, 0.3 and M.7 are conformant only where the terminal tells key releases or
+46 rows: **36 conformant, 6 gap, 4 n/a.** The gaps: D.4, G.2b, L.2, E.7, M.1, and D.3 in tv3 (the demo has no help); R.1 is closed in dn too (`dn/src/resource/actions.dna`, loaded into `TvActions`). Rows 0.2, 0.3 and M.7 are conformant only where the terminal tells key releases or
 auto repeats (a limit of the terminal, not of the library); L.2 and E.7 exist as optional behaviour that is not the default.
 Rows closed by this task (they were gaps or not audited before): 0.1, 2.2 (the boundary rule for rows and buttons and one-line fields), D.1, G.1, E.2, E.3,
 E.5, M.2, M.4; R.1 is closed in tv3 and tve only. Closed by task 6: 0.2, 0.3, M.7, X.4. Closed in fpide afterwards: D.3, R.1.
@@ -123,7 +123,7 @@ All behaviour changes are switches of tv3 with the guideline value on by default
   that code cannot be built or run here); xterm, tmux, the Linux console and the like tell neither releases nor repeats. The immediate switch and the wrapping arrow stay there.
   A terminal that speaks the keyboard protocol of Kitty but does not answer `ESC [ ? u` is treated as having no releases. Real terminals (kitty, foot, WezTerm, Windows Terminal)
   were not tried: the behaviour is checked against the emulator of the pty tests and the parser tests, which send what the specification says.
-* D.3 in fpide is done (see the table). R.1: dn's declarations of commands are still a large hand-written table; moving them to `TvActions` is a task of its own (fpide's move shows how: register the actions, build the items from them).
+* D.3 in fpide is done (see the table). R.1 in dn: done; its menus and status lines name actions of `dn/src/resource/actions.dna`, which DN loads into `TvActions`.
 * X.4 in dn and fpide: not looked at (other agents work there). Their views that handle the wheel themselves keep getting it, now only under the pointer; their windows with
   scroll bars scroll under the pointer through `TWindow`. `UxWheelUnderCursor := False` restores the old routing.
 * E.7 by default and L.2 by default: the decisions of the owner are kept (see "Conflicts"); the optional behaviour is there for whoever wants it.

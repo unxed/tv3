@@ -7,7 +7,7 @@
     ...
     Menu := NewMenu(NewActionItem('file.open', NewActionItem('file.save', nil)));
     Status := NewStatusDef(0, $FFFF, NewActionStatusKey('~F2~ Save', 'file.save', nil), nil);
-    if ActionKeyToCommand(Event) then ...      { a key with no menu item becomes the command }
+    if ActionKeyToCommand(Event) then ...      (a key with no menu item becomes the command)
 
   A key may be rebound (BindActionKey, a user's key file); the menu items and the dispatch made after that use the new key. }
 unit TvActions;
