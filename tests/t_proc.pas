@@ -1,5 +1,5 @@
 program t_proc;
-{ TvProc: running programs. Unix only (it needs /bin/sh and echo). }
+{ TvProc: running programs. Unix: /bin/sh and echo; DOS: COMMAND.COM (no RunCapture there). }
 {$I ../src/tvdefs.inc}
 uses SysUtils, TvSys, TvProc;
 {$I testlib.inc}
@@ -18,6 +18,7 @@ begin
 end;
 
 begin
+{$IFDEF UNIX}
   Check(RunQuiet('exit 0') = 0, 'RunQuiet: exit code 0');
   Check(RunQuiet('exit 7') = 7, 'RunQuiet: exit code 7');
   Check(RunQuiet('kill -9 $$') = 137, 'RunQuiet: killed = 128 + signal');
@@ -30,5 +31,13 @@ begin
   OnResume := @OnR;
   Check(RunShell('exit 3') = 3, 'RunShell: the exit code');
   Check((Susp = 1) and (Res = 1), 'RunShell: the terminal is given back and taken again');
+{$ELSE}
+  Check(RunQuiet('rem') = 0, 'RunQuiet: a command of the shell');
+  Susp := 0; Res := 0;
+  OnSuspend := @OnS;
+  OnResume := @OnR;
+  Check(RunShell('rem') = 0, 'RunShell: the exit code');
+  Check((Susp = 1) and (Res = 1), 'RunShell: the terminal is given back and taken again');
+{$ENDIF}
   Finish;
 end.

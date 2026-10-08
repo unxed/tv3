@@ -119,9 +119,10 @@ begin
 {$ENDIF}
   Cur := GetCurrentDir;
   Check(PathIsAbsolute(Cur), 'the current directory is absolute');
-  Check(PathExpand('x') = PathJoin(Cur, 'x'), 'PathExpand of a name');
-  Check(PathExpand('a/../x') = PathJoin(Cur, 'x'), 'PathExpand with ..');
-  Check(PathExpandFrom('x', 'sub') = PathJoin(PathJoin(Cur, 'sub'), 'x'), 'PathExpandFrom');
+  { the RTL of DOS without long names gives the expanded path in upper case: the names are compared by the rules of the system }
+  Check(PathSameName(PathExpand('x'), PathJoin(Cur, 'x')), 'PathExpand of a name');
+  Check(PathSameName(PathExpand('a/../x'), PathJoin(Cur, 'x')), 'PathExpand with ..');
+  Check(PathSameName(PathExpandFrom('x', 'sub'), PathJoin(PathJoin(Cur, 'sub'), 'x')), 'PathExpandFrom');
   Check(PathIsRoot(PathCurRoot) and (Copy(Cur, 1, Length(PathCurRoot)) = PathCurRoot), 'PathCurRoot');
   Check(PathExpand(PathCurRoot) = PathCurRoot, 'the root expands to itself');
 {$IFDEF UNIX}
