@@ -22,6 +22,7 @@ Rule: what both projects use goes here, under MIT, and passes the audit of `tool
 | 16 | CRC-32 | TvCrc | new unit | done; fpide (`fpini`) uses it; dn had only an unused copy (removed) |
 | 17 | The text of a menu item without its '~' marks | TvCStr | new unit | done in both |
 | 18 | The form of paths (separator, root, drives, absolute, join, split, expand) | TvPath | new unit | done; the file dialogs and tve use it; `tools/check-paths.py` counts the paths spelled by hand; dn (DnPath) and fpide: todo |
+| 19 | The directories of the configuration, data, state and cache of a program (XDG, macOS, Windows, DOS) | TvAppDir | new unit | done; dn (`cfgdir`) and TvFar2l use it; fpide: todo |
 
 Already in tv3 (not duplicated): TvHist, TvClip, TvHelp, TvAnsi/TvVt*, TvPty, TvColorSel, TvLocale, TvCodePg, TvUtf8, TvText,
 TvTextView, TvFileDlg/TvChDir/TvFiles, TvMenus, TvDos.

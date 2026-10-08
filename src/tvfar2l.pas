@@ -18,7 +18,7 @@ unit TvFar2l;
 interface
 
 uses
-  SysUtils, TvUtf8;
+  SysUtils, TvUtf8, TvAppDir;
 
 const
   { the commands of the requests }
@@ -145,7 +145,8 @@ function F2lSizeSeq(Cols, Rows: Word): AnsiString;
 function F2lUtf8ToUtf32(const S: AnsiString): AnsiString;
 function F2lUtf32ToUtf8(const S: AnsiString): AnsiString;
 
-{ The configuration directory of tv: $TV_CONFIG_DIR, else $XDG_CONFIG_HOME/tv, else ~/.config/tv (no trailing separator). }
+{ The configuration directory of tv: $TV_CONFIG_DIR, else the directory 'tv' of TvAppDir.ConfigDir (~/.config/tv on Linux; no trailing
+  separator). }
 function F2lConfigDir: AnsiString;
 { A client ID: 32 to 256 characters of 0-9, a-z, '-', '_'. }
 function F2lValidClientId(const Id: AnsiString): Boolean;
@@ -685,13 +686,7 @@ function F2lConfigDir: AnsiString;
 begin
   Result := GetEnvironmentVariable('TV_CONFIG_DIR');
   if Result = '' then
-  begin
-    Result := GetEnvironmentVariable('XDG_CONFIG_HOME');
-    if Result <> '' then
-      Result := IncludeTrailingPathDelimiter(Result) + 'tv'
-    else
-      Result := IncludeTrailingPathDelimiter(GetEnvironmentVariable('HOME')) + '.config' + PathDelim + 'tv';
-  end;
+    Result := AppDirPath(adConfig, 'tv');
   Result := ExcludeTrailingPathDelimiter(Result);
 end;
 

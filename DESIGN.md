@@ -415,8 +415,8 @@ collections and streams, the editor — to the extent that DN uses them.
 The protocol is described in `VTExts.md` (far2l, branch `extsdocs`). tv3 has both sides.
 
 - `TvFar2l`: the stack serializer (`TF2lStack`), Base64, the APC strings of requests, replies and events, the events decoded and built (`F2lDecodeInput`,
-  `F2lKeySeq`, `F2lMouseSeq`, `F2lSizeSeq`), the client ID (64 characters, kept in `far2l-clipboard-id` of `$TV_CONFIG_DIR`, else `$XDG_CONFIG_HOME/tv`, else
-  `~/.config/tv`) and `TF2lClient`, the requests of a client: features, notification, F-key titles (the first request with an ID, then ID 0 and only on a
+  `F2lKeySeq`, `F2lMouseSeq`, `F2lSizeSeq`), the client ID (64 characters, kept in `far2l-clipboard-id` of `$TV_CONFIG_DIR`, else of the configuration
+  directory `tv` of `TvAppDir`) and `TF2lClient`, the requests of a client: features, notification, F-key titles (the first request with an ID, then ID 0 and only on a
   change), the largest window, maximize/restore, quick edit, cursor height, palette, the clipboard (open with the client ID, empty, set in pieces of 16 KiB
   when the terminal takes chunks, get, the data ID cache, available, register a format; `CF_UNICODETEXT` goes as `CF_TEXT` and is read as UTF-32 only when
   there is no text; a terminal that answers -1 is not asked again).
