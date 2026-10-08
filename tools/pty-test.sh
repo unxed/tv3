@@ -22,6 +22,7 @@ win32input:test_win32input.py:tvdemo
 tvterm:test_tvterm.py:tvterm
 vtrun:test_vtrun.py:rundemo
 clip:test_clip.py:clipdemo
+ascii:test_ascii.py:tvdemo
 far2l:test_far2l.py:tvdemo tvterm"
 echo "$tests" | { while IFS=: read -r n t progs; do
     args=; for p in $progs; do args="$args $out/$p"; done

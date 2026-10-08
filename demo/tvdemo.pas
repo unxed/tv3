@@ -1,13 +1,15 @@
 program tvdemo;
 { Demo of the Turbo Vision port: windows with scrollers, menus, a status line.
   DOS: with /auto it types a few keys itself, writes the screen to SCR.DAT and quits (CI);
-  /437 selects the code page 437 instead of 866. Unix: runs on the terminal (TvUnix); Alt-X quits. }
+  /437 selects the code page 437 instead of 866. Unix: runs on the terminal (TvUnix); Alt-X quits.
+  /clock: a clock at the right of the menu bar (TvGadgets). }
 {$I ../src/tvdefs.inc}
-uses TvGeom, TvColors, TvCell, TvEvents, TvKeys, TvDrawBuf, TvScreen, TvViews, TvWindow,
-  TvMenus, TvActions, TvSys, TvApp{$IFDEF GO32V2}, TvDos{$ELSE}, TvUnix{$ENDIF};
+uses SysUtils, TvGeom, TvColors, TvCell, TvEvents, TvKeys, TvDrawBuf, TvScreen, TvViews, TvWindow,
+  TvMenus, TvActions, TvSys, TvApp, TvMsgBox, TvAscii, TvGadgets{$IFDEF GO32V2}, TvDos{$ELSE}, TvUnix{$ENDIF};
 
 const
   cmNewWin = 100;
+  cmAsciiTable = 101;
   Lines: array[0..17] of string[200] = (
     'Turbo Vision for DOS on Free Pascal',
     '',
@@ -35,15 +37,24 @@ type
     procedure Draw; override;
   end;
 
+  { the window of the ASCII table; the program opens one at a time }
+  TDemoChart = class(TAsciiChart)
+    destructor Destroy; override;
+  end;
+
   TDemoApp = class(TApplication)
     Auto: Boolean;
     Quiet, Count: Integer;
+    Clock: TClockView;
     constructor Create(AAuto: Boolean);
     procedure InitMenuBar; override;
     procedure InitStatusLine; override;
     procedure HandleEvent(var Event: TEvent); override;
     procedure Idle; override;
     procedure NewWindow;
+    procedure ShowAsciiTable;
+    procedure Picked(Sender: TAsciiTable; Code: LongInt);
+    procedure AddClock;
   end;
 
 constructor TLinesView.Create(const Bounds: TRect; AH, AV: TScrollBar);
@@ -99,7 +110,9 @@ begin
       NewActionItem('window.tile',
       NewActionItem('window.cascade',
       NewActionItem('window.next',
-      NewActionItem('window.zoom', nil))))), nil))));
+      NewActionItem('window.zoom', nil))))),
+    NewSubMenu('~T~ools', hcNoContext, NewMenu(
+      NewActionItem('tools.ascii', nil)), nil)))));
 end;
 
 procedure TDemoApp.InitStatusLine;
@@ -141,12 +154,57 @@ begin
   InsertWindow(W);
 end;
 
+var
+  Chart: TDemoChart = nil;
+
+destructor TDemoChart.Destroy;
+begin
+  Chart := nil;
+  inherited Destroy;
+end;
+
+procedure TDemoApp.ShowAsciiTable;
+begin
+  if Chart <> nil then
+  begin
+    Chart.Select;
+    Exit;
+  end;
+  Chart := TDemoChart.Create('ASCII Table', {$IFDEF GO32V2}False{$ELSE}True{$ENDIF});
+  Chart.Table.OnPick := @Picked;
+  Chart.MoveTo(40, 3);
+  InsertWindow(Chart);
+end;
+
+procedure TDemoApp.Picked(Sender: TAsciiTable; Code: LongInt);
+begin
+  MessageBox('Picked: ' + Sender.CellText(Code) + ' (' + IntToStr(Code) + ')', mfInformation or mfOKButton);
+end;
+
+procedure TDemoApp.AddClock;
+var
+  R: TRect;
+begin
+  { the top row, at the right; the clock fits its width to the text }
+  R.Assign(Size.X - 10, 0, Size.X, 1);
+  Clock := TClockView.Create(R);
+  Clock.Margin := 1;
+  Clock.GrowMode := gfGrowLoX or gfGrowHiX;
+  Insert(Clock);
+  Clock.Update;
+end;
+
 procedure TDemoApp.HandleEvent(var Event: TEvent);
 begin
   inherited HandleEvent(Event);
   if (Event.What = evCommand) and (Event.Command = cmNewWin) then
   begin
     NewWindow;
+    ClearEvent(Event);
+  end;
+  if (Event.What = evCommand) and (Event.Command = cmAsciiTable) then
+  begin
+    ShowAsciiTable;
     ClearEvent(Event);
   end;
 end;
@@ -156,6 +214,8 @@ var
   Ev: TEvent;
 begin
   inherited Idle;
+  if Clock <> nil then
+    Clock.Update;
 {$IFDEF GO32V2}
   if Auto and DosKeyBufferEmpty then
   begin
@@ -192,6 +252,7 @@ begin
   RegisterAction('window.cascade', 'C~a~scade', cmCascade, kbF8);
   RegisterAction('window.next', '~N~ext', cmNext, kbF6);
   RegisterAction('window.zoom', '~Z~oom', cmZoom, kbF5);
+  RegisterAction('tools.ascii', '~A~SCII table', cmAsciiTable, kbNoKey);
   { the key of the window switcher (the list while Ctrl is held, where the terminal tells the releases) is an action as well }
   RegisterAction('window.switch', '~S~witch', cmNext, kbCtrlTab);
   UseActionsForSwitcher;
@@ -218,6 +279,8 @@ begin
   end;
 {$ENDIF}
   App := TDemoApp.Create(Auto);
+  if HasParam('/clock') then
+    App.AddClock;
 {$IFDEF GO32V2}
   if Auto then
   begin
