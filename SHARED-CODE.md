@@ -14,7 +14,7 @@ Rule: what both projects use goes here, under MIT, and passes the audit of `tool
 | 8 | Combo box, notebook (tabs) | TvCtrls | new unit | todo |
 | 9 | Directory/file change watching | TvWatch | new | todo |
 | 10 | Progress / "please wait" | TvProgress | new unit | todo |
-| 11 | ASCII table, heap/clock gadgets | TvAscii, TvGadgets | own/MIT both sides | todo |
+| 11 | ASCII table, heap/clock gadgets | TvAscii, TvGadgets | new units | done; dn (`asciitab`, the clock of `gadgets`) and fpide (`TFPASCIIChart`, `TFPClockView`, `TFPHeapView`) subclass them |
 | 12 | Code pages (localecp) merged into TvLocale | TvLocale | BSD-3 (unxed) | todo |
 | 13 | Calculator/expression evaluator | TvCalc | new unit | later |
 | 14 | DOS names/clipboard/UTF-8 API | TvDos, TvDosNames | NameToDos/NameFromDos, tested on DOSBox-X master (dostests/utf8-names.sh) | done; dn uses it |
