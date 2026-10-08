@@ -58,7 +58,7 @@ begin
   if DirectoryExists(Base) then
   begin
     ChDir(Base);
-    RemoveDir('one'); RemoveDir('two' + DirDelim + 'deep'); RemoveDir('two');
+    RemoveDir('one'); RemoveDir('two' + DirDelim + 'deep'); RemoveDir('two'); RemoveDir('b\x');
     ChDir(Orig);
     RemoveDir(Base);
   end;
@@ -67,6 +67,9 @@ begin
   MkDir('one');
   MkDir('two');
   MkDir('two' + DirDelim + 'deep');
+{$IFDEF UNIX}
+  MkDir('b\x');                     { a backslash is a character of a name on Unix }
+{$ENDIF}
   Dir := GetCurDir;
 
   MemInit(80, 25);
@@ -97,6 +100,15 @@ begin
   { Revert returns to the current directory }
   Command(Dlg, cmRevert);
   Check(Same(Copy(Dlg.DirInput.Data^, Length(Dlg.DirInput.Data^) - 5, 6), 'tvf_cd'), 'Revert shows the current directory again');
+{$IFDEF UNIX}
+  Check(Pos('b\x', Line(Dlg.DirList, Dlg.DirList.List.Count - 3)) > 0, 'Unix: a name with a backslash is one subdirectory');
+  Dlg.DirList.FocusItem(Dlg.DirList.List.Count - 3);
+  Command(Dlg, cmChangeDir);
+  Check(Copy(Dlg.DirInput.Data^, Length(Dlg.DirInput.Data^) - 9, 10) = 'tvf_cd/b\x', 'Unix: Chdir into it');
+  Check((Pos('b\x', Line(Dlg.DirList, Dlg.DirList.List.Count - 1)) > 0)
+    and (Pos('tvf_cd', Line(Dlg.DirList, Dlg.DirList.List.Count - 2)) > 0), 'Unix: the tree has it as one level');
+  Command(Dlg, cmRevert);
+{$ENDIF}
 
   { OK changes the directory }
   Dlg.DirInput.Data^ := 'two';
@@ -120,7 +132,7 @@ begin
   MemDone;
   ChDir(Orig);
   ChDir(Base);
-  RemoveDir('one'); RemoveDir('two' + DirDelim + 'deep'); RemoveDir('two');
+  RemoveDir('one'); RemoveDir('two' + DirDelim + 'deep'); RemoveDir('two'); RemoveDir('b\x');
   ChDir(Orig);
   RemoveDir(Base);
 end;

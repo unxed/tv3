@@ -13,8 +13,9 @@
       is an Int64;
     - the search is done by TFileFinder (instead of findfirst/findnext of <dir.h>);
     - FExpand and FSplit replace fexpand and fnsplit; the case of the names is not changed;
-    - on systems without drive letters only the current "drive" exists, and paths are
-      not given a drive prefix;
+    - the form of paths is that of the system (TvPath): on systems without drive letters
+      only the current "drive" exists, paths are not given a drive prefix and a backslash
+      is a character of a name;
     - files are sorted ignoring the case (the original compares the bytes);
     - streams are not translated yet. }
 unit TvFiles;
@@ -24,7 +25,7 @@ unit TvFiles;
 interface
 
 uses
-  TvObjs, TvUtil;
+  TvObjs, TvUtil, TvPath;
 
 {$IF DEFINED(GO32V2) OR DEFINED(WINDOWS) OR DEFINED(OS2) OR DEFINED(MSDOS)}
   {$DEFINE DRIVES}
@@ -32,13 +33,8 @@ uses
 
 const
   { the separator of directories and the mask of all the files }
-{$IFDEF DRIVES}
-  DirDelim = '\';
-  AllMask = '*.*';
-{$ELSE}
-  DirDelim = '/';
-  AllMask = '*';
-{$ENDIF}
+  DirDelim = PathSep;
+  AllMask = PathAllFiles;
   faReadOnly  = $01;
   faHidden    = $02;
   faSysFile   = $04;
@@ -118,11 +114,6 @@ uses
 type
   PSysRec = ^SysUtils.TSearchRec;
 
-function IsSeparator(C: Char): Boolean;
-begin
-  Result := (C = '\') or (C = '/');
-end;
-
 { --- TFileFinder ------------------------------------------------------------- }
 
 constructor TFileFinder.Create;
@@ -169,11 +160,38 @@ begin
   Rec.Name := ShortString(NameFromDos(P^.Name));
 end;
 
+{$IFDEF UNIX}
+var
+  SavedSeps: TSysCharSet;
+
+{ The RTL splits names at '\' on Unix too (AllowDirectorySeparators): a search sees only '/' }
+procedure StrictSeps;
+begin
+  SavedSeps := AllowDirectorySeparators;
+  AllowDirectorySeparators := ['/'];
+end;
+
+procedure RestoreSeps;
+begin
+  AllowDirectorySeparators := SavedSeps;
+end;
+{$ELSE}
+procedure StrictSeps; inline;
+begin
+end;
+
+procedure RestoreSeps; inline;
+begin
+end;
+{$ENDIF}
+
 function TFileFinder.First(const Path: ShortString; Attr: Integer): Boolean;
 begin
   Close;
   New(PSysRec(Sys));
+  StrictSeps;
   Active := FindFirst(NameToDos(AnsiString(Path)), Attr, PSysRec(Sys)^) = 0;
+  RestoreSeps;
   Result := Active;
   if Active then
     Fill
@@ -189,7 +207,9 @@ end;
 
 function TFileFinder.Next: Boolean;
 begin
+  StrictSeps;
   Result := Active and (FindNext(PSysRec(Sys)^) = 0);
+  RestoreSeps;
   if Result then
     Fill;
 end;
@@ -284,7 +304,7 @@ var
 begin
 {$IFDEF DRIVES}
   GetDir(0, S);
-  if (Length(S) > 1) and (S[2] = ':') then
+  if Length(PathDrive(S)) = 2 then
     Result := UpCase(S[1])
   else
     Result := 'C';
@@ -301,7 +321,11 @@ begin
   Result := F.First(S, faDirectory) and ((F.Rec.Attr and faDirectory) <> 0);
   F.Free;
   if not Result then
+  begin
+    StrictSeps;
     Result := DirectoryExists(NameToDos(AnsiString(S)));
+    RestoreSeps;
+  end;
 end;
 
 function PathValid(const Path: ShortString): Boolean;
@@ -309,20 +333,25 @@ var
   P: ShortString;
 begin
   P := FExpand(Path);
-  if (Length(P) = 1) and IsSeparator(P[1]) then
-    Exit(True);                { the root directory is always valid }
+  if PathIsRoot(P) then
+  begin
 {$IFDEF DRIVES}
-  if Length(P) <= 3 then
-    Exit(DriveValid(P[1]));
+    if Length(PathDrive(P)) = 2 then
+      Exit(DriveValid(P[1]));
 {$ENDIF}
-  if (Length(P) > 0) and IsSeparator(P[Length(P)]) then
-    SetLength(P, Length(P) - 1);
-  Result := IsDir(P);
+    Exit(True);                { the root directory is always valid }
+  end;
+  Result := IsDir(PathDelSep(P));
 end;
 
 function ValidFileName(const FileName: ShortString): Boolean;
 const
+  { the characters a name may not have (a separator never reaches the name: FSplit takes it) }
+{$IFDEF DRIVES}
   Illegal = '<>|"\';
+{$ELSE}
+  Illegal = #0#0;
+{$ENDIF}
 var
   Dir, Name, Ext: ShortString;
   I: Integer;
@@ -355,10 +384,7 @@ begin
   N := 0;
 {$ENDIF}
   GetDir(N, S);
-  S := ShortString(NameFromDos(AnsiString(S)));
-  if (Length(S) = 0) or not IsSeparator(S[Length(S)]) then
-    S := S + PathDelim;
-  Result := S;
+  Result := ShortString(PathAddSep(NameFromDos(AnsiString(S))));
 end;
 
 function IsWild(const F: ShortString): Boolean;
@@ -368,58 +394,22 @@ end;
 
 function FExpand(const Path: ShortString): ShortString;
 begin
-  Result := ShortString(NameFromDos(ExpandFileName(NameToDos(AnsiString(Path)))));
+  Result := ShortString(NameFromDos(PathExpand(NameToDos(AnsiString(Path)))));
 end;
 
 function FExpandFrom(const Path, RelativeTo: ShortString): ShortString;
-var
-  Absolute: Boolean;
 begin
-  Absolute := (Path <> '') and IsSeparator(Path[1]);
-{$IFDEF DRIVES}
-  Absolute := Absolute or ((Length(Path) > 2) and (Path[2] = ':') and IsSeparator(Path[3]));
-{$ENDIF}
-  if Absolute or (RelativeTo = '') then
-    Result := FExpand(Path)
-  else if IsSeparator(RelativeTo[Length(RelativeTo)]) then
-    Result := FExpand(RelativeTo + Path)
-  else
-    Result := FExpand(RelativeTo + PathDelim + Path);
+  Result := ShortString(NameFromDos(PathExpandFrom(NameToDos(AnsiString(Path)), NameToDos(AnsiString(RelativeTo)))));
 end;
 
 procedure FSplit(const Path: ShortString; out Dir, Name, Ext: ShortString);
 var
-  I, DotPos, Start: Integer;
+  D, N, E: AnsiString;
 begin
-  Start := 0;
-  for I := Length(Path) downto 1 do
-{$IFDEF DRIVES}
-    if IsSeparator(Path[I]) or (Path[I] = ':') then
-{$ELSE}
-    if IsSeparator(Path[I]) then
-{$ENDIF}
-    begin
-      Start := I;
-      Break;
-    end;
-  Dir := Copy(Path, 1, Start);
-  DotPos := 0;
-  for I := Length(Path) downto Start + 1 do
-    if Path[I] = '.' then
-    begin
-      DotPos := I;
-      Break;
-    end;
-  if DotPos > 0 then
-  begin
-    Name := Copy(Path, Start + 1, DotPos - Start - 1);
-    Ext := Copy(Path, DotPos, 255);
-  end
-  else
-  begin
-    Name := Copy(Path, Start + 1, 255);
-    Ext := '';
-  end;
+  PathSplit(AnsiString(Path), D, N, E);
+  Dir := ShortString(D);
+  Name := ShortString(N);
+  Ext := ShortString(E);
 end;
 
 end.

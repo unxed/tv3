@@ -131,7 +131,11 @@ begin
 
   HeapMark(4);                   { after the directories }
   { an invalid name: a message box with OK }
+{$IFDEF UNIX}
+  Dlg.FileName.Data^ := 'nope' + DirDelim + 'name';     { '|' is a character of a name on Unix }
+{$ELSE}
   Dlg.FileName.Data^ := 'na|me';
+{$ENDIF}
   MemKey(kbEnter);
   Check(not Dlg.Valid(cmOK), 'an invalid file name is refused (a message is shown)');
 

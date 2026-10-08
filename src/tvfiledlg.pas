@@ -20,10 +20,6 @@ unit TvFileDlg;
 
 {$I tvdefs.inc}
 
-{$IF DEFINED(GO32V2) OR DEFINED(WINDOWS) OR DEFINED(OS2) OR DEFINED(MSDOS)}
-  {$DEFINE DRIVES}
-{$ENDIF}
-
 interface
 
 uses
@@ -133,6 +129,9 @@ type
   end;
 
 implementation
+
+uses
+  TvPath;
 
 { --- TFileInputLine ---------------------------------------------------------- }
 
@@ -338,7 +337,7 @@ procedure TFileList.ReadDirectoryMask(const AWildCard: ShortString);
 var
   Finder: TFileFinder;
   FileList: TFileCollection;
-  Path, Drv, Dir, Name, Ext, Rest, Mask: ShortString;
+  Path, Dir, Name, Ext, Rest, Mask: ShortString;
   P: Integer;
   Parent: TSearchRec;
   NoFile: TSearchRec;
@@ -378,14 +377,7 @@ begin
     until not Finder.Next;
   Finder.Close;
 
-  Rest := Dir;
-  Drv := '';
-  if (Length(Rest) > 1) and (Rest[2] = ':') then
-  begin
-    Drv := Copy(Rest, 1, 2);
-    Delete(Rest, 1, 2);
-  end;
-  if Length(Rest) > 1 then            { not the root: there is a parent directory }
+  if not PathIsRoot(Dir) then         { not the root: there is a parent directory }
   begin
     if Finder.First(Dir + '..', faDirectory) then
     begin
@@ -620,16 +612,19 @@ begin
   First := 1;
   while (First <= Length(S)) and (S[First] <= ' ') do
     Inc(First);
-{$IFDEF DRIVES}
-  Last := First;
-  while (Last <= Length(S)) and (S[Last] > ' ') do
-    Inc(Last);
-  Dec(Last);
-{$ELSE}
-  Last := Length(S);
-  while (Last >= First) and (S[Last] <= ' ') do
+  if PathHasDrives then
+  begin
+    Last := First;
+    while (Last <= Length(S)) and (S[Last] > ' ') do
+      Inc(Last);
     Dec(Last);
-{$ENDIF}
+  end
+  else
+  begin
+    Last := Length(S);
+    while (Last >= First) and (S[Last] <= ' ') do
+      Dec(Last);
+  end;
   Result := Copy(S, First, Last - First + 1);
 end;
 
@@ -751,7 +746,7 @@ begin
   end;
   if not CheckDirectory(Dir) then
     Exit;
-  if (Dir = '') or (Dir[Length(Dir)] <> DirDelim) then
+  if not EndsWithSep(Dir) then
     Dir := Dir + DirDelim;
   WildCard := Mask;
   Enter(Dir);

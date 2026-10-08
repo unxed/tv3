@@ -6,8 +6,8 @@
   Borland disclaimer and MIT notice: COPYRIGHT.magiblot.
 
   Differences from the C++ original (see tv/DESIGN.md):
-    - paths are ShortStrings; the tree is built with both separators and works with
-      or without drive letters (the root is 'C:\' or '/');
+    - paths are ShortStrings in the form of the system (TvPath): the tree works with or
+      without drive letters;
     - the directory is changed with ChDir (the drive too, where the RTL does it);
     - streams are not translated yet. }
 unit TvChDir;
@@ -88,9 +88,12 @@ type
 
 implementation
 
-function IsSep(C: Char): Boolean;
+uses
+  TvPath;
+
+function IsSep(C: Char): Boolean; inline;
 begin
-  Result := (C = '\') or (C = '/');
+  Result := IsPathSep(C);
 end;
 
 { the first separator at or after From, 0 if none }
@@ -139,7 +142,7 @@ end;
 procedure TDirListBox.ShowDrives(Dirs: TDirCollection);
 begin
   { one tree: the only "drive" is the root, shown as it is written, never as a letter with a colon }
-  Dirs.Insert(NewDirEntry(LastDirText + '/', '/'));
+  Dirs.Insert(NewDirEntry(LastDirText + PathCurRoot, PathCurRoot));
   Cur := Dirs.Count - 1;
 end;
 {$ELSE}
@@ -163,7 +166,7 @@ begin
         end
         else
           S := MiddleDirText + Old;
-        Dirs.Insert(NewDirEntry(S, Old + ':\'));
+        Dirs.Insert(NewDirEntry(S, Old + ':' + PathSep));
       end;
       if C = GetDisk then
         Cur := Dirs.Count;
@@ -172,7 +175,7 @@ begin
   if Old <> '0' then
   begin
     S := LastDirText + Old;
-    Dirs.Insert(NewDirEntry(S, Old + ':\'));
+    Dirs.Insert(NewDirEntry(S, Old + ':' + PathSep));
   end;
 end;
 {$ENDIF}
@@ -191,8 +194,8 @@ var
 begin
   Indent := IndentSize;
   { the root directory }
-  P := SepPos(Dir, 1);
-  if P = 0 then
+  P := PathRootLen(Dir);
+  if (P = 0) or not IsSep(Dir[P]) then
     Exit;
   Name := Copy(Dir, 1, P);
   Dirs.Insert(NewDirEntry(PathDirText + Name, Name));
@@ -365,19 +368,14 @@ end;
 { the end separator is not shown (except in the root) }
 function TrimEndSeparator(const Path: ShortString): ShortString;
 begin
-  Result := Path;
-  if (Length(Result) > 3) and IsSep(Result[Length(Result)]) then
-    SetLength(Result, Length(Result) - 1)
-  else if (Length(Result) = 3) and (Result[2] <> ':') and IsSep(Result[3]) then
-    SetLength(Result, 2);
+  Result := ShortString(PathDelSep(Path));
 end;
 
 { the current directory without the drive, with the separator at the end }
 function CurrentDir: ShortString;
 begin
   Result := GetCurDir;
-  if (Length(Result) > 1) and (Result[2] = ':') then
-    Delete(Result, 1, 2);
+  Delete(Result, 1, Length(PathDrive(Result)));
 end;
 
 procedure SetInput(Input: TInputLine; const S: ShortString);
@@ -408,9 +406,9 @@ begin
           CurDir := P^.Dir^;
           if CurDir <> DrivesText then
           begin
-            if IsSep(CurDir[1]) or DriveValid(CurDir[1]) then
+            if PathIsRooted(CurDir) or (PathHasDrives and DriveValid(CurDir[1])) then
             begin
-              if not IsSep(CurDir[Length(CurDir)]) then
+              if not EndsWithSep(CurDir) then
                 CurDir := CurDir + DirDelim;
             end
             else

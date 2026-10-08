@@ -54,8 +54,15 @@ begin
 
   HeapMark(1);             { 1: the files are made }
   { paths }
+  FSplit(DirDelim + 'dir' + DirDelim + 'sub' + DirDelim + 'file.name.ext', Dir, Name, Ext);
+  Check((Dir = DirDelim + 'dir' + DirDelim + 'sub' + DirDelim) and (Name = 'file.name') and (Ext = '.ext'), 'FSplit');
+{$IFDEF UNIX}
+  FSplit('c:\dir\file.ext', Dir, Name, Ext);
+  Check((Dir = '') and (Name = 'c:\dir\file') and (Ext = '.ext'), 'FSplit: no drives and no backslash separators on Unix');
+{$ELSE}
   FSplit('c:\dir\sub\file.name.ext', Dir, Name, Ext);
-  Check((Dir = 'c:\dir\sub\') and (Name = 'file.name') and (Ext = '.ext'), 'FSplit');
+  Check((Dir = 'c:\dir\sub\') and (Name = 'file.name') and (Ext = '.ext'), 'FSplit with a drive');
+{$ENDIF}
   FSplit('file', Dir, Name, Ext);
   Check((Dir = '') and (Name = 'file') and (Ext = ''), 'FSplit of a bare name');
   FSplit('/a/b/', Dir, Name, Ext);
@@ -64,13 +71,27 @@ begin
   Check(IsDir(Base) and not IsDir(Base + PathDelim + 'b.txt') and not IsDir(Base + PathDelim + 'nope'), 'IsDir');
   Check(PathValid(Base) and PathValid(Base + PathDelim) and not PathValid(Base + PathDelim + 'nope'), 'PathValid');
   Check(ValidFileName(Base + PathDelim + 'x.txt') and ValidFileName('name.txt'), 'valid file names');
+{$IFDEF UNIX}
+  Check(ValidFileName('na|me.txt') and ValidFileName('a\b.txt'), 'Unix: | and \ are characters of a name');
+{$ELSE}
   Check(not ValidFileName('na|me.txt') and not ValidFileName('a.b|c.d'), 'illegal characters');
+{$ENDIF}
   Check(not ValidFileName(Base + PathDelim + 'nope' + PathDelim + 'x.txt'), 'a name in a missing directory');
   Check(DriveValid(GetDisk), 'the current drive is valid');
   Dir := GetCurDir;
   Check((Dir <> '') and (Dir[Length(Dir)] in ['/', '\']), 'GetCurDir ends with a separator');
   Check(FExpand('x.txt') = ShortString(ExpandFileName('x.txt')), 'FExpand');
+  Check(FExpandFrom('x.txt', Base) = FExpand(Base + DirDelim + 'x.txt'), 'FExpandFrom');
+  Check(FExpandFrom(FExpand('x.txt'), Base) = FExpand('x.txt'), 'FExpandFrom of an absolute path');
 
+{$IFDEF UNIX}
+  Touch(Base + '/c\d.txt', 1);
+  F := TFileFinder.Create;
+  Check(F.First(Base + '/c\d.*', 0) and (F.Rec.Name = 'c\d.txt'), 'Unix: a name with a backslash is found whole');
+  F.Free;
+  Check(not IsDir(Base + '/c\d.txt') and IsDir(Base + '/sub'), 'Unix: IsDir with a backslash in a name');
+  DeleteFile(Base + '/c\d.txt');
+{$ENDIF}
   HeapMark(2);             { 2: the path functions are done }
   { the search }
   F := TFileFinder.Create;
