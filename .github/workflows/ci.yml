@@ -1,7 +1,8 @@
 name: ci
 
 # tv3 on Linux x86_64: the library compiles (every unit), the unit tests (tests/t_*.pas) pass, the programs run in a pty (tests/pty).
-# The same commands work on a developer machine: tools/test.sh, tools/pty-test.sh (the tests in a pty side by side, as tools/ci-par.sh runs them here).
+# The jobs run side by side. The same commands work on a developer machine: tools/test.sh (the unit tests side by side),
+# tools/pty-test.sh (the tests in a pty side by side, as tools/ci-par.sh runs them here).
 on:
   workflow_dispatch: {}
   push:
@@ -26,12 +27,19 @@ jobs:
             fpc -Mobjfpc -Fusrc -Fisrc -FUout/lib -FEout/lib -Un "$f" | grep -E 'Error|Fatal' && exit 1
           done
           exit 0
-      - name: Unit tests
+      - name: Unit tests (side by side)
         run: tools/test.sh
+
+  pty:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Free Pascal and Python
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fp-compiler fp-units-rtl fp-units-fcl fp-units-base fp-units-misc python3
       - name: The programs of the tests in a pty
         run: TV_PTY_WORK=out/pty tools/pty-test.sh --build
       # the tests in a pty wait for the program, not for the CPU: they run side by side, each with a HOME of its own
-      - name: Tests in a pty (the demo, the terminal view, the switcher, the clipboard, the far2l extensions)
+      - name: Tests in a pty (the demo, the terminal view, the switcher, the clipboard, the ASCII chart, the far2l extensions)
         env:
           CMDS: |
             python3 tests/pty/test_tvdemo.py out/pty/tvdemo
@@ -41,6 +49,7 @@ jobs:
             python3 tests/pty/test_tvterm.py out/pty/tvterm
             python3 tests/pty/test_vtrun.py out/pty/rundemo
             python3 tests/pty/test_clip.py out/pty/clipdemo
+            python3 tests/pty/test_ascii.py out/pty/tvdemo
             python3 tests/pty/test_far2l.py out/pty/tvdemo out/pty/tvterm
         run: tools/ci-par.sh
 
