@@ -185,7 +185,7 @@ procedure TDemoApp.AddClock;
 var
   R: TRect;
 begin
-  { the top row, at the right; the clock fits its width to the text }
+  { at the right end of the menu row; the clock of TvGadgets fits its width to the text, one blank cell at the right }
   R.Assign(Size.X - 10, 0, Size.X, 1);
   Clock := TClockView.Create(R);
   Clock.Margin := 1;
