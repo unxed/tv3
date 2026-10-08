@@ -6,12 +6,13 @@
   An item is '%', then '-' (align to the left), then '0' (fill a number with zeros), then a width (decimal digits),
   then the conversion:
     s  the slot is a pointer to a ShortString (nil: an empty text)
-    d  a signed integer
-    u  an unsigned integer
-    x  an unsigned integer in hexadecimal, lower case digits; X: upper case digits
-    c  a character (the low byte of the slot)
+    d  a LongInt
+    u  a LongWord
+    x  a LongWord in hexadecimal, lower case digits; X: upper case digits
+    c  a character
     %  a '%' (takes no slot)
-  For u, x and X a negative slot that fits a LongInt is taken as its 32-bit value: -1 is 4294967295 and ffffffff.
+  The numbers and the character are the low 32 bits and the low byte of the slot (the rest of a slot that a caller
+  filled with a LongInt may hold anything): -1 is 4294967295 with u and ffffffff with x.
   The width is the least number of characters: a shorter text is filled with spaces on the left (with '-' on the right);
   a longer one is kept whole. With '0' (and without '-') d, u, x and X are filled with zeros after the sign.
   An item with another conversion, and a '%' at the end of the format, go into the result as they are and take no slot.
@@ -33,14 +34,6 @@ type
   TSlots = array[0..(MaxInt div SizeOf(PtrInt)) - 1] of PtrInt;
   PSlots = ^TSlots;
 
-function Unsigned(V: PtrInt): QWord;
-begin
-  if (V < 0) and (V >= Low(LongInt)) then
-    Result := LongWord(LongInt(V))
-  else
-    Result := QWord(PtrUInt(V));
-end;
-
 procedure FormatSlots(var Result: ShortString; const Format: ShortString; var Params);
 var
   Slots: PSlots;
@@ -50,7 +43,7 @@ var
   Left, Zero: Boolean;
   Conv: Char;
   Text, Sign: AnsiString;
-  V: PtrInt;
+  V: LongInt;
   P: PShortString;
 
   function Take: PtrInt;
@@ -123,7 +116,7 @@ begin
         end;
       'd':
         begin
-          V := Take;
+          V := LongInt(Take);
           Text := IntToStr(V);
           if V < 0 then
           begin
@@ -132,11 +125,11 @@ begin
           end;
         end;
       'u':
-        Text := IntToStr(Unsigned(Take));
+        Text := IntToStr(LongWord(Take));
       'x':
-        Text := LowerCase(IntToHex(Unsigned(Take), 1));
+        Text := LowerCase(IntToHex(LongWord(Take), 1));
       'X':
-        Text := IntToHex(Unsigned(Take), 1);
+        Text := IntToHex(LongWord(Take), 1);
     else
       begin
         Res := Res + Copy(Format, Start, I - Start);

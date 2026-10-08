@@ -54,10 +54,10 @@ begin
   Check(F('[%300s]') = '[' + StringOfChar(' ', 254), 'the result is cut at 255');
   Check(Length(F('%300s')) = 255, 'the length of a cut result');
 {$IFDEF CPU64}
-  P[0] := PtrInt($100000000); P[1] := P[0]; P[2] := P[0];
-  Check(F('%d %u %x') = '4294967296 ' + '4294967296 100000000', 'a value of more than 32 bits');
+  P[0] := PtrInt($7F5B00000000); P[1] := P[0] or 5; P[2] := P[0] or 255; P[3] := P[0] or $FFFFFFFF; P[4] := P[0] or 65;
+  Check(F('%d %d %x %d %c') = '0 5 ff -1 A', 'only the low 32 bits of a slot count');
 {$ENDIF}
-  P[0] := Low(PtrInt);
-  Check(F('%d') = IntToStr(Low(PtrInt)), 'the lowest number');
+  P[0] := Low(LongInt);
+  Check(F('%d') = IntToStr(Low(LongInt)), 'the lowest number');
   Finish;
 end.
