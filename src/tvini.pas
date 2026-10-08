@@ -560,7 +560,11 @@ begin
   if (not FModified) or (FFileName = '') then
     Exit;
   Buf := SaveToText;
-  Tmp := FFileName + '.tmp';
+  { the name of the file with another extension: one dot, so that it is also a name of DOS (8.3) }
+  if CompareText(ExtractFileExt(FFileName), '.tmp') = 0 then
+    Tmp := ChangeFileExt(FFileName, '.$$$')
+  else
+    Tmp := ChangeFileExt(FFileName, '.tmp');
   Assign(F, Tmp);
   {$push}{$I-}
   Rewrite(F, 1);
