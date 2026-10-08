@@ -23,5 +23,6 @@ run win32input tests/pty/test_win32input.py "$out/tvdemo"
 run tvterm tests/pty/test_tvterm.py "$out/tvterm"
 run vtrun tests/pty/test_vtrun.py "$out/rundemo"
 run clip tests/pty/test_clip.py "$out/clipdemo"
+run ascii tests/pty/test_ascii.py "$out/tvdemo"
 run far2l tests/pty/test_far2l.py "$out/tvdemo" "$out/tvterm"
 exit $fail
