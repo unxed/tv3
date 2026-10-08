@@ -1,0 +1,69 @@
+name: ci
+
+# tv3 on Linux x86_64: the library compiles (every unit), the unit tests (tests/t_*.pas) pass, the programs run in a pty (tests/pty).
+# The same commands work on a developer machine: tools/test.sh, tools/pty-test.sh.
+on:
+  workflow_dispatch: {}
+  push:
+  pull_request:
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Free Pascal and Python
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fp-compiler fp-units-rtl fp-units-fcl fp-units-base fp-units-misc python3
+      - name: The text of the repository (UTF-8, English, glyphs by name)
+        run: python3 tools/text-policy.py
+      - name: The library builds (every unit that is not for another system)
+        run: |
+          mkdir -p out/lib
+          for f in src/*.pas; do
+            case "$f" in src/tvtermoswin.pas) continue ;; esac     # needs the units of Windows
+            fpc -Mobjfpc -Fusrc -Fisrc -FUout/lib -FEout/lib -Un "$f" | grep -E 'Error|Fatal' && exit 1
+          done
+          exit 0
+      - name: Unit tests
+        run: tools/test.sh
+      - name: Tests in a pty (the demo, the terminal view, the switcher, the clipboard)
+        run: tools/pty-test.sh
+
+  generated:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: The generated tables are what their generators make (Unicode 14.0 of Python 3.11)
+        run: |
+          python3 tools/gen-charsets.py > src/tvcharset.inc
+          python3 tools/gen-codepage.py > src/tvcp.inc
+          python3 tools/gen-width.py > src/tvwidth.inc
+          git diff --exit-code src/tvcharset.inc src/tvcp.inc src/tvwidth.inc
+
+  borrow-audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Tools of the audit
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends unrar unzip
+      - uses: actions/cache@v4
+        with:
+          path: |
+            build/corpora
+            build/audit-cache
+          key: corpora-${{ hashFiles('tools/audit/fetch-corpora.sh', 'tools/audit/facts/*') }}
+      - name: Reference corpora and allowed sources
+        run: tools/audit/fetch-corpora.sh
+      - name: The tree has nothing of the corpora (tools/audit/borrow-audit.py)
+        run: python3 tools/audit/borrow-audit.py --ref build/corpora/list.txt --allowed build/corpora/allowed.txt src tests tools demo
+      - name: Every commit of the push has nothing of the corpora
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ -n "$BEFORE" ] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then range="$BEFORE..HEAD"; else range=HEAD; fi
+          python3 tools/audit/borrow-audit.py --ref build/corpora/list.txt --allowed build/corpora/allowed.txt --git-range "$range"
