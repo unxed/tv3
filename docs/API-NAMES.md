@@ -106,6 +106,7 @@ Members that tvision has as `private` or `protected` are not additions (`TCluste
 | `TMenuView` | `SubClosedByEsc` | the menus of the UX guidelines |
 | `TDrawBuffer` | `MoveStrS`, `MoveCStrS`, `MoveGlyph`, `PutGlyph` | the `ShortString` forms; the glyphs of `TvGlyphs` |
 | `TCollection` | `AtReplace` | dn |
+| `TText` | `DrawStrUtf8` | draws text that is UTF-8 whatever `Utf8Enabled` is (tve inside a code-page program) |
 | `TTimerQueue` | `First`, `Clock` | the tests |
 | `KeyDownEvent` | `VirtualKey`, `RepeatCount`, `Win32State`, `KeyFlags` | the win32 input mode of terminals (far2l, Windows Terminal) |
 | `THelpWindow`, `TChDirDialog`, `TFileDialog`, `TFileList` | `Viewer`, `GotoContext`; `DirList`, `DirInput`, `OKButton`, `ChDirButton`, `SetUpDialog`; `ReadDirectory`; `ReadDirectoryMask` | protected or private parts of tvision made public, and dn |

@@ -1,6 +1,6 @@
 program t_text;
 {$I ../src/tvdefs.inc}
-uses TvColors, TvCell, TvText, TvCodePg;
+uses TvColors, TvCell, TvText, TvCodePg, TvUtf8;
 {$I testlib.inc}
 
 const
@@ -14,6 +14,7 @@ var
   Cells: array[0..15] of TScreenCell;
   Attr: TColorAttr;
   N, L, W, J, I, Skipped, LeadW: Integer;
+  S8: ShortString;
 
 procedure Clear;
 begin
@@ -173,6 +174,22 @@ begin
       Inc(J);
   Check(J = 0, 'CP437 round trip for bytes 1..255');
   CpSelect(866);
+
+  { code page program: TText.DrawStr shows bytes, TText.DrawStrUtf8 still decodes }
+  Utf8Enabled := False;
+  Clear;
+  N := Draw(8, Eacute + Cjk);
+  Check(N = 5, 'no UTF-8: a byte is a cell');
+  Clear;
+  S8 := 'a' + Eacute + Acute + Cjk;
+  N := TText.DrawStrUtf8(@Cells[0], 8, 1, @S8[1], Length(S8), 0, @Attr);
+  Check((N = 4) and (Txt(1) = 'a') and (Txt(2) = Eacute + Acute) and (Txt(3) = Cjk) and Cells[4].Character.IsWideCharTrail,
+    'DrawStrUtf8 decodes without Utf8Enabled');
+  Check(Byte(Cells[4].Attribute) = $1F, 'DrawStrUtf8 sets the attribute of the trail');
+  Clear;
+  N := TText.DrawStrUtf8(@Cells[0], 8, 0, @S8[1], Length(S8), 2, @Attr);
+  Check((N = 2) and (Txt(0) = Cjk), 'DrawStrUtf8 skips columns');
+  Utf8Enabled := True;
 
   { fill }
   Clear;
