@@ -770,9 +770,9 @@ begin
   { OK and Cancel at the bottom right }
   X := Dlg.Size.X - 24;
   R.Assign(X, Dlg.Size.Y - 4, X + 10, Dlg.Size.Y - 2);
-  Dlg.Insert(TButton.Create(R, MsgOKText, cmOK, bfDefault));
+  Dlg.Insert(TButton.Create(R, MsgBoxText.OkText, cmOK, bfDefault));
   R.Move(12, 0);
-  Dlg.Insert(TButton.Create(R, MsgCancelText, cmCancel, bfNormal));
+  Dlg.Insert(TButton.Create(R, MsgBoxText.CancelText, cmCancel, bfNormal));
   Dlg.SelectNext(False);
   Dlg.SetData(S);
   Result := Application.ExecView(Dlg);

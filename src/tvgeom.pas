@@ -34,7 +34,7 @@ type
     procedure Union(const R: TRect);
     function Contains(const P: TPoint): Boolean;
     function Equals(const R: TRect): Boolean;
-    function Empty: Boolean;
+    function IsEmpty: Boolean;
   end;
   PRect = ^TRect;
 
@@ -149,7 +149,7 @@ begin
   Result := PointEq(A, R.A) and PointEq(B, R.B);
 end;
 
-function TRect.Empty: Boolean;
+function TRect.IsEmpty: Boolean;
 begin
   Result := (B.X <= A.X) or (B.Y <= A.Y);
 end;

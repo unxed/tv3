@@ -415,7 +415,7 @@ begin
   Menu := NewMenu(Items);
   R.Assign(0, 0, Prog.Size.X, Prog.Size.Y);
   Box := TSwitcherBox.Create(R, Menu);
-  Menu^.Default := Sel;
+  Menu^.Deflt := Sel;
   Box.Current := Sel;
   W := Box.Size.X;
   H := Box.Size.Y;

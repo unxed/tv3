@@ -6,8 +6,8 @@
   Borland disclaimer and MIT notice: COPYRIGHT.magiblot.
 
   Differences from the C++ original (see tv/DESIGN.md):
-    - the texts of the buttons and of the titles are variables (translations: set them
-      before the first box is shown);
+    - the texts of the buttons and of the titles are ShortString class variables of MsgBoxText
+      (translations: set them before the first box is shown);
     - the formatted variants take a Pascal format string and an array of const
       (SysUtils.Format: %s, %d, ...), not printf;
     - inputBox is in TvInput (it needs the input line). }
@@ -34,21 +34,18 @@ const
   mfYesNoCancel  = mfYesButton or mfNoButton or mfCancelButton;
   mfOKCancel     = mfOKButton or mfCancelButton;
 
-var
-  MsgYesText: ShortString = '~Y~es';
-  MsgNoText: ShortString = '~N~o';
-  MsgOKText: ShortString = 'O~K~';
-  MsgCancelText: ShortString = '~C~ancel';
-  MsgWarningText: ShortString = 'Warning';
-  MsgErrorText: ShortString = 'Error';
-  MsgInformationText: ShortString = 'Information';
-  MsgConfirmText: ShortString = 'Confirm';
+type
+  MsgBoxText = class
+  public
+    class var YesText, NoText, OkText, CancelText: ShortString;
+    class var WarningText, ErrorText, InformationText, ConfirmText: ShortString;
+  end;
 
-function MessageBox(const Msg: ShortString; AOptions: Word): Word;
-function MessageBoxRect(const R: TRect; const Msg: ShortString; AOptions: Word): Word;
-function MessageBoxFmt(AOptions: Word; const Fmt: ShortString; const Args: array of const): Word;
-function MessageBoxRectFmt(const R: TRect; AOptions: Word; const Fmt: ShortString;
-  const Args: array of const): Word;
+function MessageBox(const Msg: ShortString; AOptions: Word): Word; overload;
+function MessageBox(AOptions: Word; const Fmt: ShortString; const Args: array of const): Word; overload;
+function MessageBoxRect(const R: TRect; const Msg: ShortString; AOptions: Word): Word; overload;
+function MessageBoxRect(const R: TRect; AOptions: Word; const Fmt: ShortString;
+  const Args: array of const): Word; overload;
 
 implementation
 
@@ -64,22 +61,22 @@ var
   function ButtonText(Index: Integer): ShortString;
   begin
     case Index of
-      0: Result := MsgYesText;
-      1: Result := MsgNoText;
-      2: Result := MsgOKText;
+      0: Result := MsgBoxText.YesText;
+      1: Result := MsgBoxText.NoText;
+      2: Result := MsgBoxText.OkText;
     else
-      Result := MsgCancelText;
+      Result := MsgBoxText.CancelText;
     end;
   end;
 
   function TitleText: ShortString;
   begin
     case AOptions and 3 of
-      mfWarning: Result := MsgWarningText;
-      mfError: Result := MsgErrorText;
-      mfInformation: Result := MsgInformationText;
+      mfWarning: Result := MsgBoxText.WarningText;
+      mfError: Result := MsgBoxText.ErrorText;
+      mfInformation: Result := MsgBoxText.InformationText;
     else
-      Result := MsgConfirmText;
+      Result := MsgBoxText.ConfirmText;
     end;
   end;
 
@@ -129,7 +126,7 @@ begin
   Result := MessageBoxRect(MakeRect(Msg), Msg, AOptions);
 end;
 
-function MessageBoxFmt(AOptions: Word; const Fmt: ShortString; const Args: array of const): Word;
+function MessageBox(AOptions: Word; const Fmt: ShortString; const Args: array of const): Word;
 var
   Msg: ShortString;
 begin
@@ -137,10 +134,19 @@ begin
   Result := MessageBoxRect(MakeRect(Msg), Msg, AOptions);
 end;
 
-function MessageBoxRectFmt(const R: TRect; AOptions: Word; const Fmt: ShortString;
+function MessageBoxRect(const R: TRect; AOptions: Word; const Fmt: ShortString;
   const Args: array of const): Word;
 begin
   Result := MessageBoxRect(R, FormatStr(Fmt, Args), AOptions);
 end;
 
+initialization
+  MsgBoxText.YesText := '~Y~es';
+  MsgBoxText.NoText := '~N~o';
+  MsgBoxText.OkText := 'O~K~';
+  MsgBoxText.CancelText := '~C~ancel';
+  MsgBoxText.WarningText := 'Warning';
+  MsgBoxText.ErrorText := 'Error';
+  MsgBoxText.InformationText := 'Information';
+  MsgBoxText.ConfirmText := 'Confirm';
 end.

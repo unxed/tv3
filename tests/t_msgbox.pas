@@ -30,7 +30,7 @@ begin
   Check(MessageBox('Save?', mfYesNoCancel or mfWarning) = cmCancel, 'the hot letter C presses Cancel');
   MemClear;
   MemKey(kbEnter);
-  Check(MessageBoxFmt(mfError or mfOKButton, 'File %s: error %d', ['A.TXT', 5]) = cmOK, 'a formatted message');
+  Check(MessageBox(mfError or mfOKButton, 'File %s: error %d', ['A.TXT', 5]) = cmOK, 'a formatted message');
   MemClear;
   MemKey(kbEnter);
   R.Assign(10, 5, 60, 15);
@@ -41,7 +41,7 @@ begin
     'a long message makes the box taller');
   { the box is gone from the desktop }
   Check(DeskTop.First = DeskTop.Background, 'the desktop holds only its background after the boxes');
-  MsgOKText := 'O~K~';
+  MsgBoxText.OkText := 'O~K~';
   App.Free;
   MemDone;
   Check(GetFPCHeapStatus.CurrHeapUsed = Used0, 'no memory is left behind');

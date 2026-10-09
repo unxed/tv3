@@ -423,9 +423,9 @@ begin
   C2.AtReplace(3, Pointer(33));
   Check((C2.Count = 4) and (C2.At(3) = Pointer(33)) and (C2.At(1) = nil), 'AtReplace grows the collection with nils');
   C2.Free;
-  C.Delete(Pointer(15));
+  C.Remove(Pointer(15));
   Check((C.Count = 3) and (C.At(1) = Pointer(20)), 'Delete');
-  C.AtDelete(0);
+  C.AtRemove(0);
   Check((C.Count = 2) and (C.At(0) = Pointer(20)), 'AtDelete');
   C.Insert(Pointer(60));
   C.Insert(Pointer(70));
@@ -444,7 +444,7 @@ begin
   Check((C.Errors = 1) and (C.LastCode = coIndexError) and (C.LastInfo = 10), 'At: index error');
   C.AtInsert(99, Pointer(1));
   Check(C.Errors = 2, 'AtInsert: index error');
-  C.DeleteAll;
+  C.RemoveAll;
   Check(C.Count = 0, 'DeleteAll');
   C.Free;
   { a collection that cannot grow }

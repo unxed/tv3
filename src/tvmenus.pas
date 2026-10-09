@@ -32,7 +32,7 @@ type
 
   TMenu = record
     Items: PMenuItem;        { the entries, linked by Next }
-    Default: PMenuItem;      { the entry highlighted when the menu opens }
+    Deflt: PMenuItem;        { the entry highlighted when the menu opens }
   end;
 
   TMenuItem = record
@@ -40,7 +40,7 @@ type
     Name: PStr;          { nil for a separator line }
     Command: Word;       { 0 for an item with a submenu }
     Disabled: Boolean;
-    Key: TKey;
+    KeyCode: TKey;
     HelpCtx: Word;
     case Byte of
       0: (SubMenu: PMenu);   { an entry with Command = 0 }
@@ -114,7 +114,7 @@ type
   TStatusItem = record
     Next: PStatusItem;
     Text: PStr;
-    Key: TKey;
+    KeyCode: TKey;
     Command: Word;
   end;
 
@@ -175,7 +175,7 @@ function NewMenu(Items: PMenuItem): PMenu;
 begin
   New(Result);
   Result^.Items := Items;
-  Result^.Default := Items;
+  Result^.Deflt := Items;
 end;
 
 function NewSubMenu(const Name: ShortString; AHelpCtx: Word; SubMenu: PMenu;
@@ -186,7 +186,7 @@ begin
   Result^.Name := NewStr(Name);
   Result^.Command := 0;
   Result^.Disabled := not CommandEnabled(0);
-  Result^.Key := KeyMake(kbNoKey);
+  Result^.KeyCode := KeyMake(kbNoKey);
   Result^.HelpCtx := AHelpCtx;
   Result^.SubMenu := SubMenu;
 end;
@@ -199,7 +199,7 @@ begin
   Result^.Name := NewStr(Name);
   Result^.Command := ACommand;
   Result^.Disabled := not CommandEnabled(ACommand);
-  Result^.Key := KeyMake(AKeyCode);
+  Result^.KeyCode := KeyMake(AKeyCode);
   Result^.HelpCtx := AHelpCtx;
   if Param = '' then
     Result^.Param := nil
@@ -214,7 +214,7 @@ begin
   Result^.Name := nil;
   Result^.Command := 0;
   Result^.Disabled := True;
-  Result^.Key := KeyMake(kbNoKey);
+  Result^.KeyCode := KeyMake(kbNoKey);
   Result^.HelpCtx := hcNoContext;
   Result^.Param := nil;
 end;
@@ -541,7 +541,7 @@ var
   begin
     TrackMouse(E, MouseActive);
     if MouseInOwner(E) then
-      Current := Menu^.Default
+      Current := Menu^.Deflt
     else if Current <> nil then
     begin
       if Current^.Name <> nil then
@@ -558,7 +558,7 @@ var
     else if not IsBar then
     begin
       { released over a margin or a separator }
-      Current := Menu^.Default;
+      Current := Menu^.Deflt;
       if Current = nil then
         Current := Menu^.Items;
     end;
@@ -640,7 +640,7 @@ var
     Res := Owner.ExecView(Target);
     Target.Free;
     LastTargetItem := Current;
-    Menu^.Default := Current;
+    Menu^.Deflt := Current;
     if SubClosedByEsc then
     begin
       SubClosedByEsc := False;
@@ -657,7 +657,7 @@ begin
   LastTargetItem := nil;
   SubClosedByEsc := False;
   Res := 0;
-  Current := Menu^.Default;
+  Current := Menu^.Deflt;
   SaveRepeatInfo := KeyRepeatInfo;
   if UxMenuHeldStop then
     KeyRepeatInfo := True;
@@ -718,7 +718,7 @@ begin
     PutEvent(E);
   if Assigned(Current) then
   begin
-    Menu^.Default := Current;
+    Menu^.Deflt := Current;
     Current := nil;
     DrawView;
   end;
@@ -867,7 +867,7 @@ begin
         if T <> nil then
           Exit(T);
       end
-      else if (not P^.Disabled) and (P^.Key.Code <> kbNoKey) and KeyEq(P^.Key, Key) then
+      else if (not P^.Disabled) and (P^.KeyCode.Code <> kbNoKey) and KeyEq(P^.KeyCode, Key) then
         Exit(P);
     end;
     P := P^.Next;
@@ -1097,7 +1097,7 @@ end;
 function TMenuPopup.Execute: Word;
 begin
   { the default entry is not highlighted: it would look ugly }
-  Menu^.Default := nil;
+  Menu^.Deflt := nil;
   Result := inherited Execute;
 end;
 
@@ -1142,7 +1142,7 @@ begin
     Result^.Text := nil      { a hidden item: only its key works }
   else
     Result^.Text := NewStr(AText);
-  Result^.Key := KeyMake(AKeyCode);
+  Result^.KeyCode := KeyMake(AKeyCode);
   Result^.Command := ACommand;
 end;
 
@@ -1291,7 +1291,7 @@ begin
       begin
         Key := EventKey(Event);
         T := Items;
-        while Assigned(T) and not (KeyEq(Key, T^.Key) and CommandEnabled(T^.Command)) do
+        while Assigned(T) and not (KeyEq(Key, T^.KeyCode) and CommandEnabled(T^.Command)) do
           T := T^.Next;
         { the event becomes the command at once }
         if Assigned(T) then

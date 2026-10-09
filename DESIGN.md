@@ -294,7 +294,7 @@ collections and streams, the editor — to the extent that DN uses them.
   the chain of owners ends at `TProgram`, which has the timer queue; a button is animated
   for 100 ms (`cmTimerExpired`), so the dialog tests run on `TvMem` with a clock that
   advances while waiting for an event.
-- **Message boxes.** The texts of buttons and titles (`MsgYesText`, `MsgErrorText`, …) are variables
+- **Message boxes.** The texts of buttons and titles (`MsgBoxText.YesText`, `MsgBoxText.ErrorText`, …) are class variables
   (translations); the formatted variants accept a Pascal format (`SysUtils.Format`, `%s`, `%d`) and
   `array of const`. The validator messages (`ValidRangeError`, etc.) are variables too.
   The "empty" field (`prEmpty`) of a picture validator is not considered valid: `IsValid('')` is false,

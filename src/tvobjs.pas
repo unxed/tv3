@@ -167,14 +167,14 @@ type
     constructor Load(S: TStream);
     destructor Destroy; override;
     function At(Index: Integer): Pointer;
-    procedure AtDelete(Index: Integer);
+    procedure AtRemove(Index: Integer);
     procedure AtFree(Index: Integer);
     procedure AtInsert(Index: Integer; Item: Pointer);
     procedure AtPut(Index: Integer; Item: Pointer);
     { used by DN: AtPut that grows the collection with nils up to Index and frees the item that was there }
     procedure AtReplace(Index: Integer; Item: Pointer);
-    procedure Delete(Item: Pointer);
-    procedure DeleteAll;
+    procedure Remove(Item: Pointer);
+    procedure RemoveAll;
     procedure Error(Code, Info: Integer); virtual;
     function FirstThat(Test: TNestedTestProc): Pointer;
     procedure ForEach(Action: TNestedActionProc);
@@ -990,7 +990,7 @@ begin
     Result := Items^[Index];
 end;
 
-procedure TCollection.AtDelete(Index: Integer);
+procedure TCollection.AtRemove(Index: Integer);
 var
   K: Integer;
 begin
@@ -1015,7 +1015,7 @@ begin
     Exit;
   end;
   Victim := Items^[Index];
-  AtDelete(Index);
+  AtRemove(Index);
   FreeItem(Victim);
 end;
 
@@ -1074,12 +1074,12 @@ begin
     Items^[Index] := Item;
 end;
 
-procedure TCollection.Delete(Item: Pointer);
+procedure TCollection.Remove(Item: Pointer);
 begin
-  AtDelete(IndexOf(Item));
+  AtRemove(IndexOf(Item));
 end;
 
-procedure TCollection.DeleteAll;
+procedure TCollection.RemoveAll;
 begin
   Count := 0;
 end;
@@ -1128,7 +1128,7 @@ end;
 
 procedure TCollection.Free(Item: Pointer);
 begin
-  Delete(Item);
+  Remove(Item);
   FreeItem(Item);
 end;
 

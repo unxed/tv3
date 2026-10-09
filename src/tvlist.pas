@@ -57,12 +57,13 @@ type
   { packed and Selection a LongInt: the layout of the data record of Virtual Pascal (the application builds its records on it; Integer there
     has 32 bits and the records are byte-aligned), the layout is a compatibility requirement of the application }
   TListBoxRec = packed record
-    List: TCollection;
+    Items: TCollection;
     Selection: LongInt;
   end;
 
   TListBox = class(TListViewer)
-    List: TCollection;
+    Items: TCollection;
+    function List: TCollection;
     constructor Create(const Bounds: TRect; ANumCols: Integer; AScrollBar: TScrollBar);
     constructor Load(S: TStream);
     procedure Store(S: TStream); override;
@@ -471,15 +472,15 @@ end;
 constructor TListBox.Create(const Bounds: TRect; ANumCols: Integer; AScrollBar: TScrollBar);
 begin
   inherited Create(Bounds, ANumCols, nil, AScrollBar);
-  List := nil;
+  Items := nil;
   SetRange(0);
 end;
 
 destructor TListBox.Destroy;
 begin
-  if (List <> nil) and ListBoxOwnsList then
-    List.Free;
-  List := nil;
+  if (Items <> nil) and ListBoxOwnsList then
+    Items.Free;
+  Items := nil;
   inherited Destroy;
 end;
 
@@ -490,15 +491,15 @@ end;
 
 procedure TListBox.GetData(var Rec);
 begin
-  TListBoxRec(Rec).List := List;
+  TListBoxRec(Rec).Items := Items;
   TListBoxRec(Rec).Selection := Focused;
 end;
 
 function TListBox.GetText(Item, MaxLen: Integer): ShortString;
 begin
-  if List <> nil then
+  if Items <> nil then
   begin
-    Result := PStr(List.At(Item))^;
+    Result := PStr(Items.At(Item))^;
     if Length(Result) > MaxLen then
       SetLength(Result, MaxLen);
   end
@@ -508,8 +509,8 @@ end;
 
 function TListBox.GetFocusedItem: Pointer;
 begin
-  if (List <> nil) and (Focused >= 0) and (Focused < List.Count) then
-    Result := List.At(Focused)
+  if (Items <> nil) and (Focused >= 0) and (Focused < Items.Count) then
+    Result := Items.At(Focused)
   else
     Result := nil;
 end;
@@ -518,17 +519,22 @@ procedure TListBox.SetFocusedItem(Item: Pointer);
 var
   I: Integer;
 begin
-  if (List = nil) or (Item = nil) then Exit;
-  I := List.IndexOf(Item);
+  if (Items = nil) or (Item = nil) then Exit;
+  I := Items.IndexOf(Item);
   if I >= 0 then
     FocusItem(I);
 end;
 
+function TListBox.List: TCollection;
+begin
+  Result := Items;
+end;
+
 procedure TListBox.NewList(AList: TCollection);
 begin
-  if List <> nil then
-    List.Free;
-  List := AList;
+  if Items <> nil then
+    Items.Free;
+  Items := AList;
   if AList <> nil then
     SetRange(AList.Count)
   else
@@ -543,7 +549,7 @@ var
   D: PListBoxRec;
 begin
   D := @Rec;
-  NewList(D^.List);
+  NewList(D^.Items);
   FocusItem(D^.Selection);
   DrawView;
 end;
@@ -587,15 +593,15 @@ end;
 constructor TListBox.Load(S: TStream);
 begin
   inherited Load(S);
-  List := TCollection(Pointer(S.Get));
-  if List <> nil then
-    Range := List.Count;
+  Items := TCollection(Pointer(S.Get));
+  if Items <> nil then
+    Range := Items.Count;
 end;
 
 procedure TListBox.Store(S: TStream);
 begin
   inherited Store(S);
-  S.Put(TStreamable(Pointer(List)));
+  S.Put(TStreamable(Pointer(Items)));
 end;
 
 function BuildListViewer(S: TStream): TStreamable;

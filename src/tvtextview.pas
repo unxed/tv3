@@ -7,7 +7,7 @@
   Borland disclaimer and MIT notice: COPYRIGHT.magiblot.
 
   Differences from the C++ original (see tv/DESIGN.md):
-    - TTextDevice is not a streambuf: DoSputn is its interface; Write, WriteLn and PutChar
+    - TTextDevice is not a streambuf: Do_sputn is its interface; Write, WriteLn and PutChar
       are the shortcuts (instead of the C++ streams); AssignDevice (as in Borland Pascal
       TextView) redirects the Pascal Write/WriteLn;
     - the text is UTF-8 (or the bytes of the code page), as everywhere in tv/. }
@@ -27,7 +27,7 @@ type
   TTextDevice = class(TScroller)
     constructor Create(const Bounds: TRect; AHScrollBar, AVScrollBar: TScrollBar);
     { puts Count bytes of S into the device; returns the number of bytes taken }
-    function DoSputn(S: PByte; Count: Integer): Integer; virtual;
+    function Do_sputn(S: PByte; Count: Integer): Integer; virtual;
     procedure PutStr(const S: ShortString);
     procedure PutLine(const S: ShortString);
     procedure PutChar(C: Char);
@@ -38,7 +38,7 @@ type
     constructor Create(const Bounds: TRect; AHScrollBar, AVScrollBar: TScrollBar;
       ABufSize: Word);
     destructor Destroy; override;
-    function DoSputn(S: PByte; Count: Integer): Integer; override;
+    function Do_sputn(S: PByte; Count: Integer): Integer; override;
     procedure BufInc(var Val: Word);
     function CanInsert(Amount: Word): Boolean;
     procedure Draw; override;
@@ -65,7 +65,7 @@ begin
   inherited Create(Bounds, AHScrollBar, AVScrollBar);
 end;
 
-function TTextDevice.DoSputn(S: PByte; Count: Integer): Integer;
+function TTextDevice.Do_sputn(S: PByte; Count: Integer): Integer;
 begin
   Result := 0;       { abstract: descendants take the text }
 end;
@@ -73,7 +73,7 @@ end;
 procedure TTextDevice.PutStr(const S: ShortString);
 begin
   if Length(S) > 0 then
-    DoSputn(@S[1], Length(S));
+    Do_sputn(@S[1], Length(S));
 end;
 
 procedure TTextDevice.PutLine(const S: ShortString);
@@ -82,12 +82,12 @@ var
 begin
   PutStr(S);
   N := 10;
-  DoSputn(@N, 1);
+  Do_sputn(@N, 1);
 end;
 
 procedure TTextDevice.PutChar(C: Char);
 begin
-  DoSputn(@C, 1);
+  Do_sputn(@C, 1);
 end;
 
 { --- TTerminal --------------------------------------------------------------- }
@@ -280,7 +280,7 @@ begin
   B.Free;
 end;
 
-function TTerminal.DoSputn(S: PByte; Count: Integer): Integer;
+function TTerminal.Do_sputn(S: PByte; Count: Integer): Integer;
 var
   ScreenLines: Word;
   I: Integer;
@@ -351,7 +351,7 @@ begin
       Inc(N);
     end;
   if (N > 0) and (Device <> nil) then
-    Device.DoSputn(Buf, N);
+    Device.Do_sputn(Buf, N);
   F.BufPos := 0;
   Result := 0;
 end;

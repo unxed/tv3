@@ -455,7 +455,7 @@ begin
   Path := TrimEndSeparator(FExpand(DirInput.Data^));
   if not ChangeDir(Path) then
   begin
-    MessageBoxFmt(mfError or mfOKButton, '%s: ''%s''.', [InvalidDirText, Path]);
+    MessageBox(mfError or mfOKButton, '%s: ''%s''.', [InvalidDirText, Path]);
     Result := False;
   end
   else

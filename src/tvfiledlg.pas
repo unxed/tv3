@@ -697,7 +697,7 @@ begin
     Result := True
   else
   begin
-    MessageBoxFmt(mfError or mfOKButton, '%s: ''%s''', [InvalidDriveText, S]);
+    MessageBox(mfError or mfOKButton, '%s: ''%s''', [InvalidDriveText, S]);
     FileName.Select;
     Result := False;
   end;
@@ -732,7 +732,7 @@ begin
     { a file name: the result of the dialog }
     Result := ValidFileName(FName);
     if not Result then
-      MessageBoxFmt(mfError or mfOKButton, '%s: ''%s''', [InvalidFileText, FName]);
+      MessageBox(mfError or mfOKButton, '%s: ''%s''', [InvalidFileText, FName]);
     Exit;
   end;
   { a mask or a directory: the list shows it and the dialog stays }

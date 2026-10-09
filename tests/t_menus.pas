@@ -154,7 +154,7 @@ procedure ResetDefaults(M: PMenu);
 var
   P: PMenuItem;
 begin
-  M^.Default := M^.Items;
+  M^.Deflt := M^.Items;
   P := M^.Items;
   while P <> nil do
   begin
@@ -198,12 +198,12 @@ begin
   Check(M^.Items^.Name^ = '~F~ile', 'the first entry of a menu');
   Check(M^.Items^.Next^.Name^ = '~E~dit', 'the entries are linked');
   Check(M^.Items^.Next^.Next = nil, 'the list ends');
-  Check(M^.Default = M^.Items, 'NewMenu: the default is the first entry');
+  Check(M^.Deflt = M^.Items, 'NewMenu: the default is the first entry');
   Check(M^.Items^.Command = 0, 'a submenu entry has command 0');
   Check(M^.Items^.SubMenu^.Items^.Command = cmOpen, 'the first entry of a submenu');
   Item := M^.Items^.SubMenu^.Items;
   Check(Item^.Param^ = 'F3', 'the parameter text');
-  Check(KeyEq(Item^.Key, KeyMake(kbF3)), 'the key is a normalized TKey');
+  Check(KeyEq(Item^.KeyCode, KeyMake(kbF3)), 'the key is a normalized TKey');
   Check(not Item^.Disabled, 'an item of an enabled command is enabled');
   Check(Item^.Next^.Next^.Name = nil, 'NewLine: a separator has no name');
   Check(Item^.Next^.Next^.Next^.Param^ = 'Alt-X', 'the last entry');

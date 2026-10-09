@@ -29,11 +29,11 @@ begin
   Check(not R.Contains(Point(9, 5)), 'not Contains B.Y');
   Check(not R.Contains(Point(-1, 0)), 'not Contains left');
 
-  Check(not R.Empty, 'not Empty');
+  Check(not R.IsEmpty, 'not Empty');
   S.Assign(3, 3, 3, 9);
-  Check(S.Empty, 'Empty (zero width)');
+  Check(S.IsEmpty, 'Empty (zero width)');
   S.Assign(5, 5, 2, 9);
-  Check(S.Empty, 'Empty (inverted)');
+  Check(S.IsEmpty, 'Empty (inverted)');
 
   R.Assign(0, 0, 10, 10);
   S.Assign(5, 6, 20, 8);
@@ -44,7 +44,7 @@ begin
   S.Assign(20, 20, 30, 30);
   T.Copy(R);
   T.Intersect(S);
-  Check(T.Empty, 'Intersect disjoint is Empty');
+  Check(T.IsEmpty, 'Intersect disjoint is Empty');
 
   S.Assign(-5, 4, 6, 15);
   T.Copy(R);

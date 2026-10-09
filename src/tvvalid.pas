@@ -244,9 +244,9 @@ end;
 procedure TPXPictureValidator.Error;
 begin
   if Pic <> nil then
-    MessageBoxFmt(mfError or mfOKButton, ValidPictureError, [Pic^])
+    MessageBox(mfError or mfOKButton, ValidPictureError, [Pic^])
   else
-    MessageBoxFmt(mfError or mfOKButton, ValidPictureError, ['']);
+    MessageBox(mfError or mfOKButton, ValidPictureError, ['']);
 end;
 
 function TPXPictureValidator.IsValidInput(var S: ShortString; SuppressFill: Boolean): Boolean;
@@ -643,7 +643,7 @@ end;
 
 procedure TFilterValidator.Error;
 begin
-  MessageBoxFmt(mfError or mfOKButton, ValidFilterError, []);
+  MessageBox(mfError or mfOKButton, ValidFilterError, []);
 end;
 
 { --- TRangeValidator --------------------------------------------------------- }
@@ -696,7 +696,7 @@ end;
 
 procedure TRangeValidator.Error;
 begin
-  MessageBoxFmt(mfError or mfOKButton, ValidRangeError, [Min, Max]);
+  MessageBox(mfError or mfOKButton, ValidRangeError, [Min, Max]);
 end;
 
 function TRangeValidator.IsValid(const S: ShortString): Boolean;
@@ -760,7 +760,7 @@ end;
 
 procedure TStringLookupValidator.Error;
 begin
-  MessageBoxFmt(mfError or mfOKButton, ValidLookupError, []);
+  MessageBox(mfError or mfOKButton, ValidLookupError, []);
 end;
 
 function TStringLookupValidator.Lookup(const S: ShortString): Boolean;
