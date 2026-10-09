@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The clipboard of the terminal backend: ClipboardSetText sends OSC 52 (base64 of the UTF-8 text); not on the Linux console (TERM=linux)
+"""The clipboard of the terminal backend: TClipboard.SetText sends OSC 52 (base64 of the UTF-8 text); not on the Linux console (TERM=linux)
 and not with TV_CLIPBOARD=0. usage: test_clip.py PATH/TO/clipdemo"""
 import base64
 import os

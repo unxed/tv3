@@ -729,7 +729,7 @@ begin
   Dst := PCellArray(Owner.Buffer + (W.Y * Owner.Size.X + W.X));
   CopyCells(W, Dst, PCellArray(W.Buffer + (W.X - W.WOffset)));
   if Owner.Buffer = TScreen.ScreenBuffer then
-    ScreenWrite(W.X, W.Y, PScreenCell(Dst), W.Count - W.X);
+    THardwareInfo.ScreenWrite(W.X, W.Y, PScreenCell(Dst), W.Count - W.X);
 end;
 
 procedure WriteL40(var W: TVWrite; Dest: TView);
@@ -1464,7 +1464,7 @@ begin
   if (Event.What = evKeyDown) and (Event.KeyDown.TextLength > 0) then
     Add(Event);
   repeat
-    PollEvent(0, Ev);
+    TEventQueue.GetKeyEvent(Ev);
     if not IsText(Ev) then
       Break;
     Add(Ev);
@@ -1718,8 +1718,8 @@ begin
   Y := Cursor.Y;
   CaretSize := ComputeCaretSize(Self, X, Y);
   if CaretSize <> 0 then
-    SetCaretPosition(X, Y);
-  SetCaretSize(CaretSize);
+    THardwareInfo.SetCaretPosition(X, Y);
+  THardwareInfo.SetCaretSize(CaretSize);
 end;
 
 procedure TView.Select;

@@ -1,4 +1,5 @@
-{ TvSys: what the program needs from the system, as hooks set by a backend.
+{ TvSys: what the program needs from the system, as hooks set by a backend, and the event queue of tvision
+  (TEventQueue) that reads them.
 
   See tv/DESIGN.md. A backend (memory for tests, DOS, terminal) sets the hooks
   before the application is created. Without a backend there are no events and the
@@ -58,11 +59,24 @@ var
     protocol of Kitty (so it speaks it). False: the releases cannot be relied on (most terminals), and a feature that waits for one must not wait. }
   KeyUpAvailable: Boolean = False;
 
-procedure PollEvent(TimeoutMs: Integer; var Event: TEvent);
-{ The next key event of the system, without waiting (the loops that a person can stop with Esc: a compilation, a search, a copy). The events
-  that come before it and are not keys (the mouse) are dropped; Event.What = evNothing when no key is waiting. }
-procedure PollKeyEvent(var Event: TEvent);
-function ClockMs: Int64;
+type
+  { The events of the backend (OnPollEvent). The events the backend gives are kept in a small queue: GetMouseEvent takes the mouse events, GetKeyEvent the
+    others (keys, and the commands of the backend such as cmScreenChanged), so that a loop that reads only the keys does not lose the mouse events. }
+  TEventQueue = class
+  public
+    { two presses closer than this are a double click, in ticks of 55 ms }
+    class var DoubleDelay: Word;
+    { swap the left and right buttons }
+    class var MouseReverse: Boolean;
+    class procedure GetMouseEvent(var Event: TEvent); static;
+    { The text set by SetPasteText first (key events with kbPaste), then the events of the backend that are not mouse events; evNothing when none is waiting. }
+    class procedure GetKeyEvent(var Event: TEvent); static;
+    { Waits at most TimeoutMs milliseconds (-1: for ever) for an event; at once when one is waiting. }
+    class procedure WaitForEvents(TimeoutMs: Integer); static;
+    { Text that comes as key events with kbPaste, one character each, before the events of the backend; CR and CR LF come as LF. }
+    class procedure SetPasteText(const Text: AnsiString); static;
+  end;
+
 { a desktop notification (the terminal may show it only if the window is not the active one) }
 procedure Notify(const Title, Text: AnsiString);
 { The titles of F1 .. F12 (Titles[0] is F1; '' is no title; an empty array clears them), for a terminal that shows them (the Touch Bar of a Mac). }
@@ -78,26 +92,8 @@ function ColorBits: Integer;
 
 implementation
 
-procedure PollEvent(TimeoutMs: Integer; var Event: TEvent);
-begin
-  ClearEvent(Event);
-  if Assigned(OnPollEvent) then
-    OnPollEvent(TimeoutMs, Event);
-end;
-
-procedure PollKeyEvent(var Event: TEvent);
-var
-  N: Integer;
-begin
-  ClearEvent(Event);
-  for N := 1 to 256 do
-  begin
-    PollEvent(0, Event);
-    if (Event.What = evNothing) or ((Event.What and evKeyDown) <> 0) then
-      Exit;
-    ClearEvent(Event);
-  end;
-end;
+uses
+  TvKeys, TvUtf8;
 
 procedure Notify(const Title, Text: AnsiString);
 begin
@@ -138,12 +134,154 @@ begin
     Result := 0;
 end;
 
-function ClockMs: Int64;
+const
+  EventQSize = 64;
+
+var
+  EventQ: array[0..EventQSize - 1] of TEvent;
+  EventCount: Integer = 0;
+  PasteText: AnsiString = '';
+  PasteIndex: Integer = 1;
+  { the last wait found nothing: GetMouseEvent and GetKeyEvent do not ask the backend again right after it (GetKeyEvent ends this) }
+  WaitFoundNothing: Boolean = False;
+
+function IsMouse(const Event: TEvent): Boolean;
 begin
-  if Assigned(GetClockMs) then
-    Result := GetClockMs()
-  else
-    Result := GetTickCount64;
+  Result := (Event.What and evMouse) <> 0;
 end;
 
+procedure TakeAt(I: Integer; var Event: TEvent);
+begin
+  Event := EventQ[I];
+  if I < EventCount - 1 then
+    Move(EventQ[I + 1], EventQ[I], (EventCount - 1 - I) * SizeOf(TEvent));
+  Dec(EventCount);
+end;
+
+{ The next event of the backend into the queue; False when none came. When the queue is full the oldest mouse event goes (a loop that reads only the keys). }
+function Fetch(TimeoutMs: Integer): Boolean;
+var
+  E, Dropped: TEvent;
+  I: Integer;
+begin
+  ClearEvent(E);
+  if Assigned(OnPollEvent) then
+    OnPollEvent(TimeoutMs, E);
+  Result := E.What <> evNothing;
+  if not Result then
+    Exit;
+  if EventCount = EventQSize then
+  begin
+    I := 0;
+    while (I < EventCount) and not IsMouse(EventQ[I]) do
+      Inc(I);
+    if I = EventCount then
+      I := 0;
+    TakeAt(I, Dropped);
+  end;
+  EventQ[EventCount] := E;
+  Inc(EventCount);
+end;
+
+function FindEvent(Mouse: Boolean): Integer;
+begin
+  Result := 0;
+  while (Result < EventCount) and (IsMouse(EventQ[Result]) <> Mouse) do
+    Inc(Result);
+  if Result = EventCount then
+    Result := -1;
+end;
+
+function GetPasteEvent(var Event: TEvent): Boolean;
+var
+  N, I: Integer;
+begin
+  Result := PasteIndex <= Length(PasteText);
+  if not Result then
+    Exit;
+  N := 1 + Utf8BytesLeft(Byte(PasteText[PasteIndex]));
+  if PasteIndex + N - 1 > Length(PasteText) then
+    N := Length(PasteText) - PasteIndex + 1;
+  ClearEvent(Event);
+  Event.What := evKeyDown;
+  Event.KeyDown.ControlKeyState := kbPaste;
+  for I := 0 to N - 1 do
+    Event.KeyDown.Text[I] := PasteText[PasteIndex + I];
+  Event.KeyDown.TextLength := N;
+  Inc(PasteIndex, N);
+  if PasteIndex > Length(PasteText) then
+  begin
+    PasteText := '';
+    PasteIndex := 1;
+  end;
+end;
+
+class procedure TEventQueue.GetMouseEvent(var Event: TEvent);
+var
+  I: Integer;
+begin
+  if (EventCount = 0) and not WaitFoundNothing then
+    Fetch(0);
+  I := FindEvent(True);
+  if I >= 0 then
+    TakeAt(I, Event)
+  else
+    ClearEvent(Event);
+end;
+
+class procedure TEventQueue.GetKeyEvent(var Event: TEvent);
+var
+  I, N: Integer;
+begin
+  if GetPasteEvent(Event) then
+    Exit;
+  I := FindEvent(False);
+  N := 0;
+  if WaitFoundNothing then
+  begin
+    WaitFoundNothing := False;
+    N := 256;
+  end;
+  while (I < 0) and (N < 256) and Fetch(0) do
+  begin
+    if not IsMouse(EventQ[EventCount - 1]) then
+      I := EventCount - 1;
+    Inc(N);
+  end;
+  if I >= 0 then
+    TakeAt(I, Event)
+  else
+    ClearEvent(Event);
+end;
+
+class procedure TEventQueue.WaitForEvents(TimeoutMs: Integer);
+begin
+  if (EventCount = 0) and (PasteIndex > Length(PasteText)) then
+    WaitFoundNothing := not Fetch(TimeoutMs);
+end;
+
+class procedure TEventQueue.SetPasteText(const Text: AnsiString);
+var
+  I: Integer;
+begin
+  PasteText := '';
+  I := 1;
+  while I <= Length(Text) do
+  begin
+    if Text[I] = #13 then
+    begin
+      PasteText := PasteText + #10;
+      if (I < Length(Text)) and (Text[I + 1] = #10) then
+        Inc(I);
+    end
+    else
+      PasteText := PasteText + Text[I];
+    Inc(I);
+  end;
+  PasteIndex := 1;
+end;
+
+initialization
+  TEventQueue.DoubleDelay := 8;
+  TEventQueue.MouseReverse := False;
 end.

@@ -152,13 +152,13 @@ begin
   TypeS(L, 'one ');
 
   { Ctrl+Ins and Ctrl+C copy the selection }
-  ClipboardSetText('');
+  TClipboard.SetText('');
   Key(L, kbHome);
   Key(L, kbRight, kbShift);
   Key(L, kbRight, kbShift);
   Key(L, kbCtrlIns);
   Check(ClipIs('on'), 'Ctrl+Ins copies the selection');
-  ClipboardSetText('');
+  TClipboard.SetText('');
   Key(L, kbCtrlC);
   Check(ClipIs('on'), 'Ctrl+C copies the selection');
   Check(L.Data^ = 'one ', '... and leaves the text');
@@ -183,14 +183,14 @@ begin
   Check(L.Data^ = 'N', 'typing over a selection replaces it');
 
   { clipboard }
-  ClipboardSetText('');
+  TClipboard.SetText('');
   L.SelectAll(True);
   Cmd(L, cmCopy);
   Check(ClipIs('N'), 'cmCopy puts the selection into the clipboard');
   Key(L, kbEnd);
   Cmd(L, cmPaste);
   Check(L.Data^ = 'NN', 'cmPaste inserts the clipboard text');
-  ClipboardSetText('line one'#13#10'line two');
+  TClipboard.SetText('line one'#13#10'line two');
   Cmd(L, cmPaste);
   Check(L.Data^ = 'NNline one', 'paste takes the first line only');
   L.SelectAll(True);
@@ -306,7 +306,7 @@ begin
 
   App.Free;
   MemDone;
-  ClipboardSetText('');      { the buffer of the clipboard is a global string }
+  TClipboard.SetText('');      { the buffer of the clipboard is a global string }
   Check(GetFPCHeapStatus.CurrHeapUsed = Used0, 'no memory is left behind');
   Finish;
 end.

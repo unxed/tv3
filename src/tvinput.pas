@@ -484,7 +484,7 @@ var
     T := Copy(Data^, SelStart + 1, SelEnd - SelStart);
     if InputLineOem then
       T := OemToUtf8(T);
-    ClipboardSetText(T);
+    TClipboard.SetText(T);
   end;
 
   { the first line of a text is typed in }

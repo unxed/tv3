@@ -1,6 +1,6 @@
 program t_timer;
 {$I ../src/tvdefs.inc}
-uses TvSys, TvTimer;
+uses TvSys, TvScreen, TvTimer;
 {$I testlib.inc}
 
 var
@@ -95,6 +95,6 @@ begin
   Check(GetFPCHeapStatus.CurrHeapUsed = Used0, 'no memory is left behind');
 
   { the default clock moves forward }
-  Check(ClockMs >= 0, 'the system clock');
+  Check(THardwareInfo.GetTickCountMs > 0, 'the system clock');
   Finish;
 end.

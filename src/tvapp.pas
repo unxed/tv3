@@ -472,7 +472,7 @@ begin
       if FSwitchSel > High(FSwitchList) then
         FSwitchSel := 0;
     end;
-    FSwitchLast := ClockMs;
+    FSwitchLast := THardwareInfo.GetTickCountMs;
     ShowSwitchBox;
     Exit(True);
   end;
@@ -486,7 +486,7 @@ begin
       FSwitchSel := High(FSwitchList)
     else
       FSwitchSel := 1;
-    FSwitchLast := ClockMs;
+    FSwitchLast := THardwareInfo.GetTickCountMs;
     KeyUpForApp := True;
     ShowSwitchBox;
     Exit(True);
@@ -520,7 +520,7 @@ end;
 
 procedure TDeskTop.SwitcherIdle;
 begin
-  if (FSwitchBox <> nil) and (ClockMs - FSwitchLast > SwitcherTimeoutMs) then
+  if (FSwitchBox <> nil) and (Int64(THardwareInfo.GetTickCountMs) - FSwitchLast > SwitcherTimeoutMs) then
     SwitcherEnd(True);
 end;
 
@@ -798,9 +798,14 @@ begin
   end
   else
   begin
-    PollEvent(EventWaitTimeout, Event);
+    TEventQueue.WaitForEvents(EventWaitTimeout);
+    TEventQueue.GetMouseEvent(Event);
     if Event.What = evNothing then
-      Idle
+    begin
+      TEventQueue.GetKeyEvent(Event);
+      if Event.What = evNothing then
+        Idle;
+    end;
   end;
   if StatusLine <> nil then
   begin
@@ -974,8 +979,7 @@ procedure TProgram.SetScreenMode(Mode: Word);
 var
   Whole: TRect;
 begin
-  if Assigned(OnSetVideoMode) then
-    OnSetVideoMode(Mode);
+  THardwareInfo.SetScreenMode(Mode);
   Buffer := TScreen.ScreenBuffer;
   InitScreen;
   Whole.A := Point(0, 0);
