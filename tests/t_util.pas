@@ -34,7 +34,7 @@ begin
   Check(GetAltCharStr(Ev) = 'F', 'GetAltCharStr from the scan code');
   { an Alt key with text (a character the scan code does not tell) }
   MakeKeyEvent(Ev, $0000, kbAltShift);
-  Ev.Text[0] := #$D0; Ev.Text[1] := #$A4; Ev.TextLength := 2;
+  Ev.KeyDown.Text[0] := #$D0; Ev.KeyDown.Text[1] := #$A4; Ev.KeyDown.TextLength := 2;
   Check(GetAltCharStr(Ev) = #$D0#$A4, 'GetAltCharStr: the text of the event');
   { Ctrl keys }
   Check(GetCtrlChar(kbCtrlB) = 'B', 'GetCtrlChar: Ctrl+B');
@@ -70,11 +70,11 @@ begin
   Check((UpCaseCp(#$AE) = #$8E) and (UpCaseCp('a') = 'A') and (UpCaseCp(#$8E) = #$8E), 'UpCaseCp: o of the page is O, ASCII, upper stays');
   FillChar(Ev, SizeOf(Ev), 0);
   Ev.What := evKeyDown;
-  Ev.CharCode := $AE;
-  Ev.KeyCode := $00AE;
-  Ev.ControlKeyState := kbLeftAlt;
+  Ev.KeyDown.CharScan.CharCode := $AE;
+  Ev.KeyDown.KeyCode := $00AE;
+  Ev.KeyDown.ControlKeyState := kbLeftAlt;
   Check(HotKeyAlt(#$8E, Ev), 'HotKeyAlt: Alt and a Cyrillic letter');
-  Ev.ControlKeyState := 0;
+  Ev.KeyDown.ControlKeyState := 0;
   Check(not HotKeyAlt(#$8E, Ev), 'HotKeyAlt: the letter without Alt is not');
   Utf8Enabled := False;
   Finish;

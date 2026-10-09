@@ -306,7 +306,7 @@ begin
         end;
       end;
     end;
-    WriteLineD(0, I, Size.X, 1, B);
+    WriteLine(0, I, Size.X, 1, B);
   end;
   B.Free;
 end;
@@ -334,9 +334,9 @@ begin
   if Event.What = evBroadcast then
   begin
     { the dialog shows another attribute: take its half }
-    if Event.Command = cmColorSet then
+    if Event.Message.Command = cmColorSet then
     begin
-      Attr := Event.InfoByte;
+      Attr := Event.Message.InfoByte;
       if SelType = csForeground then
         Color := Attr and $0F
       else
@@ -354,9 +354,9 @@ begin
     evMouseDown:
       begin
         repeat
-          if MouseInView(Event.Where) then
+          if MouseInView(Event.Mouse.Where) then
           begin
-            Mouse := MakeLocal(Event.Where);
+            Mouse := MakeLocal(Event.Mouse.Where);
             Color := Mouse.Y * Cols + Mouse.X div 3;
           end
           else
@@ -366,7 +366,7 @@ begin
         until not MouseEvent(Event, evMouseMove);
       end;
     evKeyDown:
-      case CtrlToArrow(Event.KeyCode) of
+      case CtrlToArrow(Event.KeyDown.KeyCode) of
         kbLeft:
           if Color = 0 then
             Color := Last
@@ -426,10 +426,10 @@ begin
   inherited HandleEvent(Event);
   if Event.What <> evBroadcast then
     Exit;
-  if Event.Command <> cmColorSet then
+  if Event.Message.Command <> cmColorSet then
     Exit;
   { the attribute of the dialog is one of MonoColors: the cluster marks it }
-  Value := Event.InfoByte;
+  Value := Event.Message.InfoByte;
   DrawView;
 end;
 
@@ -499,13 +499,17 @@ begin
     invalid color }
   if AttrToBIOS(C) = 0 then
     C := ErrorAttr;
-  Len := TextWidthS(Text^);
+  Len := TText.Width(Text^);
   if Len < 1 then
     Len := 1;
   B := TDrawBuffer.Create(Size.X);
-  for I := 0 to Size.X div Len do
+  I := 0;
+  while I * Len <= Size.X do
+  begin
     B.MoveStrS(I * Len, Text^, C);
-  WriteLineD(0, 0, Size.X, Size.Y, B);
+    Inc(I);
+  end;
+  WriteLine(0, 0, Size.X, Size.Y, B);
   B.Free;
 end;
 
@@ -515,16 +519,16 @@ var
 begin
   inherited HandleEvent(Event);
   if (Event.What = evBroadcast) and (Color <> nil) then
-    case Event.Command of
+    case Event.Message.Command of
       cmColorBackgroundChanged:
         begin
-          Bios := (AttrToBIOS(Color^) and $0F) or ((Event.InfoByte shl 4) and $F0);
+          Bios := (AttrToBIOS(Color^) and $0F) or ((Event.Message.InfoByte shl 4) and $F0);
           Color^ := AttrFromBIOS(Bios);
           DrawView;
         end;
       cmColorForegroundChanged:
         begin
-          Bios := (AttrToBIOS(Color^) and $F0) or (Event.InfoByte and $0F);
+          Bios := (AttrToBIOS(Color^) and $F0) or (Event.Message.InfoByte and $0F);
           Color^ := AttrFromBIOS(Bios);
           DrawView;
         end;
@@ -719,8 +723,8 @@ end;
 procedure TColorGroupList.HandleEvent(var Event: TEvent);
 begin
   inherited HandleEvent(Event);
-  if (Event.What = evBroadcast) and (Event.Command = cmSaveColorIndex) then
-    SetGroupIndex(Focused, Event.InfoByte);
+  if (Event.What = evBroadcast) and (Event.Message.Command = cmSaveColorIndex) then
+    SetGroupIndex(Focused, Event.Message.InfoByte);
 end;
 
 procedure TColorGroupList.SetGroupIndex(GroupNum, ItemNum: Byte);
@@ -843,9 +847,9 @@ var
   I: Integer;
 begin
   inherited HandleEvent(Event);
-  if (Event.What = evBroadcast) and (Event.Command = cmNewColorItem) then
+  if (Event.What = evBroadcast) and (Event.Message.Command = cmNewColorItem) then
   begin
-    G := PColorGroup(Event.InfoPtr);
+    G := PColorGroup(Event.Message.InfoPtr);
     Items := G^.Items;
     Cur := Items;
     I := 0;
@@ -870,7 +874,7 @@ var
   P: TView;
   Btn: TButton;
 begin
-  R.Assign(0, 0, 61, 18);
+  R := TRect.Create(0, 0, 61, 18);
   inherited Create(R, ColorsTitle);
   Options := Options or ofCentered;
   if Length(APalette) > 0 then
@@ -878,57 +882,57 @@ begin
   else
     Pal := nil;
 
-  R.Assign(18, 3, 19, 14);
+  R := TRect.Create(18, 3, 19, 14);
   SB := TScrollBar.Create(R);
   Insert(SB);
-  R.Assign(3, 3, 18, 14);
+  R := TRect.Create(3, 3, 18, 14);
   Groups := TColorGroupList.Create(R, SB, AGroups);
   Insert(Groups);
-  R.Assign(2, 2, 8, 3);
+  R := TRect.Create(2, 2, 8, 3);
   Lbl := TLabel.Create(R, GroupText, Groups);
   Insert(Lbl);
 
-  R.Assign(41, 3, 42, 14);
+  R := TRect.Create(41, 3, 42, 14);
   SB := TScrollBar.Create(R);
   Insert(SB);
-  R.Assign(21, 3, 41, 14);
+  R := TRect.Create(21, 3, 41, 14);
   P := TColorItemList.Create(R, SB, AGroups^.Items);
   Insert(P);
-  R.Assign(20, 2, 25, 3);
+  R := TRect.Create(20, 2, 25, 3);
   Lbl := TLabel.Create(R, ItemText, P);
   Insert(Lbl);
 
-  R.Assign(45, 3, 57, 7);
+  R := TRect.Create(45, 3, 57, 7);
   ForSel := TColorSelector.Create(R, csForeground);
   Insert(ForSel);
-  R.Assign(45, 2, 57, 3);
+  R := TRect.Create(45, 2, 57, 3);
   ForLabel := TLabel.Create(R, ForText, ForSel);
   Insert(ForLabel);
 
-  R.Assign(45, 9, 57, 11);
+  R := TRect.Create(45, 9, 57, 11);
   BakSel := TColorSelector.Create(R, csBackground);
   Insert(BakSel);
-  R.Assign(45, 8, 57, 9);
+  R := TRect.Create(45, 8, 57, 9);
   BakLabel := TLabel.Create(R, BakText, BakSel);
   Insert(BakLabel);
 
-  R.Assign(44, 12, 58, 14);
+  R := TRect.Create(44, 12, 58, 14);
   Display := TColorDisplay.Create(R, TextText);
   Insert(Display);
 
-  R.Assign(44, 3, 59, 7);
+  R := TRect.Create(44, 3, 59, 7);
   MonoSel := TMonoSelector.Create(R);
   MonoSel.Hide;
   Insert(MonoSel);
-  R.Assign(43, 2, 49, 3);
+  R := TRect.Create(43, 2, 49, 3);
   MonoLabel := TLabel.Create(R, ColorText, MonoSel);
   MonoLabel.Hide;
   Insert(MonoLabel);
 
-  R.Assign(36, 15, 46, 17);
+  R := TRect.Create(36, 15, 46, 17);
   Btn := TButton.Create(R, ColorOKText, cmOK, bfDefault);
   Insert(Btn);
-  R.Assign(48, 15, 58, 17);
+  R := TRect.Create(48, 15, 58, 17);
   Btn := TButton.Create(R, ColorCancelText, cmCancel, bfNormal);
   Insert(Btn);
   SelectNext(False);
@@ -976,12 +980,12 @@ end;
 
 procedure TColorDialog.HandleEvent(var Event: TEvent);
 begin
-  if (Event.What = evBroadcast) and (Event.Command = cmNewColorItem) then
+  if (Event.What = evBroadcast) and (Event.Message.Command = cmNewColorItem) then
     GroupIndex := Groups.Focused;
   inherited HandleEvent(Event);
-  if (Event.What = evBroadcast) and (Event.Command = cmNewColorIndex) and
-    (Event.InfoByte < Length(Pal)) then
-    Display.SetColor(@Pal[Event.InfoByte]);
+  if (Event.What = evBroadcast) and (Event.Message.Command = cmNewColorIndex) and
+    (Event.Message.InfoByte < Length(Pal)) then
+    Display.SetColor(@Pal[Event.Message.InfoByte]);
 end;
 
 function TColorDialog.DataSize: Integer;

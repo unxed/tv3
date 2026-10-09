@@ -15,95 +15,37 @@ interface
 type
   TPoint = record
     X, Y: Integer;
-    { the methods of the point of DN (Dos Navigator): equality, assignment, order (by rows, then by columns) }
-    procedure Assign(AX, AY: Integer);
-    function Equals(const P: TPoint): Boolean;
-    function EqualsXY(AX, AY: Integer): Boolean;
-    function isLE(const P: TPoint): Boolean;
-    function isGE(const P: TPoint): Boolean;
+    class operator +(const P1, P2: TPoint): TPoint;
+    class operator -(const P1, P2: TPoint): TPoint;
+    class operator =(const P1, P2: TPoint): Boolean;
+    class operator <>(const P1, P2: TPoint): Boolean;
   end;
   PPoint = ^TPoint;
 
   TRect = record
     A, B: TPoint;
-    procedure Assign(XA, YA, XB, YB: Integer);
-    procedure Copy(const R: TRect);
+    constructor Create(AX, AY, BX, BY: Integer); overload;
+    constructor Create(const P1, P2: TPoint); overload;
     procedure Move(ADX, ADY: Integer);
     procedure Grow(ADX, ADY: Integer);
     procedure Intersect(const R: TRect);
     procedure Union(const R: TRect);
     function Contains(const P: TPoint): Boolean;
-    function Equals(const R: TRect): Boolean;
     function IsEmpty: Boolean;
+    class operator =(const R1, R2: TRect): Boolean;
+    class operator <>(const R1, R2: TRect): Boolean;
   end;
   PRect = ^TRect;
 
+{ A point with the coordinates AX, AY (the brace initializer of a point). }
 function Point(AX, AY: Integer): TPoint; inline;
-function PointAdd(const P1, P2: TPoint): TPoint; inline;
-function PointSub(const P1, P2: TPoint): TPoint; inline;
-function PointEq(const P1, P2: TPoint): Boolean; inline;
 
 implementation
-
-procedure TPoint.Assign(AX, AY: Integer);
-begin
-  X := AX;
-  Y := AY;
-end;
-
-function TPoint.Equals(const P: TPoint): Boolean;
-begin
-  Result := (X = P.X) and (Y = P.Y);
-end;
-
-function TPoint.EqualsXY(AX, AY: Integer): Boolean;
-begin
-  Result := (X = AX) and (Y = AY);
-end;
-
-function TPoint.isLE(const P: TPoint): Boolean;
-begin
-  Result := (Y < P.Y) or ((Y = P.Y) and (X <= P.X));
-end;
-
-function TPoint.isGE(const P: TPoint): Boolean;
-begin
-  Result := (Y > P.Y) or ((Y = P.Y) and (X >= P.X));
-end;
 
 function Point(AX, AY: Integer): TPoint;
 begin
   Result.X := AX;
   Result.Y := AY;
-end;
-
-function PointAdd(const P1, P2: TPoint): TPoint;
-begin
-  Result.X := P1.X + P2.X;
-  Result.Y := P1.Y + P2.Y;
-end;
-
-function PointSub(const P1, P2: TPoint): TPoint;
-begin
-  Result.X := P1.X - P2.X;
-  Result.Y := P1.Y - P2.Y;
-end;
-
-function PointEq(const P1, P2: TPoint): Boolean;
-begin
-  Result := (P1.X = P2.X) and (P1.Y = P2.Y);
-end;
-
-procedure TRect.Assign(XA, YA, XB, YB: Integer);
-begin
-  A := Point(XA, YA);
-  B := Point(XB, YB);
-end;
-
-procedure TRect.Copy(const R: TRect);
-begin
-  A := R.A;
-  B := R.B;
 end;
 
 procedure TRect.Move(ADX, ADY: Integer);
@@ -144,14 +86,55 @@ begin
   Result := (A.X <= P.X) and (A.Y <= P.Y) and (P.X < B.X) and (P.Y < B.Y);
 end;
 
-function TRect.Equals(const R: TRect): Boolean;
-begin
-  Result := PointEq(A, R.A) and PointEq(B, R.B);
-end;
-
 function TRect.IsEmpty: Boolean;
 begin
   Result := (B.X <= A.X) or (B.Y <= A.Y);
+end;
+
+class operator TPoint.+(const P1, P2: TPoint): TPoint;
+begin
+  Result.X := P1.X + P2.X;
+  Result.Y := P1.Y + P2.Y;
+end;
+
+class operator TPoint.-(const P1, P2: TPoint): TPoint;
+begin
+  Result.X := P1.X - P2.X;
+  Result.Y := P1.Y - P2.Y;
+end;
+
+class operator TPoint.=(const P1, P2: TPoint): Boolean;
+begin
+  Result := (P1.X = P2.X) and (P1.Y = P2.Y);
+end;
+
+class operator TPoint.<>(const P1, P2: TPoint): Boolean;
+begin
+  Result := not (P1 = P2);
+end;
+
+constructor TRect.Create(AX, AY, BX, BY: Integer);
+begin
+  A.X := AX;
+  A.Y := AY;
+  B.X := BX;
+  B.Y := BY;
+end;
+
+constructor TRect.Create(const P1, P2: TPoint);
+begin
+  A := P1;
+  B := P2;
+end;
+
+class operator TRect.=(const R1, R2: TRect): Boolean;
+begin
+  Result := (R1.A = R2.A) and (R1.B = R2.B);
+end;
+
+class operator TRect.<>(const R1, R2: TRect): Boolean;
+begin
+  Result := not (R1 = R2);
 end;
 
 end.

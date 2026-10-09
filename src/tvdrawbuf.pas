@@ -135,10 +135,10 @@ begin
   if not IsKeepAttr(Attr) then
   begin
     A := Attr;
-    Result := TextDrawStr(Data, Indent + MaxStrWidth, Indent, Str, Len, StrIndent, @A);
+    Result := TText.DrawStr(Data, Indent + MaxStrWidth, Indent, Str, Len, StrIndent, @A);
   end
   else
-    Result := TextDrawStr(Data, Indent + MaxStrWidth, Indent, Str, Len, StrIndent, nil);
+    Result := TText.DrawStr(Data, Indent + MaxStrWidth, Indent, Str, Len, StrIndent, nil);
 end;
 
 function TDrawBuffer.MoveStrS(Indent: Integer; const S: ShortString; Attr: TColorAttr;
@@ -176,12 +176,12 @@ begin
     end
     else if StrIndent <= W then
     begin
-      if not TextDrawOne(Data, CellCount, I, Str, Len, J, @Cur) then
+      if not TText.DrawOne(Data, CellCount, I, Str, Len, J, @Cur) then
         Break;
     end
     else
     begin
-      if not TextNext(Str + J, Len - J, L, CW) then
+      if not TText.Next(Str + J, Len - J, L, CW) then
         Break;
       Inc(J, L);
       Inc(W, CW);

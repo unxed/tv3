@@ -79,7 +79,7 @@ begin
       N := Delta.Y + Row;
       if (N >= Low(Lines)) and (N <= High(Lines)) then
         Buf.MoveStrS(0, Lines[N], Color, Size.X, Delta.X);
-      WriteLineD(0, Row, Size.X, 1, Buf);
+      WriteLine(0, Row, Size.X, 1, Buf);
     end;
   finally
     Buf.Free;
@@ -142,7 +142,7 @@ var
   S: TLinesView;
 begin
   Inc(Count);
-  R.Assign(2 + Count * 3, 1 + Count, 44 + Count * 3, 14 + Count);
+  R := TRect.Create(2 + Count * 3, 1 + Count, 44 + Count * 3, 14 + Count);
   W := TWindow.Create(R, 'Window', Count);
   W.Options := W.Options or ofTileable;
   H := W.StandardScrollBar(sbHorizontal or sbHandleKeyboard);
@@ -186,7 +186,7 @@ var
   R: TRect;
 begin
   { at the right end of the menu row; the clock of TvGadgets fits its width to the text, one blank cell at the right }
-  R.Assign(Size.X - 10, 0, Size.X, 1);
+  R := TRect.Create(Size.X - 10, 0, Size.X, 1);
   Clock := TClockView.Create(R);
   Clock.Margin := 1;
   Clock.GrowMode := gfGrowLoX or gfGrowHiX;
@@ -197,12 +197,12 @@ end;
 procedure TDemoApp.HandleEvent(var Event: TEvent);
 begin
   inherited HandleEvent(Event);
-  if (Event.What = evCommand) and (Event.Command = cmNewWin) then
+  if (Event.What = evCommand) and (Event.Message.Command = cmNewWin) then
   begin
     NewWindow;
     ClearEvent(Event);
   end;
-  if (Event.What = evCommand) and (Event.Command = cmAsciiTable) then
+  if (Event.What = evCommand) and (Event.Message.Command = cmAsciiTable) then
   begin
     ShowAsciiTable;
     ClearEvent(Event);
@@ -225,7 +225,7 @@ begin
       DosDumpScreen('SCR.DAT');
       ClearEvent(Ev);
       Ev.What := evCommand;
-      Ev.Command := cmQuit;
+      Ev.Message.Command := cmQuit;
       PutEvent(Ev);
     end;
   end;

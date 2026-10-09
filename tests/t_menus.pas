@@ -74,7 +74,7 @@ end;
 procedure TTop.Held(KeyCode: Word);
 begin
   MakeKeyEvent(Queue[QCount], KeyCode, 0);
-  Queue[QCount].KeyFlags := kfRepeat;
+  Queue[QCount].KeyDown.KeyFlags := kfRepeat;
   Inc(QCount);
 end;
 
@@ -82,15 +82,15 @@ procedure TTop.Mouse(What: Word; X, Y: Integer);
 begin
   ClearEvent(Queue[QCount]);
   Queue[QCount].What := What;
-  Queue[QCount].Where.X := X;
-  Queue[QCount].Where.Y := Y;
-  Queue[QCount].Buttons := mbLeftButton;
+  Queue[QCount].Mouse.Where.X := X;
+  Queue[QCount].Mouse.Where.Y := Y;
+  Queue[QCount].Mouse.Buttons := mbLeftButton;
   Inc(QCount);
 end;
 
 function Cell(X, Y: Integer): PScreenCell;
 begin
-  Result := ScreenBuffer + (Y * ScreenWidth + X);
+  Result := TScreen.ScreenBuffer + (Y * TScreen.ScreenWidth + X);
 end;
 
 function CellText(X, Y: Integer): ShortString;
@@ -128,7 +128,7 @@ end;
 
 function R(A, B, C, D: Integer): TRect;
 begin
-  Result.Assign(A, B, C, D);
+  Result := TRect.Create(A, B, C, D);
 end;
 
 function FileMenu: PMenu;
@@ -187,7 +187,7 @@ begin
   UsedBase := GetFPCHeapStatus.CurrHeapUsed;
   Desk := TTop.Create(R(0, 0, W, H));
   Desk.Options := 0;
-  Desk.Buffer := ScreenBuffer;
+  Desk.Buffer := TScreen.ScreenBuffer;
   Desk.State := sfVisible or sfSelected or sfFocused or sfModal or sfExposed;
   Desk.Reset;
   TView.EnableCommands([cmOpen, cmSave, cmQuit, cmUndo]);
@@ -357,18 +357,18 @@ begin
   Desk.Key(kbEnter);
   MakeKeyEvent(Ev, kbAltF, kbAltShift);
   Bar.HandleEvent(Ev);
-  Check((Desk.LastPut.What = evCommand) and (Desk.LastPut.Command = cmOpen),
+  Check((Desk.LastPut.What = evCommand) and (Desk.LastPut.Message.Command = cmOpen),
     'Alt+hot letter opens the menu and the chosen command is put back');
   Check(Ev.What = evNothing, 'the key event is handled');
   Desk.Reset;
   MakeKeyEvent(Ev, kbF3, 0);
   Bar.HandleEvent(Ev);
-  Check((Desk.LastPut.What = evCommand) and (Desk.LastPut.Command = cmOpen) and
+  Check((Desk.LastPut.What = evCommand) and (Desk.LastPut.Message.Command = cmOpen) and
     (Ev.What = evNothing), 'a hot key becomes a command');
   Desk.Reset;
   MakeKeyEvent(Ev, kbAltX, kbAltShift);
   Bar.HandleEvent(Ev);
-  Check((Desk.LastPut.What = evCommand) and (Desk.LastPut.Command = cmQuit),
+  Check((Desk.LastPut.What = evCommand) and (Desk.LastPut.Message.Command = cmQuit),
     'a hot key found in a submenu');
   Desk.Reset;
   MakeKeyEvent(Ev, kbF9, 0);
@@ -379,7 +379,7 @@ begin
   Desk.Key(kbEsc);
   ClearEvent(Ev);
   Ev.What := evCommand;
-  Ev.Command := cmMenu;
+  Ev.Message.Command := cmMenu;
   Bar.HandleEvent(Ev);
   Check(Ev.What = evNothing, 'cmMenu is handled');
 
@@ -387,7 +387,7 @@ begin
   TView.DisableCommand(cmSave);
   ClearEvent(Ev);
   Ev.What := evBroadcast;
-  Ev.Command := cmCommandSetChanged;
+  Ev.Message.Command := cmCommandSetChanged;
   Bar.HandleEvent(Ev);
   Check(Bar.Menu^.Items^.SubMenu^.Items^.Next^.Disabled, 'cmCommandSetChanged updates the entries');
   Desk.Reset;
@@ -401,7 +401,7 @@ begin
   TView.EnableCommand(cmSave);
   ClearEvent(Ev);
   Ev.What := evBroadcast;
-  Ev.Command := cmCommandSetChanged;
+  Ev.Message.Command := cmCommandSetChanged;
   Bar.HandleEvent(Ev);
   Check(not Bar.Menu^.Items^.SubMenu^.Items^.Next^.Disabled, 'and enables them again');
   { a disabled command is not chosen by Enter }
@@ -417,20 +417,20 @@ begin
   Desk.Mouse(evMouseUp, 8, 2);
   ClearEvent(Ev);
   Ev.What := evMouseDown;
-  Ev.Where.X := 8; Ev.Where.Y := 0;
-  Ev.Buttons := mbLeftButton;
+  Ev.Mouse.Where.X := 8; Ev.Mouse.Where.Y := 0;
+  Ev.Mouse.Buttons := mbLeftButton;
   Bar.HandleEvent(Ev);
-  Check((Desk.LastPut.What = evCommand) and (Desk.LastPut.Command = cmUndo),
+  Check((Desk.LastPut.What = evCommand) and (Desk.LastPut.Message.Command = cmUndo),
     'press on a name, release on an entry chooses it');
   { a click outside closes the menu and the click is put back }
   Desk.Reset;
   Desk.Mouse(evMouseDown, 30, 8);
   ClearEvent(Ev);
   Ev.What := evMouseDown;
-  Ev.Where.X := 3; Ev.Where.Y := 0;
-  Ev.Buttons := mbLeftButton;
+  Ev.Mouse.Where.X := 3; Ev.Mouse.Where.Y := 0;
+  Ev.Mouse.Buttons := mbLeftButton;
   Bar.HandleEvent(Ev);
-  Check((Desk.LastPut.What = evMouseDown) and (Desk.LastPut.Where.X = 30), 'a click outside closes the menu and is put back');
+  Check((Desk.LastPut.What = evMouseDown) and (Desk.LastPut.Mouse.Where.X = 30), 'a click outside closes the menu and is put back');
 
   { --- help context ---------------------------------------------------------------------------- }
   Bar.HelpCtx := 77;
@@ -456,7 +456,7 @@ begin
   Desk.Reset;
   MakeKeyEvent(Ev, kbCtrlB, kbCtrlShift);
   Popup.HandleEvent(Ev);
-  Check((Desk.LastPut.What = evCommand) and (Desk.LastPut.Command = cmSave) and
+  Check((Desk.LastPut.What = evCommand) and (Desk.LastPut.Message.Command = cmSave) and
     (Ev.What = evNothing), 'Ctrl+hot letter chooses an entry of a popup');
   Desk.Reset;
   MakeKeyEvent(Ev, kbAltQ, kbAltShift);

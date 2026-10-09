@@ -6,7 +6,7 @@ uses TvGeom, TvCell, TvCodePg, TvEvents, TvKeys, TvViews, TvObjs, TvUtil, TvMem,
 
 function R(A, B, C, D: Integer): TRect;
 begin
-  Result.Assign(A, B, C, D);
+  Result := TRect.Create(A, B, C, D);
 end;
 
 procedure Key(V: TView; Code: Word; Mods: Word = 0);

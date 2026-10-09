@@ -16,9 +16,9 @@ the library (`source/tvision`, `source/platform`, `include/tvision` without `com
    `P: PView` changes minimally. The compiler zeroes instance fields itself. The stream
    registry works through the root class `TStreamable`, from which all
    registered classes inherit.
-3. **Names — as in Pascal TV** (`TView.HandleEvent`, `TRect.Assign`, `cmQuit`, `kbEnter`):
-   method and constant names are the interface that DN uses. Methods that Pascal TV does not
-   have (the Unicode ones from magiblot) are named as in magiblot, with a capital first letter.
+3. **Names — as in tvision** (`TView.HandleEvent`, `TRect.Create`, `cmQuit`, `kbEnter`): the names of the classes,
+   methods, fields, constants and functions of magiblot/tvision in Pascal spelling (a capital first letter). Where the
+   C++ form cannot be written in Pascal the difference and its reason are in `docs/API-NAMES.md`.
 4. **Integers:** `Integer` is 32 bits (`objfpc` mode), `Int32` explicitly where the width matters.
    There are no 16-bit assumptions.
 5. **Strings:** the public API is `ShortString` (as in DN), internally the text is UTF-8 bytes.
@@ -119,10 +119,11 @@ collections and streams, the editor — to the extent that DN uses them.
   and it is easy to work with pieces of a buffer. Cells are `PScreenCell` + a counter. The attribute is
   optional (`PColorAttr`, `nil` means do not change). Invalid UTF-8 is treated as a character
   of width 1 and is drawn through the code page.
-- **Events.** `TEvent` is one flat record, as in Pascal TV (`Event.Where`,
-  `Event.KeyCode`, `Event.Command`, `Event.InfoPtr`), and not magiblot's nested structures.
-  `ControlKeyState` is shared by the keyboard and the mouse and sits in the common part of the record. The key
-  text is UTF-8 (`Text`, `TextLength`). The event queue, the mouse and the screen (`TEventQueue`,
+- **Events.** `TEvent` has the structures of tvision (`Event.Mouse.Where`, `Event.KeyDown.KeyCode`,
+  `Event.KeyDown.CharScan.CharCode`, `Event.Message.Command`, `Event.Message.InfoPtr`).
+  `ControlKeyState` is the first field of `MouseEventType` and of `KeyDownEvent`, so both name the same memory; `MessageEvent`
+  keeps that place free (`CommandPadding`), so a command made of a key keeps its modifiers. The key
+  text is UTF-8 (`KeyDown.Text`, `KeyDown.TextLength`). The event queue, the mouse and the screen (`TEventQueue`,
   `THWMouse`, `TScreen`) are platform code, replaced by the backends.
 - **Keys.** The `kb*` codes are BIOS codes (scan code in the high byte, character in the low byte).
   The modifiers are the DOS BIOS set (`kbShift=3`, `kbCtrlShift=4`, `kbAltShift=8`,
@@ -208,14 +209,14 @@ collections and streams, the editor — to the extent that DN uses them.
   $B3 and a space. `Update` takes the help context from `TopView` — it will be called by
   `TProgram.Idle` (unit `TvApp`).
 - **The backend is a set of `TvSys` hooks** (`OnPollEvent`, `GetClockMs`, `OnSetVideoMode`,
-  `OnSuspend/OnResume`, `ScreenMode`) and `TvScreen` hooks (write, caret). `PollEvent(TimeoutMs)`
+  `OnSuspend/OnResume`; the mode is `TScreen.ScreenMode`) and `TvScreen` hooks (write, caret). `PollEvent(TimeoutMs)`
   waits up to `TimeoutMs` ms for one event (the mouse takes priority over the keyboard) and returns `evNothing` if
   nothing happened; then `TProgram.GetEvent` calls `Idle`. This way the DOS, terminal and
   Windows backends plug in without changes in `TvApp`.
 - **`TProgram`:** the desktop, the status line and the menu bar are created by the virtual methods
   `InitDeskTop`, `InitStatusLine`, `InitMenuBar` (in `Init` they are called in that order);
-  the class variables of the original (`Application`, `StatusLine`, `MenuBar`, `DeskTop`, `AppPalette`,
-  `EventTimeoutMs`) are unit variables. The application palettes (`cpAppColor`, etc.) are generated
+  `Application`, `StatusLine`, `MenuBar`, `DeskTop`, `AppPalette`, `EventTimeoutMs` and `Pending` are class
+  variables of `TProgram`, as in the original. The application palettes (`cpAppColor`, etc.) are generated
   from `app.h` into `tvapppal.inc` (135 values each, the count is verified). For hidden status line
   items (a key without text) `NewStatusKey` with empty text stores `nil`.
 - **Timers** send the program `cmTimerExpired` with the timer identifier in `InfoPtr`;
@@ -385,9 +386,8 @@ collections and streams, the editor — to the extent that DN uses them.
 - The character is a byte of the screen's code page (as in `TDrawBuffer.MoveChar`); colors with RGB/xterm lose precision
   when converted to a BIOS byte — for DOS and 16 colors this is lossless.
 
-- `TListBox.List` (and not `Items`): a field name from Pascal TV (`TListBoxRec.List`); in `TSortedListBox` the typed access
-  became the function `SortedList` (in C++ it is `list()`). The Pascal TV forms `GetBounds/GetExtent/GetClipRect(var R)` and
-  `MakeLocal/MakeGlobal(Source; var Dest)` are overloads (`overload`) of the magiblot functions.
+- `TListBox.Items` is the collection and `TListBox.List` returns it (`items` and `list()` of tvision; `TListBoxRec.Items`);
+  in `TSortedListBox` the typed access is the function `SortedList`.
 - The streams (`TvObjs`) were extended for DN: positions and sizes are `Int64` (`GetPos`, `GetSize`, `Seek`, `CopyFrom`), `Write(const Buf; ...)`;
   `Eof`, `ReadStrV`, `ReadLongStr`/`ReadLongStrV`/`WriteLongStr` (length `LongInt`), `StrRead`/`StrWrite` (length `Word`),
   for `TDosStream` — `Open`, `DoOpen`, `Close`, `ReadBlock`, the field `FName`. The string format is ours; DN resources

@@ -84,7 +84,7 @@ var
 
   procedure Button(X, Y: Integer; const Title: ShortString; Command: Word);
   begin
-    R.Assign(X, Y, X + 24, Y + 2);
+    R := TRect.Create(X, Y, X + 24, Y + 2);
     D.Insert(TButton.Create(R, Title, Command, bfNormal));
   end;
 
@@ -92,10 +92,10 @@ begin
   Result := vcaBlock;
   if (TProgram.Application = nil) or (TProgram.DeskTop = nil) then
     Exit;
-  R.Assign(0, 0, 58, 11);
+  R := TRect.Create(0, 0, 58, 11);
   R.Move((TProgram.DeskTop.Size.X - 58) div 2, (TProgram.DeskTop.Size.Y - 11) div 2);
   D := TDialog.Create(R, 'Clipboard access');
-  R.Assign(3, 2, 55, 4);
+  R := TRect.Create(3, 2, 55, 4);
   D.Insert(TStaticText.Create(R, 'Please choose how this terminal application may use clipboard'));
   Button(4, 5, '~B~lock attempt', cmCancel);
   Button(30, 5, '~R~emote clipboard', cmNo);
@@ -337,7 +337,7 @@ var
   B: Integer;
   S: AnsiString;
 begin
-  P := MakeLocal(Event.Where);
+  P := MakeLocal(Event.Mouse.Where);
   if Emu.Ext.Active then
   begin
     if Event.What = evMouseAuto then
@@ -345,17 +345,17 @@ begin
       ClearEvent(Event);
       Exit;
     end;
-    if (Event.Buttons and mbMiddleButton) <> 0 then
+    if (Event.Mouse.Buttons and mbMiddleButton) <> 0 then
       Emu.Ext.PasteGesture;
     if (Event.What = evMouseDown) and not GetState(sfFocused) then
       Select;
     if Event.What = evMouseUp then
-      SendBytes(Emu.Ext.MouseEvent(P.X, P.Y, 0, 0, False, False, Event.ControlKeyState))
+      SendBytes(Emu.Ext.MouseEvent(P.X, P.Y, 0, 0, False, False, Event.KeyDown.ControlKeyState))
     else if Event.What = evMouseWheel then
-      SendBytes(Emu.Ext.MouseEvent(P.X, P.Y, Event.Buttons, Event.Wheel, False, False, Event.ControlKeyState))
+      SendBytes(Emu.Ext.MouseEvent(P.X, P.Y, Event.Mouse.Buttons, Event.Mouse.Wheel, False, False, Event.KeyDown.ControlKeyState))
     else
-      SendBytes(Emu.Ext.MouseEvent(P.X, P.Y, Event.Buttons, 0, Event.What = evMouseMove, (Event.EventFlags and meDoubleClick) <> 0,
-        Event.ControlKeyState));
+      SendBytes(Emu.Ext.MouseEvent(P.X, P.Y, Event.Mouse.Buttons, 0, Event.What = evMouseMove, (Event.Mouse.EventFlags and meDoubleClick) <> 0,
+        Event.KeyDown.ControlKeyState));
     ClearEvent(Event);
     Exit;
   end;
@@ -363,9 +363,9 @@ begin
   begin
     if (Event.What = evMouseWheel) then
     begin
-      if (Event.Wheel and mwUp) <> 0 then
+      if (Event.Mouse.Wheel and mwUp) <> 0 then
         ScrollBack(3)
-      else if (Event.Wheel and mwDown) <> 0 then
+      else if (Event.Mouse.Wheel and mwDown) <> 0 then
         ScrollBack(-3);
       ClearEvent(Event);
     end
@@ -377,19 +377,19 @@ begin
     Exit;
   end;
   B := -1;
-  if (Event.Buttons and mbLeftButton) <> 0 then B := 0
-  else if (Event.Buttons and mbMiddleButton) <> 0 then B := 1
-  else if (Event.Buttons and mbRightButton) <> 0 then B := 2;
+  if (Event.Mouse.Buttons and mbLeftButton) <> 0 then B := 0
+  else if (Event.Mouse.Buttons and mbMiddleButton) <> 0 then B := 1
+  else if (Event.Mouse.Buttons and mbRightButton) <> 0 then B := 2;
   S := '';
   case Event.What of
-    evMouseDown, evMouseAuto: S := VtMouseBytes(Emu.MouseMode, Emu.MouseEnc, P.X, P.Y, B, True, False, 0, Event.ControlKeyState);
-    evMouseUp: S := VtMouseBytes(Emu.MouseMode, Emu.MouseEnc, P.X, P.Y, 0, False, False, 0, Event.ControlKeyState);
-    evMouseMove: S := VtMouseBytes(Emu.MouseMode, Emu.MouseEnc, P.X, P.Y, B, False, True, 0, Event.ControlKeyState);
+    evMouseDown, evMouseAuto: S := VtMouseBytes(Emu.MouseMode, Emu.MouseEnc, P.X, P.Y, B, True, False, 0, Event.KeyDown.ControlKeyState);
+    evMouseUp: S := VtMouseBytes(Emu.MouseMode, Emu.MouseEnc, P.X, P.Y, 0, False, False, 0, Event.KeyDown.ControlKeyState);
+    evMouseMove: S := VtMouseBytes(Emu.MouseMode, Emu.MouseEnc, P.X, P.Y, B, False, True, 0, Event.KeyDown.ControlKeyState);
     evMouseWheel:
-      if (Event.Wheel and mwUp) <> 0 then
-        S := VtMouseBytes(Emu.MouseMode, Emu.MouseEnc, P.X, P.Y, 0, True, False, 1, Event.ControlKeyState)
-      else if (Event.Wheel and mwDown) <> 0 then
-        S := VtMouseBytes(Emu.MouseMode, Emu.MouseEnc, P.X, P.Y, 0, True, False, 2, Event.ControlKeyState);
+      if (Event.Mouse.Wheel and mwUp) <> 0 then
+        S := VtMouseBytes(Emu.MouseMode, Emu.MouseEnc, P.X, P.Y, 0, True, False, 1, Event.KeyDown.ControlKeyState)
+      else if (Event.Mouse.Wheel and mwDown) <> 0 then
+        S := VtMouseBytes(Emu.MouseMode, Emu.MouseEnc, P.X, P.Y, 0, True, False, 2, Event.KeyDown.ControlKeyState);
   end;
   if (Event.What = evMouseDown) and not GetState(sfFocused) then
     Select;
@@ -402,13 +402,13 @@ function IsPasteKey(const Event: TEvent): Boolean;
 var
   M: Word;
 begin
-  M := Event.ControlKeyState;
+  M := Event.KeyDown.ControlKeyState;
   if (M and kbAltShift) <> 0 then
     Exit(False);
   if (M and kbCtrlShift) <> 0 then
     Result := (EventVirtualKey(Event) = Ord('V'))
   else
-    Result := (Event.KeyCode = kbShiftIns) or ((Event.KeyCode = kbIns) and ((M and kbShift) <> 0));
+    Result := (Event.KeyDown.KeyCode = kbShiftIns) or ((Event.KeyDown.KeyCode = kbIns) and ((M and kbShift) <> 0));
 end;
 
 procedure TVtView.HandleEvent(var Event: TEvent);
@@ -423,13 +423,13 @@ begin
           Exit;
         if Assigned(KeyFilter) and KeyFilter(Event) then
           Exit;
-        if (Event.KeyCode = kbPgUp) and ((Event.ControlKeyState and kbShift) <> 0) then
+        if (Event.KeyDown.KeyCode = kbPgUp) and ((Event.KeyDown.ControlKeyState and kbShift) <> 0) then
         begin
           ScrollBack(Size.Y - 1);
           ClearEvent(Event);
           Exit;
         end;
-        if (Event.KeyCode = kbPgDn) and ((Event.ControlKeyState and kbShift) <> 0) then
+        if (Event.KeyDown.KeyCode = kbPgDn) and ((Event.KeyDown.ControlKeyState and kbShift) <> 0) then
         begin
           ScrollBack(-(Size.Y - 1));
           ClearEvent(Event);
@@ -448,7 +448,7 @@ begin
           ClearEvent(Event);
           Exit;
         end;
-        if (Event.ControlKeyState and kbPaste) <> 0 then
+        if (Event.KeyDown.ControlKeyState and kbPaste) <> 0 then
         begin
           if Emu.BracketedPaste and not PasteOpen then
           begin
@@ -481,7 +481,7 @@ begin
     evMouseDown, evMouseUp, evMouseMove, evMouseAuto, evMouseWheel:
       Mouse(Event);
     evBroadcast:
-      if (Event.Command = cmTimerExpired) and (Event.InfoPtr = Timer) then
+      if (Event.Message.Command = cmTimerExpired) and (Event.Message.InfoPtr = Timer) then
       begin
         if Pump then
           DrawView;

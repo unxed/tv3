@@ -31,7 +31,7 @@ var
 begin
   MakeKeyEvent(E, Code, 0);
   if Ch <> #0 then
-    E.CharCode := Ord(Ch);
+    E.KeyDown.CharScan.CharCode := Ord(Ch);
   V.HandleEvent(E);
 end;
 
@@ -142,8 +142,8 @@ begin
   { a double click is turned into cmOK }
   ClearEvent(E);
   E.What := evBroadcast;
-  E.Command := cmFileDoubleClicked;
-  E.InfoPtr := Dlg.FileList.List.At(0);
+  E.Message.Command := cmFileDoubleClicked;
+  E.Message.InfoPtr := Dlg.FileList.List.At(0);
   Dlg.HandleEvent(E);
   Check(E.What = evNothing, 'a double click is handled');
   Check(Dlg.FileList.SearchPos = -1, 'no search is running');

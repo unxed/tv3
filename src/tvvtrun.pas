@@ -48,12 +48,12 @@ end;
 { Ctrl+V (not with Alt) or Shift+Ins (not with Ctrl or Alt): the program may read the clipboard for a while }
 function PasteKey(const Ev: TEvent): Boolean;
 begin
-  if (Ev.ControlKeyState and kbAltShift) <> 0 then
+  if (Ev.KeyDown.ControlKeyState and kbAltShift) <> 0 then
     Result := False
-  else if (Ev.ControlKeyState and kbCtrlShift) <> 0 then
+  else if (Ev.KeyDown.ControlKeyState and kbCtrlShift) <> 0 then
     Result := EventVirtualKey(Ev) = Ord('V')
   else
-    Result := Ev.KeyCode = kbShiftIns;
+    Result := Ev.KeyDown.KeyCode = kbShiftIns;
 end;
 
 { OSC 52 of the program on the whole screen: it sets and reads the clipboard of the application }
@@ -70,23 +70,23 @@ end;
 
 procedure FitEmu(var Emu: TVtEmu);
 begin
-  if (ScreenWidth > 0) and ((Emu.Cols <> ScreenWidth) or (Emu.RowCount <> ScreenHeight)) then
-    Emu.Resize(ScreenWidth, ScreenHeight);
+  if (TScreen.ScreenWidth > 0) and ((Emu.Cols <> TScreen.ScreenWidth) or (Emu.RowCount <> TScreen.ScreenHeight)) then
+    Emu.Resize(TScreen.ScreenWidth, TScreen.ScreenHeight);
 end;
 
 procedure Blit(var Emu: TVtEmu; All: Boolean);
 var
   X, Y, W: Integer;
 begin
-  W := ScreenWidth;
-  if (ScreenBuffer = nil) or (W <= 0) then
+  W := TScreen.ScreenWidth;
+  if (TScreen.ScreenBuffer = nil) or (W <= 0) then
     Exit;
-  for Y := 0 to ScreenHeight - 1 do
+  for Y := 0 to TScreen.ScreenHeight - 1 do
     if All or Emu.RowDirty(Y) then
     begin
       for X := 0 to W - 1 do
-        ScreenBuffer[Y * W + X] := Emu.CellAt(X, Y);
-      ScreenWrite(0, Y, @ScreenBuffer[Y * W], W);
+        TScreen.ScreenBuffer[Y * W + X] := Emu.CellAt(X, Y);
+      ScreenWrite(0, Y, @TScreen.ScreenBuffer[Y * W], W);
     end;
   Emu.ClearDirty;
   if Emu.CursorVisible then
@@ -104,7 +104,7 @@ end;
 procedure ScreenAgain;
 begin
   if Assigned(OnSetVideoMode) then
-    OnSetVideoMode(smUpdate);
+    OnSetVideoMode(TDisplay.smUpdate);
 end;
 
 function VtRunScreen(var Emu: TVtEmu; const Prog: AnsiString; const Args: array of AnsiString; const Cwd, Echo: AnsiString; Pause: Integer): Integer;
@@ -127,7 +127,7 @@ var
 
 begin
   if Emu = nil then
-    Emu := TVtEmu.Create(ScreenWidth, ScreenHeight, 2000);
+    Emu := TVtEmu.Create(TScreen.ScreenWidth, TScreen.ScreenHeight, 2000);
   Pty := TPty.Create;
   FitEmu(Emu);
   Emu.OnClip := @RunClip;
@@ -182,15 +182,15 @@ begin
           end;
         evMouseDown, evMouseMove, evMouseWheel:
           begin
-            if (Ev.Buttons and mbMiddleButton) <> 0 then
+            if (Ev.Mouse.Buttons and mbMiddleButton) <> 0 then
               Emu.Ext.PasteGesture;
-            Send(Emu.Ext.MouseEvent(Ev.Where.X, Ev.Where.Y, Ev.Buttons, Ev.Wheel * Ord(Ev.What = evMouseWheel), Ev.What = evMouseMove,
-              (Ev.EventFlags and meDoubleClick) <> 0, Ev.ControlKeyState));
+            Send(Emu.Ext.MouseEvent(Ev.Mouse.Where.X, Ev.Mouse.Where.Y, Ev.Mouse.Buttons, Ev.Mouse.Wheel * Ord(Ev.What = evMouseWheel), Ev.What = evMouseMove,
+              (Ev.Mouse.EventFlags and meDoubleClick) <> 0, Ev.KeyDown.ControlKeyState));
             Ev.What := evNothing;
           end;
         evMouseUp:
           begin
-            Send(Emu.Ext.MouseEvent(Ev.Where.X, Ev.Where.Y, 0, 0, False, False, Ev.ControlKeyState));
+            Send(Emu.Ext.MouseEvent(Ev.Mouse.Where.X, Ev.Mouse.Where.Y, 0, 0, False, False, Ev.KeyDown.ControlKeyState));
             Ev.What := evNothing;
           end;
         evMouseAuto:
@@ -199,7 +199,7 @@ begin
     case Ev.What of
       evKeyDown:
         begin
-          if (Ev.ControlKeyState and kbPaste) <> 0 then
+          if (Ev.KeyDown.ControlKeyState and kbPaste) <> 0 then
           begin
             if Emu.BracketedPaste and not PasteOpen then
             begin
@@ -220,24 +220,24 @@ begin
       evMouseDown, evMouseUp, evMouseMove, evMouseAuto, evMouseWheel:
         if Emu.MouseMode <> 0 then
         begin
-          P := Ev.Where;
+          P := Ev.Mouse.Where;
           B := -1;
-          if (Ev.Buttons and mbLeftButton) <> 0 then B := 0
-          else if (Ev.Buttons and mbMiddleButton) <> 0 then B := 1
-          else if (Ev.Buttons and mbRightButton) <> 0 then B := 2;
+          if (Ev.Mouse.Buttons and mbLeftButton) <> 0 then B := 0
+          else if (Ev.Mouse.Buttons and mbMiddleButton) <> 0 then B := 1
+          else if (Ev.Mouse.Buttons and mbRightButton) <> 0 then B := 2;
           case Ev.What of
-            evMouseDown, evMouseAuto: Send(VtMouseBytes(Emu.MouseMode, Emu.MouseEnc, P.X, P.Y, B, True, False, 0, Ev.ControlKeyState));
-            evMouseUp: Send(VtMouseBytes(Emu.MouseMode, Emu.MouseEnc, P.X, P.Y, 0, False, False, 0, Ev.ControlKeyState));
-            evMouseMove: Send(VtMouseBytes(Emu.MouseMode, Emu.MouseEnc, P.X, P.Y, B, False, True, 0, Ev.ControlKeyState));
+            evMouseDown, evMouseAuto: Send(VtMouseBytes(Emu.MouseMode, Emu.MouseEnc, P.X, P.Y, B, True, False, 0, Ev.KeyDown.ControlKeyState));
+            evMouseUp: Send(VtMouseBytes(Emu.MouseMode, Emu.MouseEnc, P.X, P.Y, 0, False, False, 0, Ev.KeyDown.ControlKeyState));
+            evMouseMove: Send(VtMouseBytes(Emu.MouseMode, Emu.MouseEnc, P.X, P.Y, B, False, True, 0, Ev.KeyDown.ControlKeyState));
             evMouseWheel:
-              if (Ev.Wheel and mwUp) <> 0 then
-                Send(VtMouseBytes(Emu.MouseMode, Emu.MouseEnc, P.X, P.Y, 0, True, False, 1, Ev.ControlKeyState))
-              else if (Ev.Wheel and mwDown) <> 0 then
-                Send(VtMouseBytes(Emu.MouseMode, Emu.MouseEnc, P.X, P.Y, 0, True, False, 2, Ev.ControlKeyState));
+              if (Ev.Mouse.Wheel and mwUp) <> 0 then
+                Send(VtMouseBytes(Emu.MouseMode, Emu.MouseEnc, P.X, P.Y, 0, True, False, 1, Ev.KeyDown.ControlKeyState))
+              else if (Ev.Mouse.Wheel and mwDown) <> 0 then
+                Send(VtMouseBytes(Emu.MouseMode, Emu.MouseEnc, P.X, P.Y, 0, True, False, 2, Ev.KeyDown.ControlKeyState));
           end;
         end;
       evCommand:
-        if Ev.Command = cmScreenChanged then
+        if Ev.Message.Command = cmScreenChanged then
         begin
           ScreenAgain;
           FitEmu(Emu);
@@ -267,13 +267,13 @@ begin
     repeat
       PollEvent(100, Ev);
       if Ev.What = evCommand then
-        if Ev.Command = cmScreenChanged then
+        if Ev.Message.Command = cmScreenChanged then
         begin
           ScreenAgain;
           FitEmu(Emu);
           Blit(Emu, True);
         end;
-    until (Ev.What = evKeyDown) and ((Ev.KeyCode = kbEnter) or (Ev.KeyCode = kbEsc));
+    until (Ev.What = evKeyDown) and ((Ev.KeyDown.KeyCode = kbEnter) or (Ev.KeyDown.KeyCode = kbEsc));
   end;
   SetCaretSize(0);
   { the terminal is taken again as after a shell: the state of the input parser is clean, the whole screen is drawn again by the caller }
@@ -297,7 +297,7 @@ begin
   Blit(Emu, True);
   repeat
     PollEvent(100, Ev);
-    if (Ev.What = evCommand) and (Ev.Command = cmScreenChanged) then
+    if (Ev.What = evCommand) and (Ev.Message.Command = cmScreenChanged) then
     begin
       ScreenAgain;
       FitEmu(Emu);

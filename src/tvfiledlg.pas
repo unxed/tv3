@@ -147,10 +147,10 @@ var
   S: ShortString;
 begin
   inherited HandleEvent(Event);
-  if (Event.What = evBroadcast) and (Event.Command = cmFileFocused) and
+  if (Event.What = evBroadcast) and (Event.Message.Command = cmFileFocused) and
     ((State and sfSelected) = 0) then
   begin
-    Rec := PSearchRec(Event.InfoPtr);
+    Rec := PSearchRec(Event.Message.InfoPtr);
     S := Rec^.Name;
     if (Rec^.Attr and faDirectory) <> 0 then
       S := S + DirDelim + TFileDialog(Owner).WildCard;
@@ -221,24 +221,24 @@ begin
   WasFocused := Focused;
   inherited HandleEvent(Event);
   if (WasFocused <> Focused) or
-    ((Event.What = evBroadcast) and (Event.Command = cmReleasedFocus)) then
+    ((Event.What = evBroadcast) and (Event.Message.Command = cmReleasedFocus)) then
     SearchPos := -1;
-  if (Event.What <> evKeyDown) or (Event.CharCode = 0) then
+  if (Event.What <> evKeyDown) or (Event.KeyDown.CharScan.CharCode = 0) then
     Exit;
-  Ch := Chr(Event.CharCode);
+  Ch := Chr(Event.KeyDown.CharScan.CharCode);
   Item := Focused;
   if Item < Range then
     Typed := GetText(Item, 255)
   else
     Typed := '';
   OldPos := SearchPos;
-  if Event.KeyCode = kbBack then
+  if Event.KeyDown.KeyCode = kbBack then
   begin
     if SearchPos = -1 then
       Exit;
     Dec(SearchPos);
     if SearchPos = -1 then
-      ShiftState := Event.ControlKeyState;
+      ShiftState := Event.KeyDown.ControlKeyState;
     SetLength(Typed, SearchPos + 1);
   end
   else if Ch = '.' then
@@ -251,7 +251,7 @@ begin
   begin
     Inc(SearchPos);
     if SearchPos = 0 then
-      ShiftState := Event.ControlKeyState;
+      ShiftState := Event.KeyDown.ControlKeyState;
     SetLength(Typed, SearchPos + 1);
     Typed[SearchPos + 1] := Ch;
   end;
@@ -439,7 +439,7 @@ begin
   B := TDrawBuffer.Create(Size.X);
   B.MoveChar(0, Ord(' '), Color, Size.X);
   B.MoveStrS(1, Path, Color);
-  WriteLineD(0, 0, Size.X, 1, B);
+  WriteLine(0, 0, Size.X, 1, B);
 
   B.MoveChar(0, Ord(' '), Color, Size.X);
   B.MoveStrS(1, FileBlock.Name, Color);
@@ -469,9 +469,10 @@ begin
     else
       B.MoveStrS(Size.X - 4, AmText, Color);
   end;
-  WriteLineD(0, 1, Size.X, 1, B);
-  B.MoveChar(0, Ord(' '), Color, Size.X);
-  WriteLineD(0, 2, Size.X, Size.Y - 2, B);
+  WriteLine(0, 1, Size.X, 1, B);
+  B.MoveChar(0, 32, Color, Size.X);
+  if Size.Y > 2 then
+    WriteLine(0, 2, Size.X, Size.Y - 2, B);
   B.Free;
 end;
 
@@ -483,9 +484,9 @@ end;
 procedure TFileInfoPane.HandleEvent(var Event: TEvent);
 begin
   inherited HandleEvent(Event);
-  if (Event.What = evBroadcast) and (Event.Command = cmFileFocused) then
+  if (Event.What = evBroadcast) and (Event.Message.Command = cmFileFocused) then
   begin
-    FileBlock := PSearchRec(Event.InfoPtr)^;
+    FileBlock := PSearchRec(Event.Message.InfoPtr)^;
     DrawView;
   end;
 end;
@@ -522,32 +523,32 @@ var
   end;
 
 begin
-  R.Assign(15, 1, 64, 20);
+  R := TRect.Create(15, 1, 64, 20);
   inherited Create(R, ATitle);
   Directory := NewStr('');
   Options := Options or ofCentered;
   Flags := Flags or wfGrow;
   WildCard := AWildCard;
 
-  R.Assign(3, 3, 31, 4);
+  R := TRect.Create(3, 3, 31, 4);
   FileName := TFileInputLine.Create(R, 255);
   FileName.Data^ := WildCard;
   Put(FileName, gfGrowHiX);
-  R.Assign(2, 2, 3 + CStrLen(InputName), 3);
+  R := TRect.Create(2, 2, 3 + CStrLen(InputName), 3);
   Put(TLabel.Create(R, InputName, FileName), 0);
-  R.Assign(31, 3, 34, 4);
+  R := TRect.Create(31, 3, 34, 4);
   Put(THistory.Create(R, FileName, HistId), gfGrowLoX or gfGrowHiX);
-  R.Assign(3, 14, 34, 15);
+  R := TRect.Create(3, 14, 34, 15);
   Bar := TScrollBar.Create(R);
   Insert(Bar);
-  R.Assign(3, 6, 34, 14);
+  R := TRect.Create(3, 6, 34, 14);
   FileList := TFileList.Create(R, Bar);
   Put(FileList, gfGrowHiX or gfGrowHiY);
-  R.Assign(2, 5, 8, 6);
+  R := TRect.Create(2, 5, 8, 6);
   Put(TLabel.Create(R, FilesText, FileList), 0);
 
   Opt := bfDefault;
-  R.Assign(35, 3, 46, 5);
+  R := TRect.Create(35, 3, 46, 5);
   OptionalButton(fdOpenButton, OpenText, cmFileOpen);
   OptionalButton(fdOKButton, OKText, cmFileOpen);
   OptionalButton(fdReplaceButton, ReplaceText, cmFileReplace);
@@ -555,7 +556,7 @@ begin
   AddButton(CancelText, cmCancel, bfNormal);
   OptionalButton(fdHelpButton, HelpText, cmHelp);
 
-  R.Assign(1, 16, 48, 18);
+  R := TRect.Create(1, 16, 48, 18);
   Put(TFileInfoPane.Create(R), gfGrowAll and not gfGrowLoX);
   SelectNext(False);
 
@@ -655,20 +656,20 @@ begin
   inherited HandleEvent(Event);
   case Event.What of
     evCommand:
-      if (Event.Command = cmFileOpen) or (Event.Command = cmFileReplace) or
-        (Event.Command = cmFileClear) then
+      if (Event.Message.Command = cmFileOpen) or (Event.Message.Command = cmFileReplace) or
+        (Event.Message.Command = cmFileClear) then
       begin
-        EndModal(Event.Command);
+        EndModal(Event.Message.Command);
         ClearEvent(Event);
       end;
     evBroadcast:
-      if Event.Command = cmFileDoubleClicked then
+      if Event.Message.Command = cmFileDoubleClicked then
       begin
         { a double click on a file acts as the OK button }
         ClearEvent(Event);
         FillChar(Ok, SizeOf(Ok), 0);
         Ok.What := evCommand;
-        Ok.Command := cmOK;
+        Ok.Message.Command := cmOK;
         PutEvent(Ok);
       end;
   end;

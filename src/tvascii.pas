@@ -238,7 +238,7 @@ begin
               B.MoveStr(X, @T[1], Length(T), A, 1);
           end;
         end;
-      WriteLineD(0, Y, Size.X, 1, B);
+      WriteLine(0, Y, Size.X, 1, B);
     end;
   finally
     B.Free;
@@ -281,7 +281,7 @@ end;
 
 function TAsciiTable.KeyAction(var Event: TEvent): TAsciiKey;
 begin
-  case Event.KeyCode of
+  case Event.KeyDown.KeyCode of
     kbLeft: Result := akLeft;
     kbRight: Result := akRight;
     kbUp: Result := akUp;
@@ -310,11 +310,11 @@ begin
   Result := -1;
   if Unicode then
   begin
-    if (Event.TextLength > 0) and Utf8Decode(@Event.Text[0], Event.TextLength, Cp, Used) and (Cp >= 32) then
+    if (Event.KeyDown.TextLength > 0) and Utf8Decode(@Event.KeyDown.Text[0], Event.KeyDown.TextLength, Cp, Used) and (Cp >= 32) then
       Result := Cp;
   end
-  else if Event.CharCode >= 32 then
-    Result := Event.CharCode;
+  else if Event.KeyDown.CharScan.CharCode >= 32 then
+    Result := Event.KeyDown.CharScan.CharCode;
 end;
 
 procedure TAsciiTable.HandleEvent(var Event: TEvent);
@@ -355,11 +355,11 @@ begin
   case Event.What of
     evMouseDown:
       begin
-        if (Event.EventFlags and meDoubleClick) <> 0 then
+        if (Event.Mouse.EventFlags and meDoubleClick) <> 0 then
         begin
-          if MouseInView(Event.Where) then
+          if MouseInView(Event.Mouse.Where) then
           begin
-            P := MakeLocal(Event.Where);
+            P := MakeLocal(Event.Mouse.Where);
             MoveTo(P.X, P.Y);
           end;
           Pick;
@@ -367,9 +367,9 @@ begin
           Exit;
         end;
         repeat
-          if MouseInView(Event.Where) then
+          if MouseInView(Event.Mouse.Where) then
           begin
-            P := MakeLocal(Event.Where);
+            P := MakeLocal(Event.Mouse.Where);
             MoveTo(P.X, P.Y);
           end;
         until not MouseEvent(Event, evMouseMove);
@@ -503,7 +503,7 @@ begin
       if (X < Size.X) and (Rest <> '') then
         B.MoveStr(X, @Rest[1], Length(Rest), Normal, Size.X - X);
     end;
-    WriteLineD(0, 0, Size.X, 1, B);
+    WriteLine(0, 0, Size.X, 1, B);
   finally
     B.Free;
   end;
@@ -520,9 +520,9 @@ end;
 procedure TAsciiReport.HandleEvent(var Event: TEvent);
 begin
   inherited HandleEvent(Event);
-  if (Event.What = evBroadcast) and (Event.Command = AsciiCommandBase + acFocused) and
-    (TObject(Event.InfoPtr) is TAsciiTable) then
-    ShowCode(TAsciiTable(Event.InfoPtr));
+  if (Event.What = evBroadcast) and (Event.Message.Command = AsciiCommandBase + acFocused) and
+    (TObject(Event.Message.InfoPtr) is TAsciiTable) then
+    ShowCode(TAsciiTable(Event.Message.InfoPtr));
 end;
 
 { --- TAsciiChart --- }
@@ -531,16 +531,16 @@ constructor TAsciiChart.Create(const ATitle: ShortString; AUnicode: Boolean);
 var
   R, T: TRect;
 begin
-  R.Assign(0, 0, AsciiCols + 2, AsciiRows + 4);
+  R := TRect.Create(0, 0, AsciiCols + 2, AsciiRows + 4);
   inherited Create(R, ATitle, wnNoNumber);
   Flags := Flags and not (wfGrow or wfZoom);
-  GetExtent(R);
+  R := GetExtent;
   R.Grow(-1, -1);
-  T.Assign(R.A.X, R.B.Y - 1, R.B.X, R.B.Y);
+  T := TRect.Create(R.A.X, R.B.Y - 1, R.B.X, R.B.Y);
   Report := MakeReport(T);
   Report.Options := Report.Options or ofFramed;
   Insert(Report);
-  T.Assign(R.A.X, R.A.Y, R.B.X, R.B.Y - 2);
+  T := TRect.Create(R.A.X, R.A.Y, R.B.X, R.B.Y - 2);
   Table := MakeTable(T);
   Table.Options := Table.Options or ofFramed;
   Table.Unicode := AUnicode;

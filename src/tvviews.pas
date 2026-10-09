@@ -137,13 +137,9 @@ type
     { Hides the view and removes it from its owner. }
     destructor Destroy; override;
     procedure SizeLimits(out Min, Max: TPoint); virtual;
-    function GetBounds: TRect; overload;
-    function GetExtent: TRect; overload;
-    function GetClipRect: TRect; overload;
-    { The forms of Turbo Vision for Borland Pascal: the result goes to a variable. }
-    procedure GetBounds(var R: TRect); overload;
-    procedure GetExtent(var R: TRect); overload;
-    procedure GetClipRect(var R: TRect); overload;
+    function GetBounds: TRect;
+    function GetExtent: TRect;
+    function GetClipRect: TRect;
     function MouseInView(Mouse: TPoint): Boolean;
     function ContainsMouse(var Event: TEvent): Boolean;
     procedure Locate(var Bounds: TRect);
@@ -211,10 +207,8 @@ type
     procedure SetState(AState: Word; Enable: Boolean); virtual;
     procedure KeyEvent(var Event: TEvent);
     function MouseEvent(var Event: TEvent; Mask: Word): Boolean;
-    function MakeGlobal(Source: TPoint): TPoint; overload;
-    function MakeLocal(Source: TPoint): TPoint; overload;
-    procedure MakeGlobal(Source: TPoint; var Dest: TPoint); overload;
-    procedure MakeLocal(Source: TPoint; var Dest: TPoint); overload;
+    function MakeGlobal(Source: TPoint): TPoint;
+    function MakeLocal(Source: TPoint): TPoint;
     function NextView: TView;
     function PrevView: TView;
     function Prev: TView;
@@ -228,11 +222,11 @@ type
     { Writing into the view: coordinates are in the view, clipped to the part of
       the view that is visible. WriteBuf writes H rows of W cells, taken one
       after the other from B; WriteLine writes the same W cells to H rows. }
-    procedure WriteBuf(X, Y, W, H: Integer; B: PScreenCell);
-    procedure WriteBufD(X, Y, W, H: Integer; const B: TDrawBuffer);
+    procedure WriteBuf(X, Y, W, H: Integer; B: PScreenCell); overload;
+    procedure WriteBuf(X, Y, W, H: Integer; const B: TDrawBuffer); overload;
     procedure WriteChar(X, Y: Integer; C: Byte; Color: Byte; Count: Integer);
-    procedure WriteLine(X, Y, W, H: Integer; B: PScreenCell);
-    procedure WriteLineD(X, Y, W, H: Integer; const B: TDrawBuffer);
+    procedure WriteLine(X, Y, W, H: Integer; B: PScreenCell); overload;
+    procedure WriteLine(X, Y, W, H: Integer; const B: TDrawBuffer); overload;
     procedure WriteStr(X, Y: Integer; const Str: ShortString; Color: Byte);
     procedure WriteView(X, Y, Count: Integer; B: PScreenCell);
     { The 16-bit interface of Turbo Vision for Borland Pascal, for programs written for it: a cell is a Word
@@ -433,11 +427,11 @@ begin
     Exit(nil);
   ClearEvent(Event);
   Event.What := What;
-  Event.Command := Command;
-  Event.InfoPtr := InfoPtr;
+  Event.Message.Command := Command;
+  Event.Message.InfoPtr := InfoPtr;
   Receiver.HandleEvent(Event);
   if Event.What = evNothing then
-    Result := Event.InfoPtr
+    Result := Event.Message.InfoPtr
   else
     Result := nil;
 end;
@@ -570,7 +564,7 @@ var
 begin
   Dst := PCellArray(Owner.Buffer + (W.Y * Owner.Size.X + W.X));
   CopyCells(W, Dst, PCellArray(W.Buffer + (W.X - W.WOffset)));
-  if Owner.Buffer = ScreenBuffer then
+  if Owner.Buffer = TScreen.ScreenBuffer then
     ScreenWrite(W.X, W.Y, PScreenCell(Dst), W.Count - W.X);
 end;
 
@@ -878,7 +872,7 @@ begin
   if (P.State and sfCursorIns) <> 0 then
     Result := 100
   else
-    Result := CursorLines and $FF;
+    Result := TScreen.CursorLines and $FF;
 end;
 
 function CaretIsCoveredBySiblings(P: TView; X, Y: Integer): Boolean;
@@ -993,15 +987,15 @@ procedure TView.ClearEvent(var Event: TEvent);
 var
   Key: Word;
 begin
-  Key := Event.KeyCode;     { InfoPtr overlaps KeyCode (the fields of the win32 input mode are between): the key stays after the clear, as in Borland TV; DN reads it (Enter on an archive) }
+  Key := Event.KeyDown.KeyCode;     { InfoPtr overlaps KeyCode (the fields of the win32 input mode are between): the key stays after the clear, as in Borland TV; DN reads it (Enter on an archive) }
   Event.What := evNothing;
-  Event.InfoPtr := Self;
-  Event.KeyCode := Key;
+  Event.Message.InfoPtr := Self;
+  Event.KeyDown.KeyCode := Key;
 end;
 
 function TView.ContainsMouse(var Event: TEvent): Boolean;
 begin
-  Result := ((State and sfVisible) <> 0) and MouseInView(Event.Where);
+  Result := ((State and sfVisible) <> 0) and MouseInView(Event.Mouse.Where);
 end;
 
 function TView.DataSize: Integer;
@@ -1048,7 +1042,7 @@ procedure TView.DragView(var Event: TEvent; Mode: Byte; var Limits: TRect;
     S.Y := Fit(S.Y, MinSize.Y, MaxSize.Y);
     R.A.X := Place(P.X, S.X, Limits.A.X, Limits.B.X, dmLimitLoX, dmLimitHiX);
     R.A.Y := Place(P.Y, S.Y, Limits.A.Y, Limits.B.Y, dmLimitLoY, dmLimitHiY);
-    R.B := PointAdd(R.A, S);
+    R.B := (R.A + S);
     Locate(R);
   end;
 
@@ -1061,7 +1055,7 @@ procedure TView.DragView(var Event: TEvent; Mode: Byte; var Limits: TRect;
   begin
     R := GetBounds;
     repeat
-      Pt := PointAdd(Event.Where, Grab);
+      Pt := (Event.Mouse.Where + Grab);
       if (Mode and dmDragMove) <> 0 then
         MoveGrow(Pt, Size)
       else if (Mode and dmDragGrow) <> 0 then
@@ -1071,7 +1065,7 @@ procedure TView.DragView(var Event: TEvent; Mode: Byte; var Limits: TRect;
         { the left bottom corner follows the mouse, the right side stays }
         R.A.X := Fit(Pt.X, R.B.X - MaxSize.X, R.B.X - MinSize.X);
         R.B.Y := Pt.Y;
-        MoveGrow(R.A, PointSub(R.B, R.A));
+        MoveGrow(R.A, (R.B - R.A));
       end;
     until not MouseEvent(Event, evMouseMove);
   end;
@@ -1089,7 +1083,7 @@ procedure TView.DragView(var Event: TEvent; Mode: Byte; var Limits: TRect;
       P := Origin;
       S := Size;
       KeyEvent(Event);
-      K := Event.KeyCode and $FF00;
+      K := Event.KeyDown.KeyCode and $FF00;
       D := Point(0, 0);
       case K of
         kbLeft, kbCtrlLeft, kbRight, kbCtrlRight:
@@ -1113,17 +1107,17 @@ procedure TView.DragView(var Event: TEvent; Mode: Byte; var Limits: TRect;
         D.X := D.X * 8
       else if (K = kbCtrlUp) or (K = kbCtrlDown) then
         D.Y := D.Y * 4;
-      if (Event.ControlKeyState and kbShift) <> 0 then
+      if (Event.KeyDown.ControlKeyState and kbShift) <> 0 then
       begin
         if (Mode and dmDragGrow) <> 0 then
-          S := PointAdd(S, D);
+          S := (S + D);
       end
       else if (Mode and dmDragMove) <> 0 then
-        P := PointAdd(P, D);
+        P := (P + D);
       MoveGrow(P, S);
-      Done := (Event.KeyCode = kbEnter) or (Event.KeyCode = kbEsc);
+      Done := (Event.KeyDown.KeyCode = kbEnter) or (Event.KeyDown.KeyCode = kbEsc);
     until Done;
-    if Event.KeyCode <> kbEnter then
+    if Event.KeyDown.KeyCode <> kbEnter then
       Locate(Saved);
   end;
 
@@ -1134,13 +1128,13 @@ begin
   if Event.What <> evMouseDown then
     Keys
   else if (Mode and dmDragMove) <> 0 then
-    Track(PointSub(Origin, Event.Where))
+    Track((Origin - Event.Mouse.Where))
   else if (Mode and dmDragGrow) <> 0 then
-    Track(PointSub(Size, Event.Where))
+    Track((Size - Event.Mouse.Where))
   else
   begin
     Corner := Point(Origin.X, Origin.Y + Size.Y);
-    Track(PointSub(Corner, Event.Where));
+    Track((Corner - Event.Mouse.Where));
   end;
   SetState(sfDragging, False);
 end;
@@ -1150,10 +1144,10 @@ var
   B: TDrawBuffer;
   Pair: TAttrPair;
 begin
-  B := TDrawBuffer.Create(IMax(ScreenWidth, ScreenHeight));
+  B := TDrawBuffer.Create(IMax(TScreen.ScreenWidth, TScreen.ScreenHeight));
   Pair := GetColor(1);
   B.MoveChar(0, Ord(' '), Pair.Lo, Size.X);
-  WriteLineD(0, 0, Size.X, Size.Y, B);
+  WriteLine(0, 0, Size.X, Size.Y, B);
   B.Free;
 end;
 
@@ -1189,7 +1183,7 @@ var
 begin
   R := GetBounds;
   if DoShadow then
-    R.B := PointAdd(R.B, ShadowSize);
+    R.B := (R.B + ShadowSize);
   if (Options and ofFramed) <> 0 then
     R.Grow(1, 1);
   DrawUnderRect(R, LastView);
@@ -1249,35 +1243,10 @@ begin
     end;
 end;
 
-procedure TView.GetBounds(var R: TRect);
-begin
-  R := GetBounds;
-end;
-
-procedure TView.GetExtent(var R: TRect);
-begin
-  R := GetExtent;
-end;
-
-procedure TView.GetClipRect(var R: TRect);
-begin
-  R := GetClipRect;
-end;
-
-procedure TView.MakeGlobal(Source: TPoint; var Dest: TPoint);
-begin
-  Dest := MakeGlobal(Source);
-end;
-
-procedure TView.MakeLocal(Source: TPoint; var Dest: TPoint);
-begin
-  Dest := MakeLocal(Source);
-end;
-
 function TView.GetBounds: TRect;
 begin
   Result.A := Origin;
-  Result.B := PointAdd(Origin, Size);
+  Result.B := (Origin + Size);
 end;
 
 function TView.GetClipRect: TRect;
@@ -1313,22 +1282,22 @@ const
 
   function IsText(const E: TEvent): Boolean;
   begin
-    Result := (E.What = evKeyDown) and (E.TextLength > 0) and ((E.ControlKeyState and kbPaste) <> 0);
+    Result := (E.What = evKeyDown) and (E.KeyDown.TextLength > 0) and ((E.KeyDown.ControlKeyState and kbPaste) <> 0);
   end;
 
   procedure Add(const E: TEvent);
   var
     I: Integer;
   begin
-    for I := 0 to E.TextLength - 1 do
-      Text := Text + E.Text[I];
+    for I := 0 to E.KeyDown.TextLength - 1 do
+      Text := Text + E.KeyDown.Text[I];
   end;
 
 var
   Ev: TEvent;
 begin
   Text := '';
-  if (Event.What = evKeyDown) and (Event.TextLength > 0) then
+  if (Event.What = evKeyDown) and (Event.KeyDown.TextLength > 0) then
     Add(Event);
   repeat
     PollEvent(0, Ev);
@@ -1344,7 +1313,7 @@ end;
 
 function TView.GetExtent: TRect;
 begin
-  Result.Assign(0, 0, Size.X, Size.Y);
+  Result := TRect.Create(0, 0, Size.X, Size.Y);
 end;
 
 function TView.GetHelpCtx: Word;
@@ -1411,10 +1380,9 @@ var
 begin
   SizeLimits(MinS, MaxS);
   { the size is kept within the limits, the origin stays }
-  Bounds.B := PointAdd(Bounds.A,
-    Point(Range(Bounds.B.X - Bounds.A.X, MinS.X, MaxS.X), Range(Bounds.B.Y - Bounds.A.Y, MinS.Y, MaxS.Y)));
+  Bounds.B := (Bounds.A + Point(Range(Bounds.B.X - Bounds.A.X, MinS.X, MaxS.X), Range(Bounds.B.Y - Bounds.A.Y, MinS.Y, MaxS.Y)));
   Old := GetBounds;
-  if Bounds.Equals(Old) then
+  if (Bounds = Old) then
     Exit;
   ChangeBounds(Bounds);
   if (Owner = nil) or ((State and sfVisible) = 0) then
@@ -1422,7 +1390,7 @@ begin
   if (State and sfShadow) <> 0 then
   begin
     Old.Union(Bounds);
-    Old.B := PointAdd(Old.B, ShadowSize);
+    Old.B := (Old.B + ShadowSize);
   end;
   DrawUnderRect(Old, nil);
 end;
@@ -1436,12 +1404,12 @@ function TView.MakeGlobal(Source: TPoint): TPoint;
 var
   Cur: TView;
 begin
-  Result := PointAdd(Source, Origin);
+  Result := (Source + Origin);
   Cur := Self;
   while Cur.Owner <> nil do
   begin
     Cur := Cur.Owner;
-    Result := PointAdd(Result, Cur.Origin);
+    Result := (Result + Cur.Origin);
   end;
 end;
 
@@ -1449,12 +1417,12 @@ function TView.MakeLocal(Source: TPoint): TPoint;
 var
   Cur: TView;
 begin
-  Result := PointSub(Source, Origin);
+  Result := (Source - Origin);
   Cur := Self;
   while Cur.Owner <> nil do
   begin
     Cur := Cur.Owner;
-    Result := PointSub(Result, Cur.Origin);
+    Result := (Result - Cur.Origin);
   end;
 end;
 
@@ -1503,7 +1471,7 @@ var
   R: TRect;
 begin
   R.A := Point(X, Y);
-  R.B := PointAdd(R.A, Size);
+  R.B := (R.A + Size);
   Locate(R);
 end;
 
@@ -1604,7 +1572,7 @@ end;
 procedure TView.SetBounds(const Bounds: TRect);
 begin
   Origin := Bounds.A;
-  Size := PointSub(Bounds.B, Bounds.A);
+  Size := (Bounds.B - Bounds.A);
 end;
 
 procedure TView.SetCursor(X, Y: Integer);
@@ -1724,7 +1692,7 @@ begin
   end;
 end;
 
-procedure TView.WriteBufD(X, Y, W, H: Integer; const B: TDrawBuffer);
+procedure TView.WriteBuf(X, Y, W, H: Integer; const B: TDrawBuffer);
 begin
   WriteBuf(X, Y, IMin(W, B.Capacity - X), H, B.Data);
 end;
@@ -1739,7 +1707,7 @@ begin
   end;
 end;
 
-procedure TView.WriteLineD(X, Y, W, H: Integer; const B: TDrawBuffer);
+procedure TView.WriteLine(X, Y, W, H: Integer; const B: TDrawBuffer);
 begin
   WriteLine(X, Y, IMin(W, B.Capacity - X), H, B.Data);
 end;
@@ -1816,7 +1784,7 @@ begin
   begin
     GetMem(Buf, Count * SizeOf(TScreenCell));
     Attr := MapColor(Color);
-    TextDrawChar(Buf, Count, C, @Attr);
+    TText.DrawChar(Buf, Count, C, @Attr);
     WriteView(X, Y, Count, Buf);
     FreeMem(Buf);
   end;
@@ -1828,7 +1796,7 @@ var
   Attr: TColorAttr;
   Count: Integer;
 begin
-  Count := TextWidthS(Str);
+  Count := TText.Width(Str);
   if Count > Size.X then
     Count := Size.X;
   if Count > 0 then
@@ -1836,7 +1804,7 @@ begin
     GetMem(Buf, Count * SizeOf(TScreenCell));
     FillChar(Buf^, Count * SizeOf(TScreenCell), 0);
     Attr := MapColor(Color);
-    TextDrawStrS(Buf, Count, 0, Str, 0, @Attr);
+    TText.DrawStr(Buf, Count, 0, Str, 0, @Attr);
     WriteView(X, Y, Count, Buf);
     FreeMem(Buf);
   end;

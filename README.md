@@ -47,7 +47,7 @@ and is asked for it by OSC 52 without any setting. Text that the terminal pastes
 `TView.TextEvent` gathers a whole paste into one string (tvision's `textEvent`).
 Reading the clipboard of the terminal by OSC 52 (`ESC ] 52 ; c ; ? ESC \`) is on only for a terminal that said (the probes) it can (most terminals refuse, some ask the user): `TV_OSC52_READ=1` asks any terminal, `TV_OSC52_READ=0` none, `TV_OSC52_WAIT` is the wait in ms (400);
 a terminal that does not answer is not asked again for a minute. In the embedded terminal (`TvVt`) a program sets the clipboard by OSC 52 and reads it with `?`: the answer comes from the clipboard of the application.
-**The keyboard event keeps what the win32 input mode tells** (2026-10-04): besides `KeyCode`, `Text` and `ControlKeyState` a key event has `VirtualKey` (VK_*), `RepeatCount` and `Win32State`
+**The keyboard event keeps what the win32 input mode tells** (2026-10-04): besides `KeyCode`, `Text` and `ControlKeyState` a key event (`Event.KeyDown`) has `VirtualKey` (VK_*), `RepeatCount` and `Win32State`
 (dwControlKeyState: the left and the right Alt and Ctrl are told apart); where the terminal tells nothing (xterm, Kitty) `EventVirtualKey`, `EventScanCode`, `EventWin32State` and `EventUtf16` work the
 fields out from the key code (a US layout). The release of a key is `evKeyUp`: it is made only if a program asks (`TvSys.KeyUpEvents := True`) and the terminal sends it; it goes the way of a key but
 only a view with `evKeyUp` in its `EventMask` gets it, so nothing that knows nothing of it changes. The embedded terminal (`TvVt`) takes a program's request `ESC [ ? 9001 h` (`Emu.Win32Input`):
@@ -93,7 +93,7 @@ are in the `dn` repository (not here yet; this is documentation of where they ar
   Borland unit had and `Tv*` has not, or has differently (`defines*.inc`, `collect*.inc`, `views*.inc`, `dialogs.inc`, `streams.inc`; about 500 lines).
 - `tools/dn-env.sh` (`dn_gen_shims`): how the shims are generated into a build directory (not committed) and put on the unit path next to `tv/src`.
 
-Differences from Borland TV that the shims cannot hide and that cost time in DN (worth knowing before you start): the fields `Command` and `KeyCode` of `TEvent` are not at the same place (`Message(R, evKeyDown, Key, nil)`
+Differences from Borland TV that the shims cannot hide and that cost time in DN (worth knowing before you start): the fields `Message.Command` and `KeyDown.KeyCode` of `TEvent` are not at the same place (`Message(R, evKeyDown, Key, nil)`
 does nothing; DN has `MessageKey` for it); the text of a key is UTF-8 (`Text`, `TextLength`), not only a character; strings can be UTF-8 inside; the screen is 16-bit cells with attributes of
 `TvCell`; resources (streams) use `TStreamRec` and deferred pointer fixups (`GetSubViewPtr` of `TView` is deferred, of `TGroup` immediate: a saved desktop depends on it).
 The notes on what else was met during the revival are in `docs/MODERNIZATION-GUIDE.md` of `dn`.

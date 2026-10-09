@@ -219,7 +219,7 @@ begin
   else
   begin
     B.MoveChar(0, Ord(' '), Color, Size.X);
-    WriteLineD(0, Limit.Y, Size.X, Size.Y - Limit.Y, B);
+    WriteLine(0, Limit.Y, Size.X, Size.Y - Limit.Y, B);
     Y := Limit.Y - 1;
   end;
 
@@ -256,7 +256,7 @@ begin
         SLen := 0;
         while SLen < SizeOf(S) - (MaxCharSize - 1) do
         begin
-          if not TextNext(@S[SLen], SizeOf(S) - SLen, CharLen, CharWidth) then
+          if not TText.Next(@S[SLen], SizeOf(S) - SLen, CharLen, CharWidth) then
             Break;
           Inc(SLen, CharLen);
         end;
@@ -269,7 +269,7 @@ begin
     end;
     if Size.X - X > 0 then
       B.MoveChar(X, Ord(' '), Color, Size.X - X);
-    WriteBufD(0, Y, Size.X, 1, B);
+    WriteBuf(0, Y, Size.X, 1, B);
     { the cursor is drawn when this is the last line }
     if EndLine = QueFront then
       SetCursor(X, Y);

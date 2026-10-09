@@ -232,7 +232,7 @@ begin
       Inc(Col);
       Item := Col * Size.Y + Y;
     end;
-    WriteBufD(0, Y, Size.X, 1, B);
+    WriteBuf(0, Y, Size.X, 1, B);
     Inc(Y);
   end;
   B.Free;
@@ -312,7 +312,7 @@ var
 
 begin
   Result := False;
-  Key := CtrlToArrow(Event.KeyCode);
+  Key := CtrlToArrow(Event.KeyDown.KeyCode);
   if ((Key <> kbUp) and (Key <> kbDown) and (Key <> kbLeft) and (Key <> kbRight)) or (N = 0) or (Size.Y < 1) then
     Exit;
   Cur := S;
@@ -336,7 +336,7 @@ var
 
   function Under: Integer;
   begin
-    Result := FindSel(MakeLocal(Event.Where));
+    Result := FindSel(MakeLocal(Event.Mouse.Where));
   end;
 
   { the item after I for an arrow key, wrapping around the ends }
@@ -379,15 +379,15 @@ var
     Plain: Boolean;
   begin
     Result := -1;
-    if Event.KeyCode = 0 then
+    if Event.KeyDown.KeyCode = 0 then
       Exit;
     { a plain letter counts when the cluster is focused or after the others }
     Plain := Focused or (Owner.Phase = phPostProcess);
     for J := 0 to N - 1 do
     begin
       Hot := HotKey(ItemText(Strings, J));
-      if (Event.KeyCode = GetAltCode(Hot)) or HotKeyAlt(Hot, Event)
-        or (Plain and (Hot <> #0) and (UpCaseCp(Chr(Event.CharCode)) = Hot)) then
+      if (Event.KeyDown.KeyCode = GetAltCode(Hot)) or HotKeyAlt(Hot, Event)
+        or (Plain and (Hot <> #0) and (UpCaseCp(Chr(Event.KeyDown.CharScan.CharCode)) = Hot)) then
         Exit(J);
     end;
   end;
@@ -424,7 +424,7 @@ begin
     Exit;
   if Focused and UxInDialog(Self) and UxClusterKey(Event, Sel, N) then
     Exit;
-  Key := CtrlToArrow(Event.KeyCode);
+  Key := CtrlToArrow(Event.KeyDown.KeyCode);
   if (Key = kbUp) or (Key = kbDown) or (Key = kbLeft) or (Key = kbRight) then
   begin
     if not Focused then
@@ -454,7 +454,7 @@ begin
       ClearEvent(Event);
     end;
   end
-  else if Focused and (Event.CharCode = Ord(' ')) then
+  else if Focused and (Event.KeyDown.CharScan.CharCode = Ord(' ')) then
   begin
     Press(Sel);
     DrawView;

@@ -39,7 +39,7 @@ begin
   { a key becomes the command }
   MakeKeyEvent(E, kbF3, 0);
   Check(FindActionByKey(E) = 1, 'the action of a key');
-  Check(ActionKeyToCommand(E) and (E.What = evCommand) and (E.Command = cmOpen), 'a key of an action becomes its command');
+  Check(ActionKeyToCommand(E) and (E.What = evCommand) and (E.Message.Command = cmOpen), 'a key of an action becomes its command');
   MakeKeyEvent(E, kbF9, 0);
   Check(not ActionKeyToCommand(E) and (E.What = evKeyDown), 'another key stays a key');
 

@@ -69,11 +69,11 @@ procedure SetEvent(var Event: TEvent; What: Word; const M: TMouseRec; Keys: Word
 begin
   ClearEvent(Event);
   Event.What := What;
-  Event.ControlKeyState := Keys;
-  Event.Where := M.Where;
-  Event.EventFlags := M.EventFlags;
-  Event.Buttons := M.Buttons;
-  Event.Wheel := M.Wheel;
+  Event.KeyDown.ControlKeyState := Keys;
+  Event.Mouse.Where := M.Where;
+  Event.Mouse.EventFlags := M.EventFlags;
+  Event.Mouse.Buttons := M.Buttons;
+  Event.Mouse.Wheel := M.Wheel;
 end;
 
 procedure MouseStep(const State: TMouseState; Now: Int64; var Event: TEvent);
@@ -100,7 +100,7 @@ begin
   { the buttons went up }
   if (Cur.Buttons = 0) and (LastMouse.Buttons <> 0) then
   begin
-    if PointEq(Cur.Where, LastMouse.Where) then
+    if (Cur.Where = LastMouse.Where) then
     begin
       Btn := LastMouse.Buttons;
       LastMouse := Cur;
@@ -125,7 +125,7 @@ begin
   { a button went down }
   if (Cur.Buttons <> 0) and (LastMouse.Buttons = 0) then
   begin
-    if (Cur.Buttons = DownMouse.Buttons) and PointEq(Cur.Where, DownMouse.Where) and
+    if (Cur.Buttons = DownMouse.Buttons) and (Cur.Where = DownMouse.Where) and
       (Now - DownTicks <= DoubleDelayMs) then
     begin
       if (DownMouse.EventFlags and (meDoubleClick or meTripleClick)) = 0 then
@@ -154,7 +154,7 @@ begin
     Exit;
   end;
 
-  if not PointEq(Cur.Where, LastMouse.Where) then
+  if not (Cur.Where = LastMouse.Where) then
   begin
     Cur.EventFlags := Cur.EventFlags or meMouseMoved;
     LastMouse := Cur;

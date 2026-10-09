@@ -296,8 +296,8 @@ begin
   if Ascii >= $80 then
   begin
     N := CpToUtf8(Ascii, @Buf[0]);
-    Move(Buf[0], Event.Text[0], N);
-    Event.TextLength := N;
+    Move(Buf[0], Event.KeyDown.Text[0], N);
+    Event.KeyDown.TextLength := N;
   end;
 end;
 
@@ -699,7 +699,7 @@ begin
     R.ah := $0F;
     Intr($10, R);
   end;
-  ScreenMode := R.al;
+  TScreen.ScreenMode := R.al;
   if R.al = 7 then
     VideoSeg := $B000
   else

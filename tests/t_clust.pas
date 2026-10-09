@@ -6,7 +6,7 @@ uses TvGeom, TvCell, TvCodePg, TvEvents, TvKeys, TvViews, TvObjs, TvUtil, TvMem,
 
 function R(A, B, C, D: Integer): TRect;
 begin
-  Result.Assign(A, B, C, D);
+  Result := TRect.Create(A, B, C, D);
 end;
 
 function Pt(X, Y: Integer): TPoint;
@@ -112,9 +112,9 @@ begin
   MemMouse(evMouseUp, 17, 9);
   ClearEvent(E);
   E.What := evMouseDown;
-  E.Where.X := 17;
-  E.Where.Y := 9;
-  E.Buttons := mbLeftButton;
+  E.Mouse.Where.X := 17;
+  E.Mouse.Where.Y := 9;
+  E.Mouse.Buttons := mbLeftButton;
   Chk.HandleEvent(E);
   Check((Chk.Sel = 1) and (Chk.Value = 2), 'a click on an item presses it');
   Check(Chk.FindSel(Pt(2, 1)) = 1, 'FindSel finds the item under the point');

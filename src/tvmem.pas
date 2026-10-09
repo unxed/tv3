@@ -120,10 +120,10 @@ var
 begin
   ClearEvent(E);
   E.What := What;
-  E.Where.X := X;
-  E.Where.Y := Y;
-  E.Buttons := Buttons;
-  E.EventFlags := Flags;
+  E.Mouse.Where.X := X;
+  E.Mouse.Where.Y := Y;
+  E.Mouse.Buttons := Buttons;
+  E.Mouse.EventFlags := Flags;
   MemEvent(E);
 end;
 
@@ -146,7 +146,7 @@ var
   Buf: array[0..7] of Byte;
   B: Byte;
 begin
-  Ch := (ScreenBuffer + (Y * ScreenWidth + X))^.Character;
+  Ch := (TScreen.ScreenBuffer + (Y * TScreen.ScreenWidth + X))^.Character;
   { the second half of a wide character: its text is in the cell before }
   if ScIsWideTrail(Ch) then
     Exit('');
@@ -175,12 +175,12 @@ end;
 
 function MemAttr(X, Y: Integer): Byte;
 begin
-  Result := AttrAsBIOSByte((ScreenBuffer + (Y * ScreenWidth + X))^.Attribute);
+  Result := AttrAsBIOSByte((TScreen.ScreenBuffer + (Y * TScreen.ScreenWidth + X))^.Attribute);
 end;
 
 function MemIsShadow(X, Y: Integer): Boolean;
 begin
-  Result := (AttrStyle((ScreenBuffer + (Y * ScreenWidth + X))^.Attribute) and slWindowShadow) <> 0;
+  Result := (AttrStyle((TScreen.ScreenBuffer + (Y * TScreen.ScreenWidth + X))^.Attribute) and slWindowShadow) <> 0;
 end;
 
 end.

@@ -7,7 +7,7 @@ uses Go32, Dos, TvGeom, TvColors, TvCell, TvCodePg, TvEvents, TvKeys, TvScreen, 
 
 function R(A, B, C, D: Integer): TRect;
 begin
-  Result.Assign(A, B, C, D);
+  Result := TRect.Create(A, B, C, D);
 end;
 
 { the first mouse state differs from "nothing": that is an event; take all of them }
@@ -37,7 +37,7 @@ var
   Got: AnsiString;
 begin
   DosInit(866);
-  Check((ScreenWidth = 80) and (ScreenHeight = 25), 'the screen is the text mode: 80x25');
+  Check((TScreen.ScreenWidth = 80) and (TScreen.ScreenHeight = 25), 'the screen is the text mode: 80x25');
   Check(CpCurrent = 866, 'the code page is the one asked for');
   Check(DosMousePresent, 'a mouse driver');
 
@@ -73,21 +73,21 @@ begin
   Check(DosKeyBufferEmpty, 'the keyboard buffer is empty');
   DosStuffKey($3B00);
   PollEvent(0, Ev);
-  Check((Ev.What = evKeyDown) and (Ev.KeyCode = kbF1), 'F1');
+  Check((Ev.What = evKeyDown) and (Ev.KeyDown.KeyCode = kbF1), 'F1');
   DosStuffKey($1E61);
   PollEvent(0, Ev);
-  Check((Ev.What = evKeyDown) and (Ev.KeyCode = $1E61) and (Ev.TextLength = 1) and (Ev.Text[0] = 'a'), 'a letter has text');
+  Check((Ev.What = evKeyDown) and (Ev.KeyDown.KeyCode = $1E61) and (Ev.KeyDown.TextLength = 1) and (Ev.KeyDown.Text[0] = 'a'), 'a letter has text');
   DosStuffKey($198F);
   PollEvent(0, Ev);
-  Check((Ev.What = evKeyDown) and (Ev.TextLength = 2) and (Ev.Text[0] = #$D0) and (Ev.Text[1] = #$9F),
+  Check((Ev.What = evKeyDown) and (Ev.KeyDown.TextLength = 2) and (Ev.KeyDown.Text[0] = #$D0) and (Ev.KeyDown.Text[1] = #$9F),
     'a CP866 letter has its UTF-8 as text');
   DosStuffKey($2D00);
   PollEvent(0, Ev);
-  Check((Ev.What = evKeyDown) and (Ev.KeyCode = kbAltX), 'Alt-X');
+  Check((Ev.What = evKeyDown) and (Ev.KeyDown.KeyCode = kbAltX), 'Alt-X');
   PollEvent(0, Ev);
   Check(Ev.What = evNothing, 'no key: no event');
   DosKeyToEvent($4800 or $E0, 0, Ev);
-  Check(Ev.KeyCode = kbUp, 'an enhanced key ($E0) loses its character');
+  Check(Ev.KeyDown.KeyCode = kbUp, 'an enhanced key ($E0) loses its character');
 
   { mouse }
   Regs.ax := 4;

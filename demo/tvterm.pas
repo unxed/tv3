@@ -37,7 +37,7 @@ end;
 { the keys that are not for the terminal }
 function OwnKey(const Event: TEvent): Boolean;
 begin
-  Result := (Event.KeyCode = kbAltX) or (Event.KeyCode = kbAltF3);
+  Result := (Event.KeyDown.KeyCode = kbAltX) or (Event.KeyDown.KeyCode = kbAltF3);
 end;
 
 procedure TTermApp.NewTerminal;
@@ -78,7 +78,7 @@ end;
 procedure TTermApp.HandleEvent(var Event: TEvent);
 begin
   inherited HandleEvent(Event);
-  if (Event.What = evBroadcast) and (Event.Command = cmVtEnded) then
+  if (Event.What = evBroadcast) and (Event.Message.Command = cmVtEnded) then
   begin
     Message(Self, evCommand, cmQuit, nil);
     ClearEvent(Event);

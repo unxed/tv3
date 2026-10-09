@@ -302,8 +302,8 @@ end;
 procedure SetCommand(var Event: TEvent; Command: Word);
 begin
   Event.What := evCommand;
-  Event.Command := Command;
-  Event.InfoPtr := nil;
+  Event.Message.Command := Command;
+  Event.Message.InfoPtr := nil;
 end;
 
 { turns the event into a command and puts it back for the owner of V }
@@ -329,7 +329,7 @@ var
   Mouse: TPoint;
 begin
   { the entry under the mouse, or nil }
-  Mouse := MakeLocal(E.Where);
+  Mouse := MakeLocal(E.Mouse.Where);
   Current := Menu^.Items;
   while Assigned(Current) and not GetItemRect(Current).Contains(Mouse) do
     Current := Current^.Next;
@@ -414,7 +414,7 @@ begin
     Result := False
   else
   begin
-    Mouse := ParentMenu.MakeLocal(E.Where);
+    Mouse := ParentMenu.MakeLocal(E.Mouse.Where);
     R := ParentMenu.GetItemRect(ParentMenu.Current);
     Result := R.Contains(Mouse);
   end;
@@ -427,7 +427,7 @@ begin
   P := ParentMenu;
   while P <> nil do
   begin
-    if P.MouseInView(E.Where) then
+    if P.MouseInView(E.Mouse.Where) then
       Exit(True);
     P := P.ParentMenu;
   end;
@@ -457,7 +457,7 @@ var
   { an arrow key: move to the next / previous entry; a held key stops at the end }
   procedure Step(Forwards: Boolean);
   begin
-    if UxMenuHeldStop and ((E.KeyFlags and kfRepeat) <> 0) and AtEnd(Forwards) then
+    if UxMenuHeldStop and ((E.KeyDown.KeyFlags and kfRepeat) <> 0) and AtEnd(Forwards) then
       Exit;
     TrackKey(Forwards);
   end;
@@ -518,7 +518,7 @@ var
 
   procedure MouseDown;
   begin
-    if MouseInView(E.Where) or MouseInOwner(E) then
+    if MouseInView(E.Mouse.Where) or MouseInOwner(E) then
     begin
       TrackMouse(E, MouseActive);
       if IsBar then
@@ -553,7 +553,7 @@ var
           { released over the entry whose submenu was just closed: the next release opens it }
           LastTargetItem := nil;
     end
-    else if MouseActive and not MouseInView(E.Where) then
+    else if MouseActive and not MouseInView(E.Mouse.Where) then
       Action := doReturn
     else if not IsBar then
     begin
@@ -566,10 +566,10 @@ var
 
   procedure MouseMove;
   begin
-    if E.Buttons = 0 then
+    if E.Mouse.Buttons = 0 then
       Exit;
     TrackMouse(E, MouseActive);
-    if not (MouseInView(E.Where) or MouseInOwner(E)) and MouseInMenus(E) then
+    if not (MouseInView(E.Mouse.Where) or MouseInOwner(E)) and MouseInMenus(E) then
       Action := doReturn
     else if IsBar and MouseActive and (Current <> LastTargetItem) then
       AutoSelect := True;
@@ -577,16 +577,16 @@ var
 
   procedure KeyDown;
   begin
-    case E.KeyCode of
+    case E.KeyDown.KeyCode of
       kbUp, kbDown:
         if not IsBar then
-          Step(E.KeyCode = kbDown)
-        else if E.KeyCode = kbDown then
+          Step(E.KeyDown.KeyCode = kbDown)
+        else if E.KeyDown.KeyCode = kbDown then
           AutoSelect := True;
       kbLeft, kbRight:
         if IsBar then
         begin
-          Step(E.KeyCode = kbRight);
+          Step(E.KeyDown.KeyCode = kbRight);
           if UxMenuAutoOpen then
             AutoSelect := True;
         end
@@ -597,7 +597,7 @@ var
         begin
           { the first or the last entry that is not a line }
           Current := nil;
-          TrackKey(E.KeyCode = kbHome);
+          TrackKey(E.KeyDown.KeyCode = kbHome);
         end;
       kbEnter:
         begin
@@ -671,7 +671,7 @@ begin
         evMouseMove: MouseMove;
         evKeyDown: KeyDown;
         evCommand:
-          if E.Command = cmMenu then
+          if E.Message.Command = cmMenu then
           begin
             AutoSelect := False;
             LastTargetItem := nil;
@@ -748,11 +748,11 @@ var
 begin
   Result := nil;
   { first the text of the event, then the character of the key code }
-  if Event.TextLength > 0 then
+  if Event.KeyDown.TextLength > 0 then
     Result := FindItem(GetAltCharStr(Event));
   if Result = nil then
   begin
-    C := GetAltChar(Event.KeyCode);
+    C := GetAltChar(Event.KeyDown.KeyCode);
     if C <> #0 then
       Result := FindItem(C);
   end;
@@ -760,7 +760,7 @@ end;
 
 function TMenuView.GetItemRect(Item: PMenuItem): TRect;
 begin
-  Result.Assign(0, 0, 0, 0);
+  Result := TRect.Create(0, 0, 0, 0);
 end;
 
 function TMenuView.GetHelpCtx: Word;
@@ -819,8 +819,8 @@ begin
   if (Chosen <> 0) and CommandEnabled(Chosen) then
   begin
     Event.What := evCommand;
-    Event.Command := Chosen;
-    Event.InfoPtr := nil;
+    Event.Message.Command := Chosen;
+    Event.Message.InfoPtr := nil;
     PutEvent(Event);
   end;
   ClearEvent(Event);
@@ -836,7 +836,7 @@ begin
     evMouseDown:
       DoASelect(Event);
     evCommand:
-      if Event.Command = cmMenu then
+      if Event.Message.Command = cmMenu then
         DoASelect(Event);
     evKeyDown:
       if FindAltShortcut(Event) <> nil then
@@ -848,7 +848,7 @@ begin
           PostCommand(Self, Event, P^.Command);
       end;
     evBroadcast:
-      if (Event.Command = cmCommandSetChanged) and UpdateMenu(Menu) then
+      if (Event.Message.Command = cmCommandSetChanged) and UpdateMenu(Menu) then
         DrawView;
   end;
 end;
@@ -932,7 +932,7 @@ begin
       end;
       P := P^.Next;
     end;
-    WriteBufD(0, 0, Size.X, 1, B);
+    WriteBuf(0, 0, Size.X, 1, B);
   finally
     B.Free;
   end;
@@ -943,7 +943,7 @@ var
   P: PMenuItem;
 begin
   { the entries follow each other from column 1, each with a blank on both sides }
-  Result.Assign(1, 0, 1, 1);
+  Result := TRect.Create(1, 0, 1, 1);
   P := Menu^.Items;
   while Assigned(P) do
   begin
@@ -1033,7 +1033,7 @@ begin
   B := TDrawBuffer.Create(Size.X);
   try
     FrameLine(B, 0, C.Normal.Lo, C.Normal.Lo);
-    WriteBufD(0, 0, Size.X, 1, B);
+    WriteBuf(0, 0, Size.X, 1, B);
     Y := 0;
     P := nil;
     if Menu <> nil then
@@ -1053,11 +1053,11 @@ begin
         else if P^.Param <> nil then
           B.MoveCStrS(Size.X - 3 - CStrLen(P^.Param^), P^.Param^, Color);
       end;
-      WriteBufD(0, Y, Size.X, 1, B);
+      WriteBuf(0, Y, Size.X, 1, B);
       P := P^.Next;
     end;
     FrameLine(B, 5, C.Normal.Lo, C.Normal.Lo);
-    WriteBufD(0, Y + 1, Size.X, 1, B);
+    WriteBuf(0, Y + 1, Size.X, 1, B);
   finally
     B.Free;
   end;
@@ -1076,7 +1076,7 @@ begin
     P := P^.Next;
     Inc(Row);
   end;
-  Result.Assign(2, Row, Size.X - 2, Row + 1);
+  Result := TRect.Create(2, Row, Size.X - 2, Row + 1);
 end;
 
 { --- TMenuPopup -------------------------------------------------------------- }
@@ -1109,16 +1109,16 @@ begin
   if Event.What = evKeyDown then
   begin
     { Ctrl+hot letter, or the hot key of an entry }
-    C := GetCtrlChar(Event.KeyCode);
+    C := GetCtrlChar(Event.KeyDown.KeyCode);
     if C = #0 then
       P := nil
     else
       P := FindItem(C);
     if P = nil then
-      P := HotKey(KeyMake(Event.KeyCode));
+      P := HotKey(KeyMake(Event.KeyDown.KeyCode));
     if Usable(P) then
       PostCommand(Self, Event, P^.Command)
-    else if GetAltChar(Event.KeyCode) <> #0 then
+    else if GetAltChar(Event.KeyDown.KeyCode) <> #0 then
       { the menu bar must not see Alt keys while the popup is open }
       ClearEvent(Event);
   end;
@@ -1228,7 +1228,7 @@ begin
         B.MoveStrS(X + 2, HintText, C.Normal.Lo, Size.X - X - 2);
       end;
     end;
-    WriteLineD(0, 0, Size.X, 1, B);
+    WriteLine(0, 0, Size.X, 1, B);
   finally
     B.Free;
   end;
@@ -1287,7 +1287,7 @@ begin
   inherited HandleEvent(Event);
   case Event.What of
     evKeyDown:
-      if Event.KeyCode <> kbNoKey then
+      if Event.KeyDown.KeyCode <> kbNoKey then
       begin
         Key := EventKey(Event);
         T := Items;
@@ -1302,7 +1302,7 @@ begin
         { the item under the mouse is highlighted until the button is released }
         T := nil;
         repeat
-          Under := ItemMouseIsIn(MakeLocal(Event.Where));
+          Under := ItemMouseIsIn(MakeLocal(Event.Mouse.Where));
           if Under <> T then
           begin
             DrawSelect(Under);
@@ -1318,7 +1318,7 @@ begin
         DrawView;
       end;
     evBroadcast:
-      if Event.Command = cmCommandSetChanged then
+      if Event.Message.Command = cmCommandSetChanged then
         DrawView;
   end;
 end;

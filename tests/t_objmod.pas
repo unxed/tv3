@@ -84,7 +84,7 @@ begin
   Check(P.Area = 9, 'second descendant');
   Check(P.Describe = 'shape:s1', 'ancestor method for a descendant without override');
 
-  R.Assign(5, 5, 10, 10);
+  R := TRect.Create(5, 5, 10, 10);
   P := C;
   P.Grow(R);
   Check((R.A.X = 3) and (R.B.X = 12), 'record by var through a virtual method');

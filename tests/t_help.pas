@@ -6,7 +6,7 @@ uses SysUtils, TvGeom, TvColors, TvCell, TvCodePg, TvEvents, TvKeys, TvViews, Tv
 
 function R(A, B, C, D: Integer): TRect;
 begin
-  Result.Assign(A, B, C, D);
+  Result := TRect.Create(A, B, C, D);
 end;
 
 function Para(const S: String; Wrap: Boolean): PParagraph;

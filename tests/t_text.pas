@@ -27,55 +27,55 @@ end;
 
 function ToCp(const S: ShortString): Byte;
 begin
-  Result := TextToCodePage(@S[1], Length(S));
+  Result := TText.ToCodePage(@S[1], Length(S));
 end;
 
 function Draw(Count: Integer; const S: ShortString; Indent: Integer = 0; TextIndent: Integer = 0): Integer;
 begin
-  Result := TextDrawStrS(@Cells[0], Count, Indent, S, TextIndent, @Attr);
+  Result := TText.DrawStr(@Cells[0], Count, Indent, S, TextIndent, @Attr);
 end;
 
 begin
   Attr := AttrFromBIOS($1F);
 
   { widths }
-  Check(TextWidthS('abc') = 3, 'width ASCII');
-  Check(TextWidthS(Eacute) = 1, 'width e-acute');
-  Check(TextWidthS('a' + Acute) = 1, 'width of base + combining mark');
-  Check(TextWidthS(Cjk) = 2, 'width CJK');
-  Check(TextWidthS('a' + Cjk + 'b') = 4, 'width mixed');
-  Check(TextWidthS(#$FF) = 1, 'width of an invalid byte');
-  Check(TextWidthS(#$C3) = 1, 'width of a truncated sequence');
-  Check(TextWidthS(#$C3'A') = 2, 'width of invalid byte + ASCII');
-  Check(TextWidthS(C1Ctl) = 1, 'width of a multi-byte control is 1');
-  Check(TextWidthS('') = 0, 'width of empty text');
+  Check(TText.Width('abc') = 3, 'width ASCII');
+  Check(TText.Width(Eacute) = 1, 'width e-acute');
+  Check(TText.Width('a' + Acute) = 1, 'width of base + combining mark');
+  Check(TText.Width(Cjk) = 2, 'width CJK');
+  Check(TText.Width('a' + Cjk + 'b') = 4, 'width mixed');
+  Check(TText.Width(#$FF) = 1, 'width of an invalid byte');
+  Check(TText.Width(#$C3) = 1, 'width of a truncated sequence');
+  Check(TText.Width(#$C3'A') = 2, 'width of invalid byte + ASCII');
+  Check(TText.Width(C1Ctl) = 1, 'width of a multi-byte control is 1');
+  Check(TText.Width('') = 0, 'width of empty text');
 
   { next }
-  Check(TextNext(@Eacute[1], 2, L, W) and (L = 2) and (W = 1), 'next: e-acute');
-  Check(TextNext(@Cjk[1], 3, L, W) and (L = 3) and (W = 2), 'next: CJK');
-  Check(TextNext(@Acute[1], 2, L, W) and (L = 2) and (W = 0), 'next: combining mark');
-  Check(TextNext(@Eacute[1], 1, L, W) and (L = 1) and (W = 1), 'next: truncated input');
-  Check(not TextNext(@Eacute[1], 0, L, W), 'next: no input');
+  Check(TText.Next(@Eacute[1], 2, L, W) and (L = 2) and (W = 1), 'next: e-acute');
+  Check(TText.Next(@Cjk[1], 3, L, W) and (L = 3) and (W = 2), 'next: CJK');
+  Check(TText.Next(@Acute[1], 2, L, W) and (L = 2) and (W = 0), 'next: combining mark');
+  Check(TText.Next(@Eacute[1], 1, L, W) and (L = 1) and (W = 1), 'next: truncated input');
+  Check(not TText.Next(@Eacute[1], 0, L, W), 'next: no input');
 
   { prev }
-  Check(TextPrev(@('a' + Eacute)[1], 3) = 2, 'prev over a 2-byte character');
-  Check(TextPrev(@('a' + Eacute)[1], 1) = 1, 'prev over ASCII');
-  Check(TextPrev(@('a' + Eacute)[1], 0) = 0, 'prev at the start');
-  Check(TextPrev(@(#$80#$80)[1], 2) = 1, 'prev over an invalid byte');
-  Check(TextPrev(@(Cjk)[1], 3) = 3, 'prev over a 3-byte character');
+  Check(TText.Prev(@('a' + Eacute)[1], 3) = 2, 'prev over a 2-byte character');
+  Check(TText.Prev(@('a' + Eacute)[1], 1) = 1, 'prev over ASCII');
+  Check(TText.Prev(@('a' + Eacute)[1], 0) = 0, 'prev at the start');
+  Check(TText.Prev(@(#$80#$80)[1], 2) = 1, 'prev over an invalid byte');
+  Check(TText.Prev(@(Cjk)[1], 3) = 3, 'prev over a 3-byte character');
 
   { scroll over 'a', CJK, 'b' (widths 1, 2, 1) }
-  TextScroll(@('a' + Cjk + 'b')[1], 5, 1, False, L, W);
+  TText.Scroll(@('a' + Cjk + 'b')[1], 5, 1, False, L, W);
   Check((L = 1) and (W = 1), 'scroll 1');
-  TextScroll(@('a' + Cjk + 'b')[1], 5, 2, False, L, W);
+  TText.Scroll(@('a' + Cjk + 'b')[1], 5, 2, False, L, W);
   Check((L = 1) and (W = 1), 'scroll 2 stops before the wide character');
-  TextScroll(@('a' + Cjk + 'b')[1], 5, 2, True, L, W);
+  TText.Scroll(@('a' + Cjk + 'b')[1], 5, 2, True, L, W);
   Check((L = 4) and (W = 3), 'scroll 2 including the incomplete wide character');
-  TextScroll(@('a' + Cjk + 'b')[1], 5, 3, False, L, W);
+  TText.Scroll(@('a' + Cjk + 'b')[1], 5, 3, False, L, W);
   Check((L = 4) and (W = 3), 'scroll 3');
-  TextScroll(@('a' + Cjk + 'b')[1], 5, 10, False, L, W);
+  TText.Scroll(@('a' + Cjk + 'b')[1], 5, 10, False, L, W);
   Check((L = 5) and (W = 4), 'scroll beyond the end');
-  TextScroll(@('a' + Cjk + 'b')[1], 5, 0, False, L, W);
+  TText.Scroll(@('a' + Cjk + 'b')[1], 5, 0, False, L, W);
   Check((L = 0) and (W = 0), 'scroll 0');
 
   { drawing ASCII with an attribute }
@@ -176,7 +176,7 @@ begin
 
   { fill }
   Clear;
-  TextDrawChar(@Cells[0], 3, Ord('='), @Attr);
+  TText.DrawChar(@Cells[0], 3, Ord('='), @Attr);
   Check((Txt(0) = '=') and (Txt(2) = '=') and (AttrAsBIOSByte(Cells[1].Attribute) = $1F), 'DrawChar fills cells');
   Check(Cells[3].Character.Text[0] = 0, 'DrawChar stops at the count');
 

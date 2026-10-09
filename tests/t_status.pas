@@ -71,7 +71,7 @@ end;
 
 function Cell(X, Y: Integer): PScreenCell;
 begin
-  Result := ScreenBuffer + (Y * ScreenWidth + X);
+  Result := TScreen.ScreenBuffer + (Y * TScreen.ScreenWidth + X);
 end;
 
 function CellText(X, Y: Integer): ShortString;
@@ -109,7 +109,7 @@ end;
 
 function R(A, B, C, D: Integer): TRect;
 begin
-  Result.Assign(A, B, C, D);
+  Result := TRect.Create(A, B, C, D);
 end;
 
 function Defs: PStatusDef;
@@ -132,7 +132,7 @@ begin
   ScreenCreate(W, H);
   Desk := TTop.Create(R(0, 0, W, H));
   Desk.Options := 0;
-  Desk.Buffer := ScreenBuffer;
+  Desk.Buffer := TScreen.ScreenBuffer;
   Desk.State := sfVisible or sfSelected or sfFocused or sfModal or sfExposed;
   TView.EnableCommands([cmHelp, cmQuit, cmSave]);
   Used0 := GetFPCHeapStatus.CurrHeapUsed;
@@ -153,10 +153,10 @@ begin
   { keys }
   MakeKeyEvent(Ev, kbF1, 0);
   Line.HandleEvent(Ev);
-  Check((Ev.What = evCommand) and (Ev.Command = cmHelp), 'a key of an item becomes its command');
+  Check((Ev.What = evCommand) and (Ev.Message.Command = cmHelp), 'a key of an item becomes its command');
   MakeKeyEvent(Ev, kbAltX, kbAltShift);
   Line.HandleEvent(Ev);
-  Check((Ev.What = evCommand) and (Ev.Command = cmQuit), 'Alt-X becomes cmQuit');
+  Check((Ev.What = evCommand) and (Ev.Message.Command = cmQuit), 'Alt-X becomes cmQuit');
   MakeKeyEvent(Ev, kbF2, 0);
   Line.HandleEvent(Ev);
   Check(Ev.What = evKeyDown, 'a key of another help context is not handled');
@@ -164,7 +164,7 @@ begin
   TView.DisableCommand(cmQuit);
   ClearEvent(Ev);
   Ev.What := evBroadcast;
-  Ev.Command := cmCommandSetChanged;
+  Ev.Message.Command := cmCommandSetChanged;
   Line.HandleEvent(Ev);
   Check(AttrAt(10, Y) = $03, 'a disabled item has the disabled color');
   Check(AttrAt(1, Y) = $04, 'the other items stay normal');
@@ -177,38 +177,38 @@ begin
   Desk.QCount := 1; Desk.QPos := 0;
   ClearEvent(Desk.Queue[0]);
   Desk.Queue[0].What := evMouseUp;
-  Desk.Queue[0].Where.X := 3; Desk.Queue[0].Where.Y := Y;
+  Desk.Queue[0].Mouse.Where.X := 3; Desk.Queue[0].Mouse.Where.Y := Y;
   Desk.LastPut.What := evNothing;
   ClearEvent(Ev);
-  Ev.What := evMouseDown; Ev.Where.X := 3; Ev.Where.Y := Y; Ev.Buttons := mbLeftButton;
+  Ev.What := evMouseDown; Ev.Mouse.Where.X := 3; Ev.Mouse.Where.Y := Y; Ev.Mouse.Buttons := mbLeftButton;
   Line.HandleEvent(Ev);
-  Check((Desk.LastPut.What = evCommand) and (Desk.LastPut.Command = cmHelp), 'a click on an item puts its command');
+  Check((Desk.LastPut.What = evCommand) and (Desk.LastPut.Message.Command = cmHelp), 'a click on an item puts its command');
   Check(Ev.What = evNothing, 'the click is handled');
   { press on an item, move away, release: nothing }
   Desk.QCount := 2; Desk.QPos := 0;
   ClearEvent(Desk.Queue[0]);
   Desk.Queue[0].What := evMouseMove;
-  Desk.Queue[0].Where.X := 30; Desk.Queue[0].Where.Y := Y;
+  Desk.Queue[0].Mouse.Where.X := 30; Desk.Queue[0].Mouse.Where.Y := Y;
   ClearEvent(Desk.Queue[1]);
   Desk.Queue[1].What := evMouseUp;
-  Desk.Queue[1].Where.X := 30; Desk.Queue[1].Where.Y := Y;
+  Desk.Queue[1].Mouse.Where.X := 30; Desk.Queue[1].Mouse.Where.Y := Y;
   Desk.LastPut.What := evNothing;
   ClearEvent(Ev);
-  Ev.What := evMouseDown; Ev.Where.X := 3; Ev.Where.Y := Y; Ev.Buttons := mbLeftButton;
+  Ev.What := evMouseDown; Ev.Mouse.Where.X := 3; Ev.Mouse.Where.Y := Y; Ev.Mouse.Buttons := mbLeftButton;
   Line.HandleEvent(Ev);
   Check(Desk.LastPut.What = evNothing, 'released away from the item: no command');
   { release on another item chooses that one }
   Desk.QCount := 2; Desk.QPos := 0;
   ClearEvent(Desk.Queue[0]);
   Desk.Queue[0].What := evMouseMove;
-  Desk.Queue[0].Where.X := 12; Desk.Queue[0].Where.Y := Y;
+  Desk.Queue[0].Mouse.Where.X := 12; Desk.Queue[0].Mouse.Where.Y := Y;
   ClearEvent(Desk.Queue[1]);
   Desk.Queue[1].What := evMouseUp;
-  Desk.Queue[1].Where.X := 12; Desk.Queue[1].Where.Y := Y;
+  Desk.Queue[1].Mouse.Where.X := 12; Desk.Queue[1].Mouse.Where.Y := Y;
   ClearEvent(Ev);
-  Ev.What := evMouseDown; Ev.Where.X := 3; Ev.Where.Y := Y; Ev.Buttons := mbLeftButton;
+  Ev.What := evMouseDown; Ev.Mouse.Where.X := 3; Ev.Mouse.Where.Y := Y; Ev.Mouse.Buttons := mbLeftButton;
   Line.HandleEvent(Ev);
-  Check((Desk.LastPut.What = evCommand) and (Desk.LastPut.Command = cmQuit),
+  Check((Desk.LastPut.What = evCommand) and (Desk.LastPut.Message.Command = cmQuit),
     'dragging to another item chooses that one');
 
   { the help context of the top view selects the items }
@@ -221,7 +221,7 @@ begin
   Check(Row(Y, 21, 23) = '   ', 'and no hint');
   MakeKeyEvent(Ev, kbF2, 0);
   Line.HandleEvent(Ev);
-  Check((Ev.What = evCommand) and (Ev.Command = cmSave), 'keys of the new items');
+  Check((Ev.What = evCommand) and (Ev.Message.Command = cmSave), 'keys of the new items');
   HV.Free;
   Line.Update;
   Check((Line.HelpCtx = 0) and (Line.Items^.Text^ = '~F1~ Help'), 'the items return with the help context');

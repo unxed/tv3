@@ -20,7 +20,7 @@ begin
   begin
     Event.What := Queue[QHead];
     if Event.What = evKeyDown then
-      Event.KeyCode := $011B;
+      Event.KeyDown.KeyCode := $011B;
     Inc(QHead);
   end;
 end;
@@ -36,14 +36,14 @@ begin
 
   Push(evKeyDown);
   PollKeyEvent(E);
-  Check((E.What = evKeyDown) and (E.KeyCode = $011B), 'a key is returned');
+  Check((E.What = evKeyDown) and (E.KeyDown.KeyCode = $011B), 'a key is returned');
   PollKeyEvent(E);
   Check(E.What = evNothing, 'the key was taken');
 
   QHead := 0; QTail := 0;
   Push(evMouseMove); Push(evMouseDown); Push(evKeyDown);
   PollKeyEvent(E);
-  Check((E.What = evKeyDown) and (E.KeyCode = $011B), 'mouse events before the key are dropped');
+  Check((E.What = evKeyDown) and (E.KeyDown.KeyCode = $011B), 'mouse events before the key are dropped');
   PollKeyEvent(E);
   Check(E.What = evNothing, 'nothing left');
 

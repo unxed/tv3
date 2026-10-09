@@ -186,7 +186,7 @@ var
   Idx: Integer;
   Text: string;
 begin
-  Row := ScreenBuffer + Y * Cols;
+  Row := TScreen.ScreenBuffer + Y * Cols;
   C := Row + CX;
   Idx := Y * Cols + CX;
   if ScIsWideTrail(C^.Character) then
@@ -230,7 +230,7 @@ var
 begin
   if (Y < 0) or (Y >= Rows) or (Shown = nil) then
     Exit;
-  Row := ScreenBuffer + Y * Cols;
+  Row := TScreen.ScreenBuffer + Y * Cols;
   for I := 0 to Count - 1 do
   begin
     CX := X + I;
@@ -720,10 +720,10 @@ function DeliverRaw(const Raw: TEvent; var Event: TEvent): Boolean;
 begin
   if Raw.What = evMouse then
   begin
-    MState.Where := Raw.Where;
-    MState.Buttons := Raw.Buttons;
-    MState.Wheel := Raw.Wheel;
-    MState.ControlKeyState := Raw.ControlKeyState;
+    MState.Where := Raw.Mouse.Where;
+    MState.Buttons := Raw.Mouse.Buttons;
+    MState.Wheel := Raw.Mouse.Wheel;
+    MState.ControlKeyState := Raw.KeyDown.ControlKeyState;
     MouseStep(MState, UnixClock, Event);
     MState.Wheel := 0;
     Result := Event.What <> evNothing;
@@ -790,7 +790,7 @@ begin
       OsResizeFlag := 0;
       ClearEvent(Event);
       Event.What := evCommand;
-      Event.Command := cmScreenChanged;
+      Event.Message.Command := cmScreenChanged;
       Exit;
     end;
     { the timers of the mouse: the up that is pending, the auto repeat }

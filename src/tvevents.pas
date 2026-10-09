@@ -79,39 +79,55 @@ const
   kfRepeat = $01;
 
 type
+  MouseEventType = record
+    ControlKeyState: Word;     { first in the key and in the mouse events: the same field for both }
+    Where: TPoint;
+    EventFlags: Word;
+    Buttons: Byte;
+    Wheel: Byte;
+  end;
+
+  CharScanType = record
+    CharCode: Byte;
+    ScanCode: Byte;
+  end;
+
+  KeyDownEvent = record
+    ControlKeyState: Word;
+    Text: array[0..MaxCharSize - 1] of Char;    { UTF-8, no terminating NUL }
+    TextLength: Byte;
+    VirtualKey: Word;      { Windows VK_* code; 0 if unknown (see EventVirtualKey) }
+    RepeatCount: Word;     { 0 means 1 }
+    Win32State: Word;      { dwControlKeyState from the terminal; 0 if unknown (see EventWin32State) }
+    KeyFlags: Byte;        { kfRepeat for an auto repeat, when the terminal reports it }
+    KeyCodePadding: array[0..2] of Byte;   { KeyCode must not overlap the 64-bit InfoPtr }
+    case Byte of
+      0: (KeyCode: Word);
+      1: (CharScan: CharScanType);
+  end;
+
+  MessageEvent = record
+    CommandPadding: Word;  { the place of ControlKeyState: a command made of a key keeps its modifiers }
+    Command: Word;
+    { Keep the message payload after the key fields.  On 64-bit
+      targets a Pointer is wider than the old KeyCode slot; putting
+      InfoPtr at the old offset made it overlap KeyCode. }
+    InfoPadding: array[0..15] of Byte;
+    case Byte of
+      0: (InfoByte: Byte);
+      1: (InfoChar: Char);
+      2: (InfoWord: Word);
+      3: (InfoInt: SmallInt);
+      4: (InfoLong: LongInt);
+      5: (InfoPtr: Pointer);
+  end;
+
   TEvent = record
     What: Word;
-    ControlKeyState: Word;
     case Byte of
-      0: { mouse events }
-         (Where: TPoint;
-          EventFlags: Word;
-          Buttons: Byte;
-          Wheel: Byte);
-      1: { key events }
-         (Text: array[0..MaxCharSize - 1] of Char;    { UTF-8, no terminating NUL }
-          TextLength: Byte;
-          VirtualKey: Word;      { Windows VK_* code; 0 if unknown (see EventVirtualKey) }
-          RepeatCount: Word;     { 0 means 1 }
-          Win32State: Word;      { dwControlKeyState from the terminal; 0 if unknown (see EventWin32State) }
-          KeyFlags: Byte;        { kfRepeat for an auto repeat, when the terminal reports it }
-          KeyCodePadding: array[0..2] of Byte;   { KeyCode must not overlap the 64-bit InfoPtr }
-          case Byte of
-            0: (KeyCode: Word);
-            1: (CharCode: Byte;
-                ScanCode: Byte));
-      2: (Command: Word;
-          { Keep the message payload after the key fields.  On 64-bit
-            targets a Pointer is wider than the old KeyCode slot; putting
-            InfoPtr at the old offset made it overlap KeyCode. }
-          InfoPadding: array[0..15] of Byte;
-          case Byte of
-            0: (InfoByte: Byte);
-            1: (InfoChar: Char);
-            2: (InfoWord: Word);
-            3: (InfoInt: SmallInt);
-            4: (InfoLong: LongInt);
-            5: (InfoPtr: Pointer));
+      0: (Mouse: MouseEventType);
+      1: (KeyDown: KeyDownEvent);
+      2: (Message: MessageEvent);
   end;
 
 type
@@ -147,29 +163,29 @@ function EventText(const Event: TEvent): ShortString;
 var
   N: Integer;
 begin
-  N := Event.TextLength;
+  N := Event.KeyDown.TextLength;
   if N > MaxCharSize then
     N := MaxCharSize;
   SetLength(Result, N);
   if N > 0 then
-    Move(Event.Text[0], Result[1], N);
+    Move(Event.KeyDown.Text[0], Result[1], N);
 end;
 
 function EventKey(const Event: TEvent): TKey;
 begin
-  Result := KeyMake(Event.KeyCode, Event.ControlKeyState);
+  Result := KeyMake(Event.KeyDown.KeyCode, Event.KeyDown.ControlKeyState);
 end;
 
 procedure MakeKeyEvent(out Event: TEvent; KeyCode, ControlKeyState: Word);
 begin
   ClearEvent(Event);
   Event.What := evKeyDown;
-  Event.KeyCode := KeyCode;
-  Event.ControlKeyState := ControlKeyState;
-  if (Event.CharCode >= $20) and (Event.CharCode < $7F) then
+  Event.KeyDown.KeyCode := KeyCode;
+  Event.KeyDown.ControlKeyState := ControlKeyState;
+  if (Event.KeyDown.CharScan.CharCode >= $20) and (Event.KeyDown.CharScan.CharCode < $7F) then
   begin
-    Event.Text[0] := Char(Event.CharCode);
-    Event.TextLength := 1;
+    Event.KeyDown.Text[0] := Char(Event.KeyDown.CharScan.CharCode);
+    Event.KeyDown.TextLength := 1;
   end;
 end;
 
@@ -262,18 +278,18 @@ end;
 
 function EventVirtualKey(const Event: TEvent): Word;
 begin
-  if Event.VirtualKey <> 0 then
-    Exit(Event.VirtualKey);
+  if Event.KeyDown.VirtualKey <> 0 then
+    Exit(Event.KeyDown.VirtualKey);
   Result := 0;
-  if (Event.CharCode >= 1) and (Event.CharCode <= 26) and (Event.CharCode <> 8) and (Event.CharCode <> 9) and (Event.CharCode <> 13) then
-    Exit(Event.CharCode + 64);                      { Ctrl+A.. }
-  if Event.CharCode = 0 then
-    Exit(KeyOfScan(Event.ScanCode));
-  Result := KeyOfScan(Event.ScanCode);
-  if (Result = 0) or (Event.CharCode > 32) then
-    Result := OemVk(Event.CharCode);
-  if (Result = 0) and (Event.TextLength = 1) then
-    Result := OemVk(Ord(Event.Text[0]));
+  if (Event.KeyDown.CharScan.CharCode >= 1) and (Event.KeyDown.CharScan.CharCode <= 26) and (Event.KeyDown.CharScan.CharCode <> 8) and (Event.KeyDown.CharScan.CharCode <> 9) and (Event.KeyDown.CharScan.CharCode <> 13) then
+    Exit(Event.KeyDown.CharScan.CharCode + 64);                      { Ctrl+A.. }
+  if Event.KeyDown.CharScan.CharCode = 0 then
+    Exit(KeyOfScan(Event.KeyDown.CharScan.ScanCode));
+  Result := KeyOfScan(Event.KeyDown.CharScan.ScanCode);
+  if (Result = 0) or (Event.KeyDown.CharScan.CharCode > 32) then
+    Result := OemVk(Event.KeyDown.CharScan.CharCode);
+  if (Result = 0) and (Event.KeyDown.TextLength = 1) then
+    Result := OemVk(Ord(Event.KeyDown.Text[0]));
 end;
 
 function EventScanCode(const Event: TEvent): Word;
@@ -281,8 +297,8 @@ var
   Vk: Word;
 begin
   Vk := EventVirtualKey(Event);
-  if Event.CharCode = 0 then
-    Exit(BaseScan(Event.ScanCode));
+  if Event.KeyDown.CharScan.CharCode = 0 then
+    Exit(BaseScan(Event.KeyDown.CharScan.ScanCode));
   case Vk of
     $41..$5A:
       begin
@@ -316,7 +332,7 @@ begin
     $08: Result := $0E;
     $1B: Result := $01;
   else
-    Result := BaseScan(Event.ScanCode);
+    Result := BaseScan(Event.KeyDown.CharScan.ScanCode);
   end;
 end;
 
@@ -324,9 +340,9 @@ function EventWin32State(const Event: TEvent): Word;
 var
   M: Word;
 begin
-  if Event.Win32State <> 0 then
-    Exit(Event.Win32State);
-  M := Event.ControlKeyState;
+  if Event.KeyDown.Win32State <> 0 then
+    Exit(Event.KeyDown.Win32State);
+  M := Event.KeyDown.ControlKeyState;
   Result := 0;
   if (M and kbShift) <> 0 then
     Result := Result or wkShift;
@@ -340,7 +356,7 @@ begin
     Result := Result or wkNumLock;
   if (M and kbCapsState) <> 0 then
     Result := Result or wkCapsLock;
-  if ((M and kbEnhanced) <> 0) or ((Event.CharCode = 0) and IsCursorBlock(EventVirtualKey(Event))) then
+  if ((M and kbEnhanced) <> 0) or ((Event.KeyDown.CharScan.CharCode = 0) and IsCursorBlock(EventVirtualKey(Event))) then
     Result := Result or wkEnhanced;
 end;
 
@@ -352,9 +368,9 @@ begin
   Hi := 0;
   Lo := 0;
   Result := 0;
-  if Event.TextLength > 0 then
+  if Event.KeyDown.TextLength > 0 then
   begin
-    if not Utf8Decode(@Event.Text[0], Event.TextLength, Cp, L) then
+    if not Utf8Decode(@Event.KeyDown.Text[0], Event.KeyDown.TextLength, Cp, L) then
       Exit;
     if Cp >= $10000 then
     begin
@@ -366,8 +382,8 @@ begin
     Lo := Cp;
     Exit(1);
   end;
-  case Event.CharCode of
-    1..26, 27: begin Lo := Event.CharCode; Result := 1; end;
+  case Event.KeyDown.CharScan.CharCode of
+    1..26, 27: begin Lo := Event.KeyDown.CharScan.CharCode; Result := 1; end;
   end;
 end;
 

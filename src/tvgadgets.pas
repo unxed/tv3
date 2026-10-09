@@ -147,13 +147,13 @@ begin
       W := 0;
       if Right then
       begin
-        W := V.Size.X - TextWidth(@S[1], Length(S));
+        W := V.Size.X - TText.Width(@S[1], Length(S));
         if W < 0 then
           W := 0;
       end;
       B.MoveStr(W, @S[1], Length(S), C, V.Size.X - W);
     end;
-    V.WriteLineD(0, 0, V.Size.X, 1, B);
+    V.WriteLine(0, 0, V.Size.X, 1, B);
   finally
     B.Free;
   end;
@@ -245,7 +245,7 @@ begin
   end;
   TimeStr := T;
   if AutoSize then
-    FitWidth(TextWidth(PByte(PAnsiChar(T)), Length(T)))
+    FitWidth(TText.Width(PByte(PAnsiChar(T)), Length(T)))
   else if RightAlign then
     FitWidth(Size.X);
   DrawView;

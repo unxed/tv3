@@ -27,16 +27,32 @@ type
   TCaretPositionHook = procedure(X, Y: Integer);
   TCaretSizeHook = procedure(Size: Integer);
 
+  TDisplay = class
+  public
+    const
+      { screen modes (BIOS numbers; smFont8x8 is a flag) }
+      smBW80    = 2;
+      smCO80    = 3;
+      smMono    = 7;
+      smFont8x8 = $100;
+      smUpdate  = $FFFF;    { "the screen has changed: read its size again" }
+  end;
+
+  TScreen = class(TDisplay)
+  public
+    class var ScreenMode: Word;
+    class var ScreenWidth: Integer;
+    class var ScreenHeight: Integer;
+    { ScreenWidth * ScreenHeight cells, row by row; nil until ScreenCreate }
+    class var ScreenBuffer: PScreenCell;
+    { caret size in percent of a cell when not in insert mode }
+    class var CursorLines: Integer;
+  end;
+
 var
-  ScreenWidth: Integer = 0;
-  ScreenHeight: Integer = 0;
-  { ScreenWidth * ScreenHeight cells, row by row; nil until ScreenCreate }
-  ScreenBuffer: PScreenCell = nil;
   { shadow of a view: its offset and attribute (BIOS $08: dark gray on black) }
   ShadowSize: TPoint = (X: 2; Y: 1);
   ShadowAttr: TColorAttr = (Data: 0);
-  { caret size in percent of a cell when not in insert mode }
-  CursorLines: Integer = 20;
   { the caret as last set through SetCaretPosition and SetCaretSize }
   CaretX: Integer = 0;
   CaretY: Integer = 0;
@@ -60,19 +76,19 @@ implementation
 procedure ScreenCreate(W, H: Integer);
 begin
   ScreenDestroy;
-  ScreenWidth := W;
-  ScreenHeight := H;
-  GetMem(ScreenBuffer, W * H * SizeOf(TScreenCell));
-  FillChar(ScreenBuffer^, W * H * SizeOf(TScreenCell), 0);
+  TScreen.ScreenWidth := W;
+  TScreen.ScreenHeight := H;
+  GetMem(TScreen.ScreenBuffer, W * H * SizeOf(TScreenCell));
+  FillChar(TScreen.ScreenBuffer^, W * H * SizeOf(TScreenCell), 0);
 end;
 
 procedure ScreenDestroy;
 begin
-  if ScreenBuffer <> nil then
-    FreeMem(ScreenBuffer);
-  ScreenBuffer := nil;
-  ScreenWidth := 0;
-  ScreenHeight := 0;
+  if TScreen.ScreenBuffer <> nil then
+    FreeMem(TScreen.ScreenBuffer);
+  TScreen.ScreenBuffer := nil;
+  TScreen.ScreenWidth := 0;
+  TScreen.ScreenHeight := 0;
 end;
 
 procedure ScreenWrite(X, Y: Integer; Cells: PScreenCell; Count: Integer);
@@ -97,5 +113,7 @@ begin
 end;
 
 initialization
+  TScreen.ScreenMode := TDisplay.smCO80;
+  TScreen.CursorLines := 20;
   ShadowAttr := AttrFromBIOS($08);
 end.

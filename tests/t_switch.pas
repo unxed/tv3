@@ -9,7 +9,7 @@ uses SysUtils, TvGeom, TvCell, TvCodePg, TvEvents, TvKeys, TvViews, TvObjs, TvUt
 
 function R(A, B, C, D: Integer): TRect;
 begin
-  Result.Assign(A, B, C, D);
+  Result := TRect.Create(A, B, C, D);
 end;
 
 procedure Press(Code, Mods: Word);
@@ -27,8 +27,8 @@ var
 begin
   ClearEvent(E);
   E.What := evKeyUp;
-  E.KeyCode := 0;
-  E.ControlKeyState := Held;
+  E.KeyDown.KeyCode := 0;
+  E.KeyDown.ControlKeyState := Held;
   TProgram.Application.HandleEvent(E);
 end;
 

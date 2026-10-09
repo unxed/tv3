@@ -327,30 +327,30 @@ begin
   Check(F2lNewClientId <> T, 'random');
 
   { the input parser: events become events }
-  Check(Parse(E + '_f2lAQBBAB4AAAAAAGEAAABL' + Bel, Ev) and (Ev.What = evKeyDown) and (EventText(Ev) = 'a') and (Ev.VirtualKey = $41),
+  Check(Parse(E + '_f2lAQBBAB4AAAAAAGEAAABL' + Bel, Ev) and (Ev.What = evKeyDown) and (EventText(Ev) = 'a') and (Ev.KeyDown.VirtualKey = $41),
     'K: the key a');
   Check(Parse(E + '_f2lQQAAYQBD' + St, Ev) and (Ev.What = evKeyDown) and (EventText(Ev) = 'a'), 'C, ended by ST');
-  Check(Parse(F2lKeySeq(True, 0, $08, $3B, $70, 1, True), Ev) and (Ev.KeyCode = kbCtrlF1), 'Ctrl+F1');
+  Check(Parse(F2lKeySeq(True, 0, $08, $3B, $70, 1, True), Ev) and (Ev.KeyDown.KeyCode = kbCtrlF1), 'Ctrl+F1');
   Check(Parse(F2lKeySeq(True, Ord('A'), $10, $1E, $41, 1, True), Ev) and (EventText(Ev) = 'A'), 'Shift+A');
-  Check(Parse(F2lKeySeq(True, 1, $08, $1E, $41, 1, True), Ev) and (Ev.KeyCode = kbCtrlA), 'Ctrl+A (the control character)');
+  Check(Parse(F2lKeySeq(True, 1, $08, $1E, $41, 1, True), Ev) and (Ev.KeyDown.KeyCode = kbCtrlA), 'Ctrl+A (the control character)');
   Check(Parse(F2lKeySeq(True, $1F600, 0, 0, $E7, 1, True), Ev) and (EventText(Ev) = '😀'), 'a character above U+FFFF');
-  Check(Parse(F2lKeySeq(True, Ord('x'), 0, $2D, $58, 3, False), Ev) and ((Ev.KeyFlags and kfRepeat) <> 0) and (Ev.RepeatCount = 3),
+  Check(Parse(F2lKeySeq(True, Ord('x'), 0, $2D, $58, 3, False), Ev) and ((Ev.KeyDown.KeyFlags and kfRepeat) <> 0) and (Ev.KeyDown.RepeatCount = 3),
     'a repeat count: kfRepeat');
   State.HeldVk := 0;
   Check(not Parse(F2lKeySeq(False, Ord('a'), 0, $1E, $41, 1, True), Ev), 'a release is dropped when nobody wants it');
   State.ReportKeyUp := True;
   Check(Parse(F2lKeySeq(False, Ord('a'), 0, $1E, $41, 1, True), Ev) and (Ev.What = evKeyUp), 'and is evKeyUp when it is wanted');
   State.ReportModUp := True;
-  Check(Parse(F2lKeySeq(False, 0, 0, $1D, $11, 1, True), Ev) and (Ev.What = evKeyUp) and (Ev.KeyCode = 0), 'the release of Ctrl');
+  Check(Parse(F2lKeySeq(False, 0, 0, $1D, $11, 1, True), Ev) and (Ev.What = evKeyUp) and (Ev.KeyDown.KeyCode = 0), 'the release of Ctrl');
   State.ReportKeyUp := False;
   State.ReportModUp := False;
-  Check(Parse(E + '_f2lCgAFAAEAAABt' + Bel, Ev) and (Ev.What = evMouse) and (Ev.Where.X = 10) and (Ev.Where.Y = 5) and
-    (Ev.Buttons = mbLeftButton), 'm: the left button');
-  Check(Parse(F2lMouseSeq(0, 0, 0, 10, 5, True), Ev) and (Ev.What = evMouse) and (Ev.Buttons = 0), 'its release');
-  Check(Parse(E + '_f2lCgAFAAAA//8AAAAABAAAAE0=' + Bel, Ev) and (Ev.Wheel = mwDown), 'M: the wheel down');
-  Check(Parse(F2lMouseSeq(4, 0, $00010000, 1, 1, True), Ev) and (Ev.Wheel = mwUp), 'the wheel up');
-  Check(Parse(F2lMouseSeq(8, 0, $00010000, 1, 1, True), Ev) and (Ev.Wheel = mwRight), 'the horizontal wheel');
-  Check(Parse(F2lMouseSeq(0, $08, 4, 2, 3, True), Ev) and (Ev.Buttons = mbMiddleButton) and ((Ev.ControlKeyState and kbCtrlShift) <> 0),
+  Check(Parse(E + '_f2lCgAFAAEAAABt' + Bel, Ev) and (Ev.What = evMouse) and (Ev.Mouse.Where.X = 10) and (Ev.Mouse.Where.Y = 5) and
+    (Ev.Mouse.Buttons = mbLeftButton), 'm: the left button');
+  Check(Parse(F2lMouseSeq(0, 0, 0, 10, 5, True), Ev) and (Ev.What = evMouse) and (Ev.Mouse.Buttons = 0), 'its release');
+  Check(Parse(E + '_f2lCgAFAAAA//8AAAAABAAAAE0=' + Bel, Ev) and (Ev.Mouse.Wheel = mwDown), 'M: the wheel down');
+  Check(Parse(F2lMouseSeq(4, 0, $00010000, 1, 1, True), Ev) and (Ev.Mouse.Wheel = mwUp), 'the wheel up');
+  Check(Parse(F2lMouseSeq(8, 0, $00010000, 1, 1, True), Ev) and (Ev.Mouse.Wheel = mwRight), 'the horizontal wheel');
+  Check(Parse(F2lMouseSeq(0, $08, 4, 2, 3, True), Ev) and (Ev.Mouse.Buttons = mbMiddleButton) and ((Ev.KeyDown.ControlKeyState and kbCtrlShift) <> 0),
     'the middle button with Ctrl');
   Check(not Parse(E + '_f2lUAAZAFM=' + Bel, Ev) and (State.Far2lCols = 80) and (State.Far2lRows = 25), 'S: the size goes to the state');
   Check(not Parse(E + '_far2lok' + Bel, Ev) and State.Far2lAck, 'the acknowledgement (BEL)');

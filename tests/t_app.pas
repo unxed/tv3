@@ -69,12 +69,12 @@ procedure TWatch.HandleEvent(var Event: TEvent);
 begin
   inherited HandleEvent(Event);
   if Event.What = evBroadcast then
-    case Event.Command of
+    case Event.Message.Command of
       cmCommandSetChanged: Inc(SetChanged);
       cmTimerExpired:
         begin
           Inc(TimerFired);
-          LastTimer := Event.InfoPtr;
+          LastTimer := Event.Message.InfoPtr;
         end;
     end;
 end;
@@ -102,7 +102,7 @@ end;
 
 function R(A, B, C, D: Integer): TRect;
 begin
-  Result.Assign(A, B, C, D);
+  Result := TRect.Create(A, B, C, D);
 end;
 
 { handles the queued events, as the loop of Run does }
@@ -154,7 +154,7 @@ begin
   Check((TProgram.DeskTop <> nil) and (TProgram.MenuBar <> nil) and (TProgram.StatusLine <> nil), 'desktop, menu bar and status line exist');
   Check((App.State and (sfVisible or sfSelected or sfFocused or sfModal or sfExposed)) =
     (sfVisible or sfSelected or sfFocused or sfModal or sfExposed), 'the program is the modal top view');
-  Check(App.Buffer = ScreenBuffer, 'the program draws into the screen buffer');
+  Check(App.Buffer = TScreen.ScreenBuffer, 'the program draws into the screen buffer');
   Check((TProgram.DeskTop.Origin.Y = 1) and (TProgram.DeskTop.Size.Y = 23) and (TProgram.DeskTop.Size.X = 60), 'desktop bounds');
   Check((TProgram.MenuBar.Origin.Y = 0) and (TProgram.MenuBar.Size.Y = 1), 'menu bar bounds');
   Check((TProgram.StatusLine.Origin.Y = 24) and (TProgram.StatusLine.Size.Y = 1), 'status line bounds');
@@ -164,7 +164,7 @@ begin
   Check(MemChar(0, 1) = '░', 'background pattern');
   { what a locked program lost is drawn again at Unlock (the buffer of the program is the screen: Draw of the group repaints
     the subviews, not the buffer onto itself) }
-  FillChar(ScreenBuffer^, ScreenWidth * ScreenHeight * SizeOf(TScreenCell), 0);
+  FillChar(TScreen.ScreenBuffer^, TScreen.ScreenWidth * TScreen.ScreenHeight * SizeOf(TScreenCell), 0);
   App.Lock;
   App.Unlock;
   Check((MemText(0, 0, 5) = '  File') and (MemChar(0, 1) = '░'), 'Unlock of the program repaints it');
@@ -195,16 +195,16 @@ begin
   Check(App.InsertWindow(nil) = nil, 'InsertWindow(nil) is nil');
 
   { next and previous window }
-  Ev.What := evCommand; Ev.Command := cmNext; Ev.InfoPtr := nil;
+  Ev.What := evCommand; Ev.Message.Command := cmNext; Ev.Message.InfoPtr := nil;
   App.HandleEvent(Ev);
   Check((TProgram.DeskTop.First = W1) and (Ev.What = evNothing), 'cmNext selects the next window');
-  Ev.What := evCommand; Ev.Command := cmPrev; Ev.InfoPtr := nil;
+  Ev.What := evCommand; Ev.Message.Command := cmPrev; Ev.Message.InfoPtr := nil;
   App.HandleEvent(Ev);
   Check(TProgram.DeskTop.First = W2, 'cmPrev puts the front window behind the others');
 
   { tile and cascade }
   W3 := App.InsertWindow(NewWin(3, 20, 10));
-  Ev.What := evCommand; Ev.Command := cmTile; Ev.InfoPtr := nil;
+  Ev.What := evCommand; Ev.Message.Command := cmTile; Ev.Message.InfoPtr := nil;
   App.HandleEvent(Ev);
   Check(Ev.What = evNothing, 'cmTile is handled');
   Ys[0] := W1.Origin.Y; Ys[1] := W2.Origin.Y; Ys[2] := W3.Origin.Y;
@@ -214,7 +214,7 @@ begin
   Check((Ys[0] = 0) and (Ys[1] = 7) and (Ys[2] = 15), 'tiled in three rows');
   Check((W1.Size.X = 60) and (W2.Size.X = 60) and (W3.Size.X = 60), 'tiled windows are as wide as the desktop');
   Check(W1.Size.Y + W2.Size.Y + W3.Size.Y = 23, 'and fill its height');
-  Ev.What := evCommand; Ev.Command := cmCascade; Ev.InfoPtr := nil;
+  Ev.What := evCommand; Ev.Message.Command := cmCascade; Ev.Message.InfoPtr := nil;
   App.HandleEvent(Ev);
   Check(Ev.What = evNothing, 'cmCascade is handled');
   Check((W3.Origin.X = W3.Origin.Y) and (W1.Origin.X = W1.Origin.Y) and
@@ -251,12 +251,12 @@ begin
   Check((Ev.What = evKeyDown) and (App.Idles = 0), 'an event: no Idle');
   { the pending event (PutEvent) comes first }
   MemKey(kbF8);
-  Ev.What := evCommand; Ev.Command := cmOK; Ev.InfoPtr := nil;
+  Ev.What := evCommand; Ev.Message.Command := cmOK; Ev.Message.InfoPtr := nil;
   App.PutEvent(Ev);
   App.GetEvent(Ev);
-  Check((Ev.What = evCommand) and (Ev.Command = cmOK), 'PutEvent: the pending event comes first');
+  Check((Ev.What = evCommand) and (Ev.Message.Command = cmOK), 'PutEvent: the pending event comes first');
   App.GetEvent(Ev);
-  Check((Ev.What = evKeyDown) and (Ev.KeyCode = kbF8), 'then the queue');
+  Check((Ev.What = evKeyDown) and (Ev.KeyDown.KeyCode = kbF8), 'then the queue');
 
   TProgram.EventTimeoutMs := 20;
   MemClear;
@@ -290,14 +290,14 @@ begin
   MemClear;
   MemKey(kbAltX, kbAltShift);
   App.GetEvent(Ev);
-  Check((Ev.What = evCommand) and (Ev.Command = cmQuit), 'a key of the status line becomes its command');
+  Check((Ev.What = evCommand) and (Ev.Message.Command = cmQuit), 'a key of the status line becomes its command');
   MemClear;
   MemMouse(evMouseDown, 3, 24);
   MemMouse(evMouseUp, 3, 24);
   App.GetEvent(Ev);
   Check(Ev.What = evNothing, 'a click on the status line is handled by it');
   App.GetEvent(Ev);
-  Check((Ev.What = evCommand) and (Ev.Command = cmQuit), 'and its command comes next');
+  Check((Ev.What = evCommand) and (Ev.Message.Command = cmQuit), 'and its command comes next');
 
   { dialogs }
   Dlg := TDlg.Create(R(0, 0, 10, 5));
@@ -311,11 +311,11 @@ begin
   { the screen changes }
   OnSetVideoMode := @Resize;
   FillChar(Ev, SizeOf(Ev), 0);
-  Ev.What := evCommand; Ev.Command := cmScreenChanged;
+  Ev.What := evCommand; Ev.Message.Command := cmScreenChanged;
   App.PutEvent(Ev);
   App.GetEvent(Ev);
   Check(Ev.What = evNothing, 'cmScreenChanged is handled');
-  Check((ScreenWidth = 80) and (ScreenHeight = 30), 'the screen was resized');
+  Check((TScreen.ScreenWidth = 80) and (TScreen.ScreenHeight = 30), 'the screen was resized');
   Check((App.Size.X = 80) and (App.Size.Y = 30), 'the program has the new size');
   Check((TProgram.StatusLine.Origin.Y = 29) and (TProgram.StatusLine.Size.X = 80), 'the status line moved to the bottom');
   Check(MemText(29, 0, 11) = ' Alt-X Exit ', 'and is drawn there');
@@ -327,24 +327,24 @@ begin
   MemClear;
   begin
     ClearEvent(TE);
-    TE.What := evKeyDown; TE.KeyCode := 0; TE.ControlKeyState := kbPaste;
-    TE.Text[0] := 'a'; TE.TextLength := 1;
+    TE.What := evKeyDown; TE.KeyDown.KeyCode := 0; TE.KeyDown.ControlKeyState := kbPaste;
+    TE.KeyDown.Text[0] := 'a'; TE.KeyDown.TextLength := 1;
     MemEvent(TE);
-    TE.Text[0] := #$D0; TE.Text[1] := #$B6; TE.TextLength := 2;      { a Cyrillic letter: 2 bytes }
+    TE.KeyDown.Text[0] := #$D0; TE.KeyDown.Text[1] := #$B6; TE.KeyDown.TextLength := 2;      { a Cyrillic letter: 2 bytes }
     MemEvent(TE);
-    TE.Text[0] := #10; TE.TextLength := 1;
+    TE.KeyDown.Text[0] := #10; TE.KeyDown.TextLength := 1;
     MemEvent(TE);
-    TE.Text[0] := 'z'; TE.TextLength := 1; TE.ControlKeyState := 0;  { typed, not pasted }
+    TE.KeyDown.Text[0] := 'z'; TE.KeyDown.TextLength := 1; TE.KeyDown.ControlKeyState := 0;  { typed, not pasted }
     MemEvent(TE);
     MemKey(kbF9);
     Check(MemPending = 5, 'TextEvent: five events are waiting');
-    TE.Text[0] := 'x'; TE.TextLength := 1; TE.ControlKeyState := kbPaste;   { the event that the loop has just got }
+    TE.KeyDown.Text[0] := 'x'; TE.KeyDown.TextLength := 1; TE.KeyDown.ControlKeyState := kbPaste;   { the event that the loop has just got }
     Check(TProgram.DeskTop.TextEvent(TE, TS), 'TextEvent: there is text');
     Check(TS = 'xa'#$D0#$B6#10, 'TextEvent: the text of the first event and of the pasted ones that follow, in one string');
     Check(TE.What = evNothing, 'TextEvent: the event is cleared');
     Check(MemPending = 1, 'TextEvent: the typed letter was taken to see what it is, the next event (F9) is left');
     ClearEvent(TE);
-    TE.What := evCommand; TE.Command := cmQuit;
+    TE.What := evCommand; TE.Message.Command := cmQuit;
     Check(not TProgram.DeskTop.TextEvent(TE, TS), 'TextEvent: no text in a command');
     MemClear;
   end;

@@ -82,13 +82,13 @@ var
 
 begin
   Dialog := TDialog.Create(R, TitleText);
-  T.Assign(3, 2, Dialog.Size.X - 2, Dialog.Size.Y - 3);
+  T := TRect.Create(3, 2, Dialog.Size.X - 2, Dialog.Size.Y - 3);
   Dialog.Insert(TStaticText.Create(T, Msg));
 
   { create the buttons first, to center the row they make }
   Count := 0;
   X := -2;
-  T.Assign(0, 0, 10, 2);
+  T := TRect.Create(0, 0, 10, 2);
   for I := 0 to 3 do
     if AOptions and ($0100 shl I) <> 0 then
     begin
@@ -114,8 +114,8 @@ function MakeRect(const Text: ShortString): TRect;
 var
   Width: Integer;
 begin
-  Result.Assign(0, 0, 40, 9);
-  Width := TextWidthS(Text);
+  Result := TRect.Create(0, 0, 40, 9);
+  Width := TText.Width(Text);
   if Width > (Result.B.X - 7) * (Result.B.Y - 6) then
     Result.B.Y := Width div (Result.B.X - 7) + 6 + 1;
   Result.Move((TProgram.DeskTop.Size.X - Result.B.X) div 2, (TProgram.DeskTop.Size.Y - Result.B.Y) div 2);

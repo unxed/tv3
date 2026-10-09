@@ -51,10 +51,10 @@ end;
 
 procedure TCountChart.HandleEvent(var Event: TEvent);
 begin
-  if (Event.What = evCommand) and (Event.Command = AsciiCommandBase + acPicked) then
+  if (Event.What = evCommand) and (Event.Message.Command = AsciiCommandBase + acPicked) then
   begin
     Inc(Commands);
-    LastInfo := LongInt(PtrInt(Event.InfoPtr));
+    LastInfo := LongInt(PtrInt(Event.Message.InfoPtr));
     ClearEvent(Event);
   end;
   inherited HandleEvent(Event);
@@ -62,7 +62,7 @@ end;
 
 function Cell(X, Y: Integer): PScreenCell;
 begin
-  Result := ScreenBuffer + (Y * ScreenWidth + X);
+  Result := TScreen.ScreenBuffer + (Y * TScreen.ScreenWidth + X);
 end;
 
 function CellText(X, Y: Integer): ShortString;
@@ -95,7 +95,7 @@ end;
 
 function R(A, B, C, D: Integer): TRect;
 begin
-  Result.Assign(A, B, C, D);
+  Result := TRect.Create(A, B, C, D);
 end;
 
 procedure Key(V: TView; Code: Word);
@@ -104,7 +104,7 @@ var
 begin
   FillChar(E, SizeOf(E), 0);
   E.What := evKeyDown;
-  E.KeyCode := Code;
+  E.KeyDown.KeyCode := Code;
   V.HandleEvent(E);
 end;
 
@@ -115,9 +115,9 @@ begin
   FillChar(E, SizeOf(E), 0);
   E.What := evKeyDown;
   if Length(S) = 1 then
-    E.CharCode := Ord(S[1]);
-  Move(S[1], E.Text[0], Length(S));
-  E.TextLength := Length(S);
+    E.KeyDown.CharScan.CharCode := Ord(S[1]);
+  Move(S[1], E.KeyDown.Text[0], Length(S));
+  E.KeyDown.TextLength := Length(S);
   V.HandleEvent(E);
 end;
 
@@ -127,11 +127,11 @@ var
 begin
   FillChar(E, SizeOf(E), 0);
   E.What := evMouseDown;
-  E.Buttons := mbLeftButton;
-  E.Where.X := X;
-  E.Where.Y := Y;
+  E.Mouse.Buttons := mbLeftButton;
+  E.Mouse.Where.X := X;
+  E.Mouse.Where.Y := Y;
   if Double then
-    E.EventFlags := meDoubleClick;
+    E.Mouse.EventFlags := meDoubleClick;
   V.HandleEvent(E);
 end;
 
@@ -148,7 +148,7 @@ begin
   ScreenCreate(W, H);
   Desk := TTop.Create(R(0, 0, W, H));
   Desk.Options := 0;
-  Desk.Buffer := ScreenBuffer;
+  Desk.Buffer := TScreen.ScreenBuffer;
   Desk.State := sfVisible or sfSelected or sfFocused or sfModal or sfExposed;
   Cat := TCatcher.Create;
 

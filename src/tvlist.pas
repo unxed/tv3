@@ -201,7 +201,7 @@ begin
         B.MoveStrS(X + 1, EmptyText, GetColor(1).Lo);
       B.MoveGlyph(X + ColWidth - 1, glLightV, GetColor(5).Lo, 1);
     end;
-    WriteLineD(0, Row, Size.X, 1, B);
+    WriteLine(0, Row, Size.X, 1, B);
   end;
   B.Free;
   if not CursorShown then
@@ -315,8 +315,8 @@ var
     NewItem := 0;
     Autos := 0;
     repeat
-      M := MakeLocal(Event.Where);
-      if MouseInView(Event.Where) then
+      M := MakeLocal(Event.Mouse.Where);
+      if MouseInView(Event.Mouse.Where) then
         NewItem := TopItem + Size.Y * (M.X div ColWidth) + M.Y
       else
       begin
@@ -334,7 +334,7 @@ var
         Shown := NewItem;
         Jump(NewItem);
       end;
-      Double := (Event.EventFlags and meDoubleClick) <> 0;
+      Double := (Event.Mouse.EventFlags and meDoubleClick) <> 0;
     until Double or not MouseEvent(Event, evMouseMove or evMouseAuto);
     Jump(NewItem);
     if Double and (NewItem < Range) then
@@ -373,7 +373,7 @@ var
 
   function FromBar(Bar: TScrollBar): Boolean;
   begin
-    Result := (Bar <> nil) and (Event.InfoPtr = Pointer(Bar));
+    Result := (Bar <> nil) and (Event.Message.InfoPtr = Pointer(Bar));
   end;
 
 begin
@@ -386,14 +386,14 @@ begin
       end;
     evKeyDown:
       begin
-        if (Event.CharCode = Ord(' ')) and (Focused < Range) then
+        if (Event.KeyDown.CharScan.CharCode = Ord(' ')) and (Focused < Range) then
         begin
           SelectItem(Focused);
           Jump(Focused);
           ClearEvent(Event);
           Exit;
         end;
-        Key := CtrlToArrow(Event.KeyCode);
+        Key := CtrlToArrow(Event.KeyDown.KeyCode);
         if not KeyTarget(Key, NewItem) then
           Exit;
         { an arrow key that would leave the items passes the focus on (in a dialog) }
@@ -412,16 +412,16 @@ begin
       begin
         if FromBar(VScrollBar) then
         begin
-          if Event.Command = cmScrollBarClicked then
+          if Event.Message.Command = cmScrollBarClicked then
             Select
-          else if Event.Command = cmScrollBarChanged then
+          else if Event.Message.Command = cmScrollBarChanged then
             Jump(VScrollBar.Value);
         end
         else if FromBar(HScrollBar) then
         begin
-          if Event.Command = cmScrollBarClicked then
+          if Event.Message.Command = cmScrollBarClicked then
             Select
-          else if Event.Command = cmScrollBarChanged then
+          else if Event.Message.Command = cmScrollBarChanged then
             DrawView;
         end;
       end;

@@ -6,7 +6,7 @@ uses TvGeom, TvCell, TvCodePg, TvEvents, TvKeys, TvViews, TvObjs, TvUtil, TvClip
 
 function R(A, B, C, D: Integer): TRect;
 begin
-  Result.Assign(A, B, C, D);
+  Result := TRect.Create(A, B, C, D);
 end;
 
 procedure Key(L: TInputLine; Code: Word; Mods: Word = 0);
@@ -31,7 +31,7 @@ var
 begin
   ClearEvent(E);
   E.What := evCommand;
-  E.Command := C;
+  E.Message.Command := C;
   L.HandleEvent(E);
 end;
 
@@ -202,7 +202,7 @@ begin
   InputLineOem := True;
   L.SelectAll(True);
   MakeKeyEvent(E, $0000, 0);
-  E.Text[0] := #$D0; E.Text[1] := #$96; E.TextLength := 2;      { Ж in UTF-8 }
+  E.KeyDown.Text[0] := #$D0; E.KeyDown.Text[1] := #$96; E.KeyDown.TextLength := 2;      { Ж in UTF-8 }
   L.HandleEvent(E);
   Check((Length(L.Data^) = 1) and (L.Data^[1] = #$86), 'an OEM line keeps one byte of CP866 for a typed letter');
   L.SelectAll(True);
@@ -252,9 +252,9 @@ begin
   MemMouse(evMouseUp, 15, 8);
   ClearEvent(E);
   E.What := evMouseDown;
-  E.Where.X := 15;           { column 3 of the line, the text starts at column 1 }
-  E.Where.Y := 8;
-  E.Buttons := mbLeftButton;
+  E.Mouse.Where.X := 15;           { column 3 of the line, the text starts at column 1 }
+  E.Mouse.Where.Y := 8;
+  E.Mouse.Buttons := mbLeftButton;
   L.HandleEvent(E);
   Check(L.CurPos = 2, 'a click puts the cursor at the character under it');
   MemClear;
@@ -262,19 +262,19 @@ begin
   MemMouse(evMouseUp, 18, 8);
   ClearEvent(E);
   E.What := evMouseDown;
-  E.Where.X := 14;
-  E.Where.Y := 8;
-  E.Buttons := mbLeftButton;
+  E.Mouse.Where.X := 14;
+  E.Mouse.Where.Y := 8;
+  E.Mouse.Buttons := mbLeftButton;
   L.HandleEvent(E);
   Check((L.SelStart = 1) and (L.SelEnd = 5), 'dragging selects');
   MemClear;
   MemMouse(evMouseUp, 15, 8);
   ClearEvent(E);
   E.What := evMouseDown;
-  E.Where.X := 15;
-  E.Where.Y := 8;
-  E.Buttons := mbLeftButton;
-  E.EventFlags := meDoubleClick;
+  E.Mouse.Where.X := 15;
+  E.Mouse.Where.Y := 8;
+  E.Mouse.Buttons := mbLeftButton;
+  E.Mouse.EventFlags := meDoubleClick;
   L.HandleEvent(E);
   Check((L.SelStart = 0) and (L.SelEnd = 10), 'a double click selects all');
 

@@ -292,15 +292,15 @@ begin
   Res := cmValid;
   case Event.What of
     evMouseDown:
-      if (Event.EventFlags and meDoubleClick) <> 0 then
+      if (Event.Mouse.EventFlags and meDoubleClick) <> 0 then
         Res := cmOK;
     evKeyDown:
-      if Event.KeyCode = kbEnter then
+      if Event.KeyDown.KeyCode = kbEnter then
         Res := cmOK
-      else if Event.KeyCode = kbEsc then
+      else if Event.KeyDown.KeyCode = kbEsc then
         Res := cmCancel;
     evCommand:
-      if Event.Command = cmCancel then
+      if Event.Message.Command = cmCancel then
         Res := cmCancel;
   end;
   if Res = cmValid then
@@ -319,7 +319,7 @@ begin
   Result := 0;
   for I := 0 to HistoryCount(HistoryId) - 1 do
   begin
-    W := TextWidthS(HistoryStr(HistoryId, I));
+    W := TText.Width(HistoryStr(HistoryId, I));
     if W > Result then
       Result := W;
   end;
@@ -349,7 +349,7 @@ end;
 procedure THistoryWindow.HandleEvent(var Event: TEvent);
 begin
   inherited HandleEvent(Event);
-  if (Event.What = evMouseDown) and not MouseInView(Event.Where) then
+  if (Event.What = evMouseDown) and not MouseInView(Event.Mouse.Where) then
   begin
     EndModal(cmCancel);
     ClearEvent(Event);
@@ -385,10 +385,12 @@ end;
 procedure THistory.Draw;
 var
   B: TDrawBuffer;
+  Colors: TAttrPair;
 begin
+  Colors := GetColor($0102);
   B := TDrawBuffer.Create(Size.X);
-  B.MoveCStrS(0, GlyphStr(glBlockRight) + '~' + GlyphStr(glArrowDown) + '~' + GlyphStr(glBlockLeft), GetColor($0102));
-  WriteLineD(0, 0, Size.X, Size.Y, B);
+  B.MoveCStrS(0, GlyphStr(glBlockRight) + '~' + GlyphStr(glArrowDown) + '~' + GlyphStr(glBlockLeft), Colors);
+  WriteLine(0, 0, Size.X, Size.Y, B);
   B.Free;
 end;
 
@@ -408,7 +410,7 @@ begin
   Opens := Event.What = evMouseDown;
   if (Event.What = evKeyDown) and ((Link.State and sfFocused) <> 0) then
   begin
-    Key := CtrlToArrow(Event.KeyCode);
+    Key := CtrlToArrow(Event.KeyDown.KeyCode);
     Opens := (Key = kbDown) or (Key = kbCtrlDown);
   end;
   if Opens then
@@ -438,8 +440,8 @@ begin
     ClearEvent(Event);
   end
   else if Event.What = evBroadcast then
-    if (Event.Command = cmRecordHistory)
-      or ((Event.Command = cmReleasedFocus) and (Event.InfoPtr = Pointer(Link))) then
+    if (Event.Message.Command = cmRecordHistory)
+      or ((Event.Message.Command = cmReleasedFocus) and (Event.Message.InfoPtr = Pointer(Link))) then
       RecordHistory(Link.Data^);
 end;
 

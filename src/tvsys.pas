@@ -12,14 +12,6 @@ interface
 uses
   SysUtils, TvEvents;
 
-const
-  { screen modes (BIOS numbers; smFont8x8 is a flag) }
-  smBW80    = 2;
-  smCO80    = 3;
-  smMono    = 7;
-  smFont8x8 = $100;
-  smUpdate  = $FFFF;    { "the screen has changed: read its size again" }
-
 type
   { Waits at most TimeoutMs milliseconds (-1: for ever) for an event and returns it in
     Event, or Event.What = evNothing. Mouse events have priority over key events. }
@@ -52,14 +44,13 @@ var
   OnColorBits: TColorBitsFunc = nil;
   { the window of the program has the focus (the terminals that report it; before the first report it is assumed) }
   AppFocused: Boolean = True;
-  ScreenMode: Word = smCO80;
   { the releases of keys come as evKeyUp events (the terminals of the win32 input mode, Windows); off: they are dropped. A terminal view for a program that asked for
     the win32 input mode of its own (TvVt) sets it. }
   KeyUpEvents: Boolean = False;
   { The application itself wants the releases of the modifiers (the switcher of windows commits when Ctrl is released): evKeyUp with KeyCode = 0 and the
     modifiers that are still held in ControlKeyState. It is meaningful only when KeyUpAvailable; the backends that cannot do it ignore it. }
   KeyUpForApp: Boolean = False;
-  { The application wants to know which key events are auto repeats (TEvent.KeyFlags and kfRepeat): the menus ask while they are open, to stop a held arrow at
+  { The application wants to know which key events are auto repeats (TEvent.KeyDown.KeyFlags and kfRepeat): the menus ask while they are open, to stop a held arrow at
     the end of the menu. The terminals that tell the repeats (the win32 input mode; the keyboard protocol of Kitty when asked) then do; for
     the others a repeat is a press, as before. }
   KeyRepeatInfo: Boolean = False;

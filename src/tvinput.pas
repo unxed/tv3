@@ -202,7 +202,7 @@ begin
   if Delta < 0 then
     Result := FirstPos > 0
   else if Delta > 0 then
-    Result := TextWidthS(Data^) - FirstPos + 2 > Size.X
+    Result := TText.Width(Data^) - FirstPos + 2 > Size.X
   else
     Result := False;
 end;
@@ -221,7 +221,7 @@ end;
 
 function TInputLine.DisplayedPos(Pos: Integer): Integer;
 begin
-  Result := TextWidth(@Data^[1], Pos);
+  Result := TText.Width(@Data^[1], Pos);
 end;
 
 procedure TInputLine.Draw;
@@ -268,7 +268,7 @@ begin
     if R >= L then
       B.MoveChar(L, 0, Col(3), R - L + 1);
   end;
-  WriteLineD(0, 0, Size.X, Size.Y, B);
+  WriteLine(0, 0, Size.X, Size.Y, B);
   B.Free;
   SetCursor(DisplayedPos(CurPos) - FirstPos + 1, 0);
 end;
@@ -288,7 +288,7 @@ function TInputLine.MouseDelta(var Event: TEvent): Integer;
 var
   Mouse: TPoint;
 begin
-  Mouse := MakeLocal(Event.Where);
+  Mouse := MakeLocal(Event.Mouse.Where);
   if Mouse.X <= 0 then
     Result := -1
   else if Mouse.X >= Size.X - 1 then
@@ -301,14 +301,14 @@ function TInputLine.MousePos(var Event: TEvent): Integer;
 var
   X, Bytes, Cols: Integer;
 begin
-  X := MakeLocal(Event.Where).X;
+  X := MakeLocal(Event.Mouse.Where).X;
   if X < 1 then
     X := 1;
   X := X + FirstPos - 1;
   if X < 0 then
     X := 0;
   { the column is turned into the number of bytes before it }
-  TextScroll(@Data^[1], Length(Data^), X, False, Bytes, Cols);
+  TText.Scroll(@Data^[1], Length(Data^), X, False, Bytes, Cols);
   Result := Bytes;
 end;
 
@@ -327,7 +327,7 @@ begin
   if CurPos < Length(Data^) then
   begin
     SelStart := CurPos;
-    TextNext(@Data^[CurPos + 1], Length(Data^) - CurPos, CharLen, CharWidth);
+    TText.Next(@Data^[CurPos + 1], Length(Data^) - CurPos, CharLen, CharWidth);
     SelEnd := CurPos + CharLen;
     DeleteSelect;
   end;
@@ -526,7 +526,7 @@ begin
               Break;
           end;
         end
-        else if (Event.EventFlags and meDoubleClick) <> 0 then
+        else if (Event.Mouse.EventFlags and meDoubleClick) <> 0 then
           SelectAll(True)
         else
         begin
@@ -550,14 +550,14 @@ begin
         { Up and Down leave the field (in a dialog), unless its owner wants them }
         if not KeepVertical and ((State and sfFocused) <> 0) and UxArrowPass(Self, Event, True) then
           Exit;
-        if (Event.KeyCode = kbCtrlIns) or (Event.KeyCode = kbCtrlC) then
+        if (Event.KeyDown.KeyCode = kbCtrlIns) or (Event.KeyDown.KeyCode = kbCtrlC) then
         begin
           CopySelection;
           ClearEvent(Event);
           Exit;
         end;
         SaveState;
-        if (Event.ControlKeyState and kbPaste) <> 0 then
+        if (Event.KeyDown.ControlKeyState and kbPaste) <> 0 then
         begin
           { a pasted text comes as many key events: it is taken at once }
           if TextEvent(Event, Pasted) then
@@ -571,8 +571,8 @@ begin
             UpdateCommands;
           Exit;
         end;
-        Key := CtrlToArrow(Event.KeyCode);
-        Shifted := (Event.ControlKeyState and kbShift) <> 0;
+        Key := CtrlToArrow(Event.KeyDown.KeyCode);
+        Shifted := (Event.KeyDown.ControlKeyState and kbShift) <> 0;
         Extend := Shifted and (Pos(Chr(Hi(Key)), #$47#$4B#$4D#$4F#$73#$74) > 0);
         if Extend then
         begin
@@ -585,11 +585,11 @@ begin
             Anchor := SelEnd;
         end;
         case Key of
-          kbLeft: Dec(CurPos, TextPrev(@Data^[1], CurPos));
+          kbLeft: Dec(CurPos, TText.Prev(@Data^[1], CurPos));
           kbRight:
             if CurPos < Length(Data^) then
             begin
-              TextNext(@Data^[CurPos + 1], Length(Data^) - CurPos, Delta, W);
+              TText.Next(@Data^[CurPos + 1], Length(Data^) - CurPos, Delta, W);
               Inc(CurPos, Delta);
             end;
           kbCtrlLeft: CurPos := WordLeft(CurPos);
@@ -601,7 +601,7 @@ begin
               if SelStart = SelEnd then
               begin
                 if Key = kbBack then
-                  SelStart := CurPos - TextPrev(@Data^[1], CurPos)
+                  SelStart := CurPos - TText.Prev(@Data^[1], CurPos)
                 else
                   SelStart := WordLeft(CurPos);
                 SelEnd := CurPos;
@@ -629,9 +629,9 @@ begin
             end;
           kbIns: SetState(sfCursorIns, (State and sfCursorIns) = 0);
         else
-          if Event.TextLength > 0 then
+          if Event.KeyDown.TextLength > 0 then
             TypeText(EventText(Event))
-          else if Event.CharCode = ControlY then
+          else if Event.KeyDown.CharScan.CharCode = ControlY then
           begin
             Data^ := '';
             CurPos := 0;
@@ -650,7 +650,7 @@ begin
         ClearEvent(Event);
       end;
     evCommand:
-      case Event.Command of
+      case Event.Message.Command of
         cmPaste:
           begin
             SaveState;
@@ -663,7 +663,7 @@ begin
         cmCut, cmCopy:
           begin
             CopySelection;
-            if Event.Command = cmCut then
+            if Event.Message.Command = cmCut then
             begin
               SaveState;
               DeleteSelect;
@@ -762,14 +762,14 @@ var
   X: Integer;
 begin
   Dlg := TDialog.Create(Bounds, Title);
-  R.Assign(Length(ALabel) + 4, 2, Dlg.Size.X - 3, 3);
+  R := TRect.Create(Length(ALabel) + 4, 2, Dlg.Size.X - 3, 3);
   Line := TInputLine.Create(R, Limit);
   Dlg.Insert(Line);
-  R.Assign(2, 2, Length(ALabel) + 3, 3);
+  R := TRect.Create(2, 2, Length(ALabel) + 3, 3);
   Dlg.Insert(TLabel.Create(R, ALabel, Line));
   { OK and Cancel at the bottom right }
   X := Dlg.Size.X - 24;
-  R.Assign(X, Dlg.Size.Y - 4, X + 10, Dlg.Size.Y - 2);
+  R := TRect.Create(X, Dlg.Size.Y - 4, X + 10, Dlg.Size.Y - 2);
   Dlg.Insert(TButton.Create(R, MsgBoxText.OkText, cmOK, bfDefault));
   R.Move(12, 0);
   Dlg.Insert(TButton.Create(R, MsgBoxText.CancelText, cmCancel, bfNormal));
@@ -789,7 +789,7 @@ begin
   { 60 by 8 in the middle of the desktop }
   X := (TProgram.DeskTop.Size.X - 60) div 2;
   Y := (TProgram.DeskTop.Size.Y - 8) div 2;
-  R.Assign(X, Y, X + 60, Y + 8);
+  R := TRect.Create(X, Y, X + 60, Y + 8);
   Result := InputBoxRect(R, Title, ALabel, S, Limit);
 end;
 

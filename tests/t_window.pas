@@ -54,9 +54,9 @@ procedure TTop.Enqueue(What: Word; X, Y: Integer);
 begin
   FillChar(Queue[QCount], SizeOf(TEvent), 0);
   Queue[QCount].What := What;
-  Queue[QCount].Where.X := X;
-  Queue[QCount].Where.Y := Y;
-  Queue[QCount].Buttons := mbLeftButton;
+  Queue[QCount].Mouse.Where.X := X;
+  Queue[QCount].Mouse.Where.Y := Y;
+  Queue[QCount].Mouse.Buttons := mbLeftButton;
   Inc(QCount);
 end;
 
@@ -77,7 +77,7 @@ var
 begin
   B := TDrawBuffer.Create(W);
   B.MoveChar(0, Ch, GetColor(1).Lo, Size.X);
-  WriteLineD(0, 0, Size.X, Size.Y, B);
+  WriteLine(0, 0, Size.X, Size.Y, B);
   B.Free;
 end;
 
@@ -88,7 +88,7 @@ end;
 
 function Cell(X, Y: Integer): PScreenCell;
 begin
-  Result := ScreenBuffer + (Y * ScreenWidth + X);
+  Result := TScreen.ScreenBuffer + (Y * TScreen.ScreenWidth + X);
 end;
 
 { the text of a cell as UTF-8: characters stored as code page bytes are
@@ -128,7 +128,7 @@ end;
 
 function R(A, B, C, D: Integer): TRect;
 begin
-  Result.Assign(A, B, C, D);
+  Result := TRect.Create(A, B, C, D);
 end;
 
 function Bit(V: TView; Mask: Word): Boolean;
@@ -161,7 +161,7 @@ begin
   ScreenCreate(W, H);
   Desk := TTop.Create(R(0, 0, W, H));
   Desk.Options := 0;
-  Desk.Buffer := ScreenBuffer;
+  Desk.Buffer := TScreen.ScreenBuffer;
   Desk.State := sfVisible or sfSelected or sfFocused or sfModal or sfExposed;
   Desk.QCount := 0;
   Desk.QPos := 0;
@@ -223,8 +223,8 @@ begin
   Check(Bit(Win, sfActive) and not Bit(Win2, sfActive), 'and makes it active');
   Check(Row(10, 10, 29) = '└──────────────────┘', 'the second window is passive now (bottom line)');
   Ev.What := evBroadcast;
-  Ev.Command := cmSelectWindowNum;
-  Ev.InfoInt := 2;
+  Ev.Message.Command := cmSelectWindowNum;
+  Ev.Message.InfoInt := 2;
   Desk.HandleEvent(Ev);
   Check(Desk.First = TView(Win2), 'cmSelectWindowNum selects the window with that number');
   Check(Ev.What = evNothing, 'and the event is handled');
@@ -250,11 +250,11 @@ begin
   Desk.Enqueue(evMouseUp, 13, 4);
   FillChar(Ev, SizeOf(Ev), 0);
   Ev.What := evMouseDown;
-  Ev.Where.X := 13; Ev.Where.Y := 4;
-  Ev.Buttons := mbLeftButton;
+  Ev.Mouse.Where.X := 13; Ev.Mouse.Where.Y := 4;
+  Ev.Mouse.Buttons := mbLeftButton;
   Desk.HandleEvent(Ev);
-  Check((Desk.Pending.What = evCommand) and (Desk.Pending.Command = cmClose) and
-    (Desk.Pending.InfoPtr = Pointer(Win2)), 'click on the close icon puts cmClose for the window');
+  Check((Desk.Pending.What = evCommand) and (Desk.Pending.Message.Command = cmClose) and
+    (Desk.Pending.Message.InfoPtr = Pointer(Win2)), 'click on the close icon puts cmClose for the window');
   Check(Ev.What = evNothing, 'the click is handled');
   { pressed over it, released elsewhere: nothing }
   Desk.QCount := 0; Desk.QPos := 0;
@@ -262,20 +262,20 @@ begin
   Desk.Enqueue(evMouseUp, 20, 8);
   FillChar(Ev, SizeOf(Ev), 0);
   Ev.What := evMouseDown;
-  Ev.Where.X := 13; Ev.Where.Y := 4;
-  Ev.Buttons := mbLeftButton;
+  Ev.Mouse.Where.X := 13; Ev.Mouse.Where.Y := 4;
+  Ev.Mouse.Buttons := mbLeftButton;
   Desk.HandleEvent(Ev);
   Check(Desk.Pending.What = evNothing, 'released elsewhere: no cmClose');
   { double click on the title: zoom }
   Desk.QCount := 0; Desk.QPos := 0;
   FillChar(Ev, SizeOf(Ev), 0);
   Ev.What := evMouseDown;
-  Ev.Where.X := 20; Ev.Where.Y := 4;
-  Ev.Buttons := mbLeftButton;
-  Ev.EventFlags := meDoubleClick;
+  Ev.Mouse.Where.X := 20; Ev.Mouse.Where.Y := 4;
+  Ev.Mouse.Buttons := mbLeftButton;
+  Ev.Mouse.EventFlags := meDoubleClick;
   Desk.HandleEvent(Ev);
-  Check((Desk.Pending.What = evCommand) and (Desk.Pending.Command = cmZoom) and
-    (Desk.Pending.InfoPtr = Pointer(Win2)), 'double click on the top line puts cmZoom');
+  Check((Desk.Pending.What = evCommand) and (Desk.Pending.Message.Command = cmZoom) and
+    (Desk.Pending.Message.InfoPtr = Pointer(Win2)), 'double click on the top line puts cmZoom');
 
 
   { --- scroll bar and scroller ----------------------------------------------------- }
@@ -324,37 +324,37 @@ begin
 
   { keys }
   FillChar(Ev, SizeOf(Ev), 0);
-  Ev.What := evKeyDown; Ev.KeyCode := kbDown;
+  Ev.What := evKeyDown; Ev.KeyDown.KeyCode := kbDown;
   Bar.HandleEvent(Ev);
   Check((Bar.Value = 1) and (Ev.What = evNothing), 'Down: one step');
-  Ev.What := evKeyDown; Ev.KeyCode := kbPgDn;
+  Ev.What := evKeyDown; Ev.KeyDown.KeyCode := kbPgDn;
   Bar.HandleEvent(Ev);
   Check(Bar.Value = 5, 'PgDn: one page');
-  Ev.What := evKeyDown; Ev.KeyCode := kbCtrlPgDn;
+  Ev.What := evKeyDown; Ev.KeyDown.KeyCode := kbCtrlPgDn;
   Bar.HandleEvent(Ev);
   Check(Bar.Value = 10, 'Ctrl+PgDn: the end');
-  Ev.What := evKeyDown; Ev.KeyCode := kbUp;
+  Ev.What := evKeyDown; Ev.KeyDown.KeyCode := kbUp;
   Bar.HandleEvent(Ev);
   Check(Bar.Value = 9, 'Up: one step back');
-  Ev.What := evKeyDown; Ev.KeyCode := kbCtrlPgUp;
+  Ev.What := evKeyDown; Ev.KeyDown.KeyCode := kbCtrlPgUp;
   Bar.HandleEvent(Ev);
   Check(Bar.Value = 0, 'Ctrl+PgUp: the start');
-  Ev.What := evKeyDown; Ev.KeyCode := kbEnter;
+  Ev.What := evKeyDown; Ev.KeyDown.KeyCode := kbEnter;
   Bar.HandleEvent(Ev);
   Check(Ev.What = evKeyDown, 'other keys are not handled');
   { wheel }
   FillChar(Ev, SizeOf(Ev), 0);
-  Ev.What := evMouseWheel; Ev.Wheel := mwDown;
+  Ev.What := evMouseWheel; Ev.Mouse.Wheel := mwDown;
   Bar.HandleEvent(Ev);
   Check(Bar.Value = 3, 'wheel down: three steps');
-  Ev.What := evMouseWheel; Ev.Wheel := mwLeft;
+  Ev.What := evMouseWheel; Ev.Mouse.Wheel := mwLeft;
   Bar.HandleEvent(Ev);
   Check(Bar.Value = 3, 'a vertical bar ignores a horizontal wheel');
   { mouse: the down arrow (global 21,7) }
   Desk.QCount := 0; Desk.QPos := 0;
   Desk.Enqueue(evMouseUp, 21, 7);
   FillChar(Ev, SizeOf(Ev), 0);
-  Ev.What := evMouseDown; Ev.Where.X := 21; Ev.Where.Y := 7; Ev.Buttons := mbLeftButton;
+  Ev.What := evMouseDown; Ev.Mouse.Where.X := 21; Ev.Mouse.Where.Y := 7; Ev.Mouse.Buttons := mbLeftButton;
   Bar.HandleEvent(Ev);
   Check(Bar.Value = 4, 'click on the down arrow: one step');
   { dragging the thumb to the last row before the arrow sets the maximum }
@@ -363,7 +363,7 @@ begin
   Desk.Enqueue(evMouseMove, 21, 6);
   Desk.Enqueue(evMouseUp, 21, 6);
   FillChar(Ev, SizeOf(Ev), 0);
-  Ev.What := evMouseDown; Ev.Where.X := 21; Ev.Where.Y := 3; Ev.Buttons := mbLeftButton;
+  Ev.What := evMouseDown; Ev.Mouse.Where.X := 21; Ev.Mouse.Where.Y := 3; Ev.Mouse.Buttons := mbLeftButton;
   Bar.HandleEvent(Ev);
   Check(Bar.Value = 10, 'dragging the thumb to the end');
 
@@ -397,7 +397,7 @@ begin
   Check(Count = 3, 'the desk holds the background and two windows');
   FillChar(Ev, SizeOf(Ev), 0);
   Ev.What := evCommand;
-  Ev.Command := cmClose;
+  Ev.Message.Command := cmClose;
   Win.HandleEvent(Ev);
   Count := 0;
   Desk.ForEach(@CountViews, @Count);
@@ -409,8 +409,8 @@ begin
   { cmClose with the pointer of another window is not for this one }
   FillChar(Ev, SizeOf(Ev), 0);
   Ev.What := evCommand;
-  Ev.Command := cmClose;
-  Ev.InfoPtr := Back;
+  Ev.Message.Command := cmClose;
+  Ev.Message.InfoPtr := Back;
   Win2.HandleEvent(Ev);
   Count := 0;
   Desk.ForEach(@CountViews, @Count);
@@ -420,9 +420,9 @@ begin
   Desk.Pending.What := evNothing;
   FillChar(Ev, SizeOf(Ev), 0);
   Ev.What := evCommand;
-  Ev.Command := cmClose;
+  Ev.Message.Command := cmClose;
   Win2.HandleEvent(Ev);
-  Check((Desk.Pending.What = evCommand) and (Desk.Pending.Command = cmCancel), 'modal: cmClose becomes cmCancel');
+  Check((Desk.Pending.What = evCommand) and (Desk.Pending.Message.Command = cmCancel), 'modal: cmClose becomes cmCancel');
   Win2.State := Win2.State and not sfModal;
 
   Win2.Free;

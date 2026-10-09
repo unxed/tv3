@@ -333,7 +333,7 @@ begin
     Caption := Win.GetTitle(Room);
     if Caption <> '' then
     begin
-      TitleWidth := Max2(Min2(TextWidthS(Caption), Size.X - 10), 0);
+      TitleWidth := Max2(Min2(TText.Width(Caption), Size.X - 10), 0);
       X := (Size.X - TitleWidth) div 2;
       B.PutChar(X - 1, Ord(' '));
       B.MoveStrS(X, Caption, TitleColor.Lo, TitleWidth);
@@ -346,19 +346,19 @@ begin
       if (Win.Flags and wfZoom) <> 0 then
       begin
         Win.SizeLimits(MinSize, MaxSize);
-        if PointEq(Win.Size, MaxSize) then
+        if (Win.Size = MaxSize) then
           B.MoveCStrS(Size.X - 5, UnZoomIcon, FrameColor)
         else
           B.MoveCStrS(Size.X - 5, ZoomIcon, FrameColor);
       end;
     end;
-    WriteLineD(0, 0, Size.X, 1, B);
+    WriteLine(0, 0, Size.X, 1, B);
 
     { sides }
     for Y := 1 to Size.Y - 2 do
     begin
       FrameLine(B, Y, Base + 3, FrameColor.Lo);
-      WriteLineD(0, Y, Size.X, 1, B);
+      WriteLine(0, Y, Size.X, 1, B);
     end;
 
     { bottom line, with the resize corners }
@@ -368,7 +368,7 @@ begin
       B.MoveCStrS(0, DragLeftIcon, FrameColor);
       B.MoveCStrS(Size.X - 2, DragIcon, FrameColor);
     end;
-    WriteLineD(0, Size.Y - 1, Size.X, 1, B);
+    WriteLine(0, Size.Y - 1, Size.X, 1, B);
   finally
     B.Free;
   end;
@@ -399,8 +399,8 @@ var
   procedure PostToOwner(Command: Word);
   begin
     Event.What := evCommand;
-    Event.Command := Command;
-    Event.InfoPtr := Owner;
+    Event.Message.Command := Command;
+    Event.Message.InfoPtr := Owner;
     PutEvent(Event);
     ClearEvent(Event);
   end;
@@ -416,7 +416,7 @@ begin
     Exit;
   Win := TWindow(Owner);
   Active := GetState(sfActive);
-  P := MakeLocal(Event.Where);
+  P := MakeLocal(Event.Mouse.Where);
   if P.Y = 0 then
   begin
     if Active and ((Win.Flags and wfClose) <> 0) and OnCloseIcon then
@@ -424,13 +424,13 @@ begin
       { the window is closed only if the button is released over the icon }
       while MouseEvent(Event, evMouse) do
         ;
-      P := MakeLocal(Event.Where);
+      P := MakeLocal(Event.Mouse.Where);
       if OnCloseIcon then
         PostToOwner(cmClose);
     end
     else if Active and ((Win.Flags and wfZoom) <> 0) and
       (((P.X >= Size.X - 5) and (P.X <= Size.X - 3)) or
-       ((Event.EventFlags and meDoubleClick) <> 0)) then
+       ((Event.Mouse.EventFlags and meDoubleClick) <> 0)) then
       PostToOwner(cmZoom)
     else if (Win.Flags and wfMove) <> 0 then
       DragWindow(Event, dmDragMove);
@@ -442,7 +442,7 @@ begin
     else if P.X <= 1 then
       DragWindow(Event, dmDragGrowLeft);
   end
-  else if (Event.Buttons = mbMiddleButton) and ((Win.Flags and wfMove) <> 0) and
+  else if (Event.Mouse.Buttons = mbMiddleButton) and ((Win.Flags and wfMove) <> 0) and
     (P.X > 0) and (P.X < Size.X - 1) and (P.Y > 0) and (P.Y < Size.Y - 1) then
     DragWindow(Event, dmDragMove);
 end;
@@ -505,7 +505,7 @@ begin
     B.MoveChar(Pos, Chars[3], GetColor(3).Lo, 1);
   end;
   B.MoveChar(S, Chars[1], GetColor(2).Lo, 1);
-  WriteBufD(0, 0, Size.X, Size.Y, B);
+  WriteBuf(0, 0, Size.X, Size.Y, B);
   B.Free;
 end;
 
@@ -613,13 +613,13 @@ begin
         if GetState(sfVisible) then
           if Vertical then
           begin
-            if Event.Wheel = mwUp then Delta := -ArStep
-            else if Event.Wheel = mwDown then Delta := ArStep;
+            if Event.Mouse.Wheel = mwUp then Delta := -ArStep
+            else if Event.Mouse.Wheel = mwDown then Delta := ArStep;
           end
           else
           begin
-            if Event.Wheel = mwLeft then Delta := -ArStep
-            else if Event.Wheel = mwRight then Delta := ArStep;
+            if Event.Mouse.Wheel = mwLeft then Delta := -ArStep
+            else if Event.Mouse.Wheel = mwRight then Delta := ArStep;
           end;
         if Delta <> 0 then
         begin
@@ -633,7 +633,7 @@ begin
     evMouseDown:
       begin
         Clicked;
-        SbMouse := MakeLocal(Event.Where);
+        SbMouse := MakeLocal(Event.Mouse.Where);
         SbExtent := GetExtent;
         SbExtent.Grow(1, 1);
         SbP := GetPos;
@@ -644,7 +644,7 @@ begin
           { step while the button is held over the arrow }
           ForceScroll := False;
           repeat
-            SbMouse := MakeLocal(Event.Where);
+            SbMouse := MakeLocal(Event.Mouse.Where);
             if GetPartCode = Part then
               SetValue(Value + ScrollStep(Part));
             ForceScroll := True;
@@ -654,7 +654,7 @@ begin
         else
           { the thumb follows the mouse, between the two arrows }
           repeat
-            SbMouse := MakeLocal(Event.Where);
+            SbMouse := MakeLocal(Event.Mouse.Where);
             if Vertical then
               Pos := SbMouse.Y
             else
@@ -670,7 +670,7 @@ begin
       end;
 
     evKeyDown:
-      if GetState(sfVisible) and KeyPart(CtrlToArrow(Event.KeyCode), Part, NewValue) then
+      if GetState(sfVisible) and KeyPart(CtrlToArrow(Event.KeyDown.KeyCode), Part, NewValue) then
       begin
         Clicked;
         if Part <> sbIndicator then
@@ -793,8 +793,8 @@ var
   Sender: Pointer;
 begin
   inherited HandleEvent(Event);
-  Sender := Event.InfoPtr;
-  if (Sender <> nil) and (Event.What = evBroadcast) and (Event.Command = cmScrollBarChanged) and
+  Sender := Event.Message.InfoPtr;
+  if (Sender <> nil) and (Event.What = evBroadcast) and (Event.Message.Command = cmScrollBarChanged) and
     ((Sender = Pointer(HScrollBar)) or (Sender = Pointer(VScrollBar))) then
     ScrollDraw;
 end;
@@ -809,7 +809,7 @@ begin
     NewDelta.X := HScrollBar.Value;
   if VScrollBar <> nil then
     NewDelta.Y := VScrollBar.Value;
-  if PointEq(NewDelta, Delta) then
+  if (NewDelta = Delta) then
     Exit;
   SetCursor(Cursor.X + Delta.X - NewDelta.X, Cursor.Y + Delta.Y - NewDelta.Y);
   Delta := NewDelta;
@@ -965,21 +965,21 @@ var
   { a command with no target, or with this window as its target }
   function Addressed: Boolean;
   begin
-    Result := (Event.InfoPtr = Pointer(Self)) or (Event.InfoPtr = nil);
+    Result := (Event.Message.InfoPtr = Pointer(Self)) or (Event.Message.InfoPtr = nil);
   end;
 
 begin
   inherited HandleEvent(Event);
   case Event.What of
     evKeyDown:
-      if (Event.KeyCode = kbTab) or (Event.KeyCode = kbShiftTab) then
+      if (Event.KeyDown.KeyCode = kbTab) or (Event.KeyDown.KeyCode = kbShiftTab) then
       begin
-        FocusNext(Event.KeyCode = kbShiftTab);
+        FocusNext(Event.KeyDown.KeyCode = kbShiftTab);
         ClearEvent(Event);
       end;
 
     evBroadcast:
-      if (Event.Command = cmSelectWindowNum) and (Event.InfoInt = Number) and
+      if (Event.Message.Command = cmSelectWindowNum) and (Event.Message.InfoInt = Number) and
         ((Options and ofSelectable) <> 0) then
       begin
         Select;
@@ -987,12 +987,12 @@ begin
       end;
 
     evCommand:
-      if (Event.Command = cmZoom) and ((Flags and wfZoom) <> 0) and Addressed then
+      if (Event.Message.Command = cmZoom) and ((Flags and wfZoom) <> 0) and Addressed then
       begin
         Zoom;
         ClearEvent(Event);
       end
-      else if (Event.Command = cmClose) and ((Flags and wfClose) <> 0) and Addressed then
+      else if (Event.Message.Command = cmClose) and ((Flags and wfClose) <> 0) and Addressed then
       begin
         ClearEvent(Event);
         if not GetState(sfModal) then
@@ -1002,11 +1002,11 @@ begin
           { a modal window ends its modal loop instead }
           TvEvents.ClearEvent(Cancel);
           Cancel.What := evCommand;
-          Cancel.Command := cmCancel;
+          Cancel.Message.Command := cmCancel;
           PutEvent(Cancel);
         end;
       end
-      else if (Event.Command = cmResize) and ((Flags and (wfMove or wfGrow)) <> 0) then
+      else if (Event.Message.Command = cmResize) and ((Flags and (wfMove or wfGrow)) <> 0) then
       begin
         Limits := Owner.GetExtent;
         SizeLimits(MinSize, MaxSize);
@@ -1024,7 +1024,7 @@ begin
         ForEach(@PickScrollBar, @Pick);
         Bar := nil;
         Steps := 0;
-        case Event.Wheel of
+        case Event.Mouse.Wheel of
           mwUp:    begin Bar := Pick.Vert; Steps := -3; end;
           mwDown:  begin Bar := Pick.Vert; Steps := 3; end;
           mwLeft:  begin Bar := Pick.Horz; Steps := -3; end;
@@ -1101,10 +1101,10 @@ var
   R: TRect;
 begin
   SizeLimits(MinSize, MaxSize);
-  if not PointEq(Size, MaxSize) then
+  if not (Size = MaxSize) then
   begin
     ZoomRect := GetBounds;
-    R.Assign(0, 0, MaxSize.X, MaxSize.Y);
+    R := TRect.Create(0, 0, MaxSize.X, MaxSize.Y);
     Locate(R);
   end
   else

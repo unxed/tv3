@@ -6,7 +6,7 @@ uses TvGeom, TvColors, TvCell, TvEvents, TvKeys, TvScreen, TvViews, TvWindow, Tv
 
 function R(A, B, C, D: Integer): TRect;
 begin
-  Result.Assign(A, B, C, D);
+  Result := TRect.Create(A, B, C, D);
 end;
 
 var
@@ -134,7 +134,7 @@ begin
   TProgram.DeskTop.Insert(Dlg);
   TView.DisableCommand(cmCancel);
   Ev.What := evBroadcast;
-  Ev.Command := cmCommandSetChanged;
+  Ev.Message.Command := cmCommandSetChanged;
   Dlg.HandleEvent(Ev);
   Check((Cancel.State and sfDisabled) <> 0, 'a button of a disabled command is disabled');
   Check(MemAttr(34, 14) = $78, 'a disabled button: dark gray on gray');

@@ -8,7 +8,7 @@ uses TvGeom, TvCell, TvCodePg, TvEvents, TvKeys, TvViews, TvObjs, TvUtil, TvMem,
 
 function R(A, B, C, D: Integer): TRect;
 begin
-  Result.Assign(A, B, C, D);
+  Result := TRect.Create(A, B, C, D);
 end;
 
 function Items(N: Integer): TCollection;
@@ -32,8 +32,8 @@ var
 begin
   ClearEvent(E);
   E.What := evMouseWheel;
-  E.Where := V.MakeGlobal(Point(X, Y));
-  E.Wheel := Dir;
+  E.Mouse.Where := V.MakeGlobal(Point(X, Y));
+  E.Mouse.Wheel := Dir;
   TProgram.Application.HandleEvent(E);
 end;
 

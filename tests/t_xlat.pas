@@ -8,8 +8,8 @@ function KeyEv(Cp: LongWord; Mods: Word): TEvent;
 begin
   ClearEvent(Result);
   Result.What := evKeyDown;
-  Result.ControlKeyState := Mods;
-  Result.TextLength := Utf8Encode(Cp, PByte(@Result.Text[0]));
+  Result.KeyDown.ControlKeyState := Mods;
+  Result.KeyDown.TextLength := Utf8Encode(Cp, PByte(@Result.KeyDown.Text[0]));
 end;
 
 var
@@ -23,12 +23,12 @@ begin
   Check(XlatLatin($3B1) = Ord('a'), 'Greek α is the key of a');
   Check(XlatLatin(Ord('a')) = 0, 'a Latin letter is itself (0: nothing to do)');
   E := KeyEv($44B, kbLeftAlt);
-  Check(XlatModded(E) and (E.KeyCode = kbAltS), 'Alt+ы becomes Alt+S');
+  Check(XlatModded(E) and (E.KeyDown.KeyCode = kbAltS), 'Alt+ы becomes Alt+S');
   E := KeyEv($43A, kbLeftCtrl);
-  Check(XlatModded(E) and (E.KeyCode = kbCtrlR), 'Ctrl+к becomes Ctrl+R');
+  Check(XlatModded(E) and (E.KeyDown.KeyCode = kbCtrlR), 'Ctrl+к becomes Ctrl+R');
   E := KeyEv($43A, 0);
   Check(not XlatModded(E), 'a plain letter is not a combination');
-  Check(XlatPlain(E) and (E.TextLength = 1) and (E.Text[0] = 'r'), 'a plain к is r for the hot keys');
+  Check(XlatPlain(E) and (E.KeyDown.TextLength = 1) and (E.KeyDown.Text[0] = 'r'), 'a plain к is r for the hot keys');
   E := KeyEv($44B, kbLeftAlt);
   Check(not XlatPlain(E), 'a combination is not plain');
   XlatAdd('ABC');

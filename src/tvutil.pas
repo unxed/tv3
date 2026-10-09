@@ -139,7 +139,7 @@ end;
 
 function HotKeyAlt(Hot: Char; const Event: TEvent): Boolean;
 begin
-  Result := (Byte(Hot) >= $80) and ((Event.ControlKeyState and kbAltShift) <> 0) and (Hot = UpCaseCp(Chr(Event.CharCode)));
+  Result := (Byte(Hot) >= $80) and ((Event.KeyDown.ControlKeyState and kbAltShift) <> 0) and (Hot = UpCaseCp(Chr(Event.KeyDown.CharScan.CharCode)));
 end;
 
 function CStrLen(const S: ShortString): Integer;
@@ -154,7 +154,7 @@ begin
     for I := 1 to Length(S) do
       if S[I] <> '~' then
         T := T + S[I];
-    Exit(TextWidthS(T));
+    Exit(TText.Width(T));
   end;
   Result := 0;
   for I := 1 to Length(S) do
@@ -185,12 +185,12 @@ var
   ScanCode: Integer;
 begin
   Result := '';
-  if ((Event.ControlKeyState and kbAltShift) <> 0) and (Event.TextLength > 0) then
+  if ((Event.KeyDown.ControlKeyState and kbAltShift) <> 0) and (Event.KeyDown.TextLength > 0) then
     Exit(EventText(Event));
-  if Event.CharCode = 0 then
+  if Event.KeyDown.CharScan.CharCode = 0 then
   begin
-    ScanCode := Event.ScanCode;
-    if Event.KeyCode = kbAltSpace then
+    ScanCode := Event.KeyDown.CharScan.ScanCode;
+    if Event.KeyDown.KeyCode = kbAltSpace then
       Result := AltSpaceChar
     else if (ScanCode >= $10) and (ScanCode <= $32) then
     begin
@@ -208,7 +208,7 @@ var
   S: ShortString;
 begin
   FillChar(E, SizeOf(E), 0);
-  E.KeyCode := KeyCode;
+  E.KeyDown.KeyCode := KeyCode;
   S := GetAltCharStr(E);
   if S = '' then
     Result := #0
@@ -221,10 +221,10 @@ var
   C: Integer;
 begin
   Result := '';
-  if ((Event.ControlKeyState and kbAltShift) = 0) and
-    ((Event.ControlKeyState and kbCtrlShift) <> 0) and (Event.TextLength > 0) then
+  if ((Event.KeyDown.ControlKeyState and kbAltShift) = 0) and
+    ((Event.KeyDown.ControlKeyState and kbCtrlShift) <> 0) and (Event.KeyDown.TextLength > 0) then
     Exit(EventText(Event));
-  C := Event.CharCode;
+  C := Event.KeyDown.CharScan.CharCode;
   if (C > 0) and (C <= Ord('Z') - Ord('A') + 1) then
     Result := CtrlCodes[C + 1];
 end;
@@ -235,7 +235,7 @@ var
   S: ShortString;
 begin
   FillChar(E, SizeOf(E), 0);
-  E.KeyCode := KeyCode;
+  E.KeyDown.KeyCode := KeyCode;
   S := GetCtrlCharStr(E);
   if S = '' then
     Result := #0

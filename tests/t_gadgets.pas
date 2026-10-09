@@ -57,7 +57,7 @@ begin
   Result := '';
   for X := X0 to X1 do
   begin
-    T := ScText((ScreenBuffer + (Y * ScreenWidth + X))^.Character);
+    T := ScText((TScreen.ScreenBuffer + (Y * TScreen.ScreenWidth + X))^.Character);
     if (T = '') or (T = #0) then
       T := ' ';
     Result := Result + T;
@@ -66,7 +66,7 @@ end;
 
 function R(A, B, C, D: Integer): TRect;
 begin
-  Result.Assign(A, B, C, D);
+  Result := TRect.Create(A, B, C, D);
 end;
 
 function CountryFormat(H, M, S: Word; Seconds, Separator, Hour12: Boolean): AnsiString;
@@ -87,7 +87,7 @@ begin
   ScreenCreate(W, H);
   Desk := TGroup.Create(R(0, 0, W, H));
   Desk.Options := 0;
-  Desk.Buffer := ScreenBuffer;
+  Desk.Buffer := TScreen.ScreenBuffer;
   Desk.State := sfVisible or sfSelected or sfFocused or sfModal or sfExposed;
   ClockNow := @GetFakeNow;
 
@@ -152,7 +152,7 @@ begin
   Clock.OnClick := @Clicks.Clicked;
   FillChar(E, SizeOf(E), 0);
   E.What := evMouseDown;
-  E.Where.X := Clock.Origin.X + 1;
+  E.Mouse.Where.X := Clock.Origin.X + 1;
   Clock.HandleEvent(E);
   Check((Clicks.Count = 1) and (E.What = evNothing), 'a click calls OnClick');
   Clicks.Free;

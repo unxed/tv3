@@ -654,7 +654,7 @@ begin
       Ord('a')..Ord('z'): Ch := Ch - Ord('a') + 1;
       Ord('@')..Ord('_'): Ch := Ch - Ord('@');
     end;
-  Rep := Event.RepeatCount;
+  Rep := Event.KeyDown.RepeatCount;
   if Rep = 0 then
     Rep := 1;
   Result := F2lKeySeq(Event.What <> evKeyUp, Ch, Cs, EventScanCode(Event), EventVirtualKey(Event), Rep, CompactInput);

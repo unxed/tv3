@@ -18,7 +18,7 @@ end;
 
 function R(A, B, C, D: Integer): TRect;
 begin
-  Result.Assign(A, B, C, D);
+  Result := TRect.Create(A, B, C, D);
 end;
 
 procedure Key(V: TView; Code: Word; Mods: Word = 0);
@@ -127,9 +127,9 @@ begin
   MemMouse(evMouseUp, 15, 8);
   ClearEvent(E);
   E.What := evMouseDown;
-  E.Where.X := 15;
-  E.Where.Y := 9;
-  E.Buttons := mbLeftButton;
+  E.Mouse.Where.X := 15;
+  E.Mouse.Where.Y := 9;
+  E.Mouse.Buttons := mbLeftButton;
   L.HandleEvent(E);
   Check(L.Focused = L.TopItem + 1, 'a click focuses the item under it');
   L.Selected := -1;
@@ -137,10 +137,10 @@ begin
   MemMouse(evMouseUp, 15, 10);
   ClearEvent(E);
   E.What := evMouseDown;
-  E.Where.X := 15;
-  E.Where.Y := 10;
-  E.Buttons := mbLeftButton;
-  E.EventFlags := meDoubleClick;
+  E.Mouse.Where.X := 15;
+  E.Mouse.Where.Y := 10;
+  E.Mouse.Buttons := mbLeftButton;
+  E.Mouse.EventFlags := meDoubleClick;
   L.HandleEvent(E);
   Check((L.Focused = L.TopItem + 2) and (L.Selected = L.Focused), 'a double click selects it');
 

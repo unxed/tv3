@@ -6,7 +6,7 @@ uses TvGeom, TvCell, TvCodePg, TvEvents, TvKeys, TvViews, TvObjs, TvUtil, TvMem,
 
 function R(A, B, C, D: Integer): TRect;
 begin
-  Result.Assign(A, B, C, D);
+  Result := TRect.Create(A, B, C, D);
 end;
 
 var
@@ -118,9 +118,9 @@ begin
   MemKey(kbEsc);
   ClearEvent(E);
   E.What := evMouseDown;
-  E.Where.X := 22 + 11;
-  E.Where.Y := 8;
-  E.Buttons := mbLeftButton;
+  E.Mouse.Where.X := 22 + 11;
+  E.Mouse.Where.Y := 8;
+  E.Mouse.Buttons := mbLeftButton;
   H.HandleEvent(E);
   Check(E.What = evNothing, 'a click on the arrow opens the list');
 
@@ -129,7 +129,7 @@ begin
   L.Data^ := 'rec';
   ClearEvent(E);
   E.What := evBroadcast;
-  E.Command := cmRecordHistory;
+  E.Message.Command := cmRecordHistory;
   H.HandleEvent(E);
   Check(HistoryStr(7, 0) = 'rec', 'cmRecordHistory records the text');
 

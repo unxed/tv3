@@ -165,7 +165,7 @@ begin
   Result := False;
   if not UxInDialog(V) then
     Exit;
-  Key := CtrlToArrow(Event.KeyCode);
+  Key := CtrlToArrow(Event.KeyDown.KeyCode);
   if Vertical and (Key <> kbUp) and (Key <> kbDown) then
     Exit;
   case Key of
@@ -240,7 +240,7 @@ var
   begin
     FillChar(Ev, SizeOf(Ev), 0);
     Ev.What := AWhat;
-    Ev.Command := ACommand;
+    Ev.Message.Command := ACommand;
     PutEvent(Ev);
   end;
 
@@ -248,12 +248,12 @@ begin
   inherited HandleEvent(Event);
   case Event.What of
     evKeyDown:
-      if Event.KeyCode = kbEsc then
+      if Event.KeyDown.KeyCode = kbEsc then
       begin
         ClearEvent(Event);
         Post(evCommand, cmCancel);
       end
-      else if Event.KeyCode = kbEnter then
+      else if Event.KeyDown.KeyCode = kbEnter then
       begin
         Btn := nil;
         if UxEnterButton and (FirstThat(@IsDefaultButton, nil) = nil) and (Last <> nil) then
@@ -277,10 +277,10 @@ begin
           TButton(Btn).Press;
       end;
     evCommand:
-      if ((Event.Command = cmOK) or (Event.Command = cmCancel) or (Event.Command = cmYes) or
-        (Event.Command = cmNo)) and ((State and sfModal) <> 0) then
+      if ((Event.Message.Command = cmOK) or (Event.Message.Command = cmCancel) or (Event.Message.Command = cmYes) or
+        (Event.Message.Command = cmNo)) and ((State and sfModal) <> 0) then
       begin
-        EndModal(Event.Command);
+        EndModal(Event.Message.Command);
         ClearEvent(Event);
       end;
   end;
@@ -357,7 +357,7 @@ begin
         Inc(P);
       end;
       I := P;
-      TextScroll(Pt + I, L - I, Size.X, False, ScLen, ScWidth);
+      TText.Scroll(Pt + I, L - I, Size.X, False, ScLen, ScWidth);
       Last := I + ScLen;
       { take words while they fit }
       repeat
@@ -366,7 +366,7 @@ begin
           Inc(P);
         while (P < L) and (Pt[P] <> 32) and (Pt[P] <> 10) do
         begin
-          TextNext(Pt + P, L - P, CharLen, CharWidth);
+          TText.Next(Pt + P, L - P, CharLen, CharWidth);
           Inc(P, CharLen);
         end;
       until not ((P < L) and (P < Last) and (Pt[P] <> 10));
@@ -377,7 +377,7 @@ begin
         else
           P := Last;
       end;
-      Width := TextWidth(Pt + I, P - I);
+      Width := TText.Width(Pt + I, P - I);
       if Center then
         J := (Size.X - Width) div 2
       else
@@ -387,12 +387,12 @@ begin
         Inc(P);
       if (P < L) and (Pt[P] = 10) then
       begin
-        Center := False;
         Inc(P);
+        Center := False;
       end;
     end;
-    WriteLineD(0, Y, Size.X, 1, B);
-    Inc(Y);
+    WriteLine(0, Y, Size.X, 1, B);
+    Y := Y + 1;
   end;
   B.Free;
 end;
@@ -441,7 +441,7 @@ begin
     B.MoveCStrS(1, Text^, Attrs);
   if ShowMarkers then
     B.PutChar(0, SpecialChars[Marker]);
-  WriteLineD(0, 0, Size.X, 1, B);
+  WriteLine(0, 0, Size.X, 1, B);
   B.Free;
 end;
 
@@ -465,13 +465,13 @@ begin
         Hot := #0;
         if Text <> nil then
           Hot := HotKey(Text^);
-        if (Event.KeyCode <> 0) and ((GetAltCode(Hot) = Event.KeyCode) or HotKeyAlt(Hot, Event) or
+        if (Event.KeyDown.KeyCode <> 0) and ((GetAltCode(Hot) = Event.KeyDown.KeyCode) or HotKeyAlt(Hot, Event) or
           ((Hot <> #0) and (Owner <> nil) and (Owner.Phase = phPostProcess) and
-           (Hot = UpCaseCp(Chr(Event.CharCode))))) then
+           (Hot = UpCaseCp(Chr(Event.KeyDown.CharScan.CharCode))))) then
           FocusLink(Event);
       end;
     evBroadcast:
-      if (Link <> nil) and ((Event.Command = cmReceivedFocus) or (Event.Command = cmReleasedFocus)) then
+      if (Link <> nil) and ((Event.Message.Command = cmReceivedFocus) or (Event.Message.Command = cmReleasedFocus)) then
       begin
         Light := (Link.State and sfFocused) <> 0;
         DrawView;
@@ -590,11 +590,11 @@ begin
       B.PutChar(1, Ord('['));
       B.PutChar(Right - 1, Ord(']'));
     end;
-    WriteLineD(0, Row, Size.X, 1, B);
+    WriteLine(0, Row, Size.X, 1, B);
   end;
   B.MoveChar(0, Ord(' '), CShadow.Lo, 2);
   B.MoveGlyph(2, Bottom, CShadow.Lo, Right - 1);
-  WriteLineD(0, Size.Y - 1, Size.X, 1, B);
+  WriteLine(0, Size.Y - 1, Size.X, 1, B);
   B.Free;
 end;
 
@@ -618,7 +618,7 @@ begin
   Inc(Area.A.X);
   Dec(Area.B.X);
   Dec(Area.B.Y);
-  if (Event.What = evMouseDown) and not Area.Contains(MakeLocal(Event.Where)) then
+  if (Event.What = evMouseDown) and not Area.Contains(MakeLocal(Event.Mouse.Where)) then
     ClearEvent(Event);
   if (Flags and bfGrabFocus) <> 0 then
     inherited HandleEvent(Event);
@@ -634,7 +634,7 @@ begin
           Down := False;
           { follow the mouse until it is released: the button is down while the mouse is on it }
           repeat
-            Inside := Area.Contains(MakeLocal(Event.Where));
+            Inside := Area.Contains(MakeLocal(Event.Mouse.Where));
             if Inside xor Down then
               DrawState(Inside);
             Down := Inside;
@@ -650,15 +650,15 @@ begin
           ClearEvent(Event);
       end;
     evKeyDown:
-      if (Event.KeyCode <> 0) and ((Event.KeyCode = GetAltCode(Hot)) or HotKeyAlt(Hot, Event) or
+      if (Event.KeyDown.KeyCode <> 0) and ((Event.KeyDown.KeyCode = GetAltCode(Hot)) or HotKeyAlt(Hot, Event) or
         ((Owner <> nil) and (Owner.Phase = phPostProcess) and (Hot <> #0) and
-         (Hot = UpCaseCp(Chr(Event.CharCode)))) or
-        (((State and sfFocused) <> 0) and (Event.CharCode = Ord(' ')))) then
+         (Hot = UpCaseCp(Chr(Event.KeyDown.CharScan.CharCode)))) or
+        (((State and sfFocused) <> 0) and (Event.KeyDown.CharScan.CharCode = Ord(' ')))) then
         StartAnimation
       else if (State and sfFocused) <> 0 then
         UxArrowPass(Self, Event);
     evBroadcast:
-      case Event.Command of
+      case Event.Message.Command of
         cmDefault:
           if AmDefault and ((State and sfDisabled) = 0) then
             StartAnimation;
@@ -672,11 +672,11 @@ begin
           { the default button gives way while another button has the focus }
           if (Flags and bfDefault) <> 0 then
           begin
-            AmDefault := Event.Command <> cmGrabDefault;
+            AmDefault := Event.Message.Command <> cmGrabDefault;
             DrawView;
           end;
         cmTimerExpired:
-          if (AnimationTimer <> nil) and (Event.InfoPtr = AnimationTimer) then
+          if (AnimationTimer <> nil) and (Event.Message.InfoPtr = AnimationTimer) then
           begin
             AnimationTimer := nil;
             DrawState(False);
@@ -723,8 +723,8 @@ begin
   begin
     ClearEvent(E);
     E.What := evCommand;
-    E.Command := Command;
-    E.InfoPtr := Self;
+    E.Message.Command := Command;
+    E.Message.InfoPtr := Self;
     PutEvent(E);
   end;
 end;

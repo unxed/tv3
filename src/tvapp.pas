@@ -207,7 +207,7 @@ var
 begin
   B := TDrawBuffer.Create(Size.X);
   B.MoveChar(0, Pattern, GetColor($01).Lo, Size.X);
-  WriteLineD(0, 0, Size.X, Size.Y, B);
+  WriteLine(0, 0, Size.X, Size.Y, B);
   B.Free;
 end;
 
@@ -415,7 +415,7 @@ begin
       Sel := Items;
   end;
   Menu := NewMenu(Items);
-  R.Assign(0, 0, Prog.Size.X, Prog.Size.Y);
+  R := TRect.Create(0, 0, Prog.Size.X, Prog.Size.Y);
   Box := TSwitcherBox.Create(R, Menu);
   Menu^.Deflt := Sel;
   Box.Current := Sel;
@@ -435,7 +435,7 @@ begin
     Exit(False);
   if Assigned(OnSwitcherKey) then
     Exit(OnSwitcherKey(Event, Backward));
-  K := KeyMake(Event.KeyCode, Event.ControlKeyState);
+  K := KeyMake(Event.KeyDown.KeyCode, Event.KeyDown.ControlKeyState);
   Result := (K.Code = kbTab) and ((K.Mods and kbCtrlShift) <> 0);
   Backward := Result and ((K.Mods and kbShift) <> 0);
 end;
@@ -518,14 +518,14 @@ begin
   if FSwitchBox <> nil then
     case Event.What of
       evKeyUp:
-        if (Event.KeyCode = 0) and ((Event.ControlKeyState and FSwitchHeld) <> FSwitchHeld) then
+        if (Event.KeyDown.KeyCode = 0) and ((Event.KeyDown.ControlKeyState and FSwitchHeld) <> FSwitchHeld) then
         begin
           SwitcherEnd(True);
           ClearEvent(Event);
           Exit;
         end;
       evKeyDown:
-        if Event.KeyCode = kbEsc then
+        if Event.KeyDown.KeyCode = kbEsc then
         begin
           SwitcherEnd(False);
           ClearEvent(Event);
@@ -547,12 +547,12 @@ begin
     editor keeps it). Where the terminal tells the releases of keys, a list of the windows is shown while Ctrl is held (SwitcherStep). }
   if (Event.What = evKeyDown) and UxCtrlTab and IsSwitcherKey(Event, Back) then
   begin
-    SwitcherStep(Back, Event.ControlKeyState and (kbCtrlShift or kbAltShift));
+    SwitcherStep(Back, Event.KeyDown.ControlKeyState and (kbCtrlShift or kbAltShift));
     ClearEvent(Event);
   end;
   if Event.What = evCommand then
   begin
-    case Event.Command of
+    case Event.Message.Command of
       cmNext:
         if Valid(cmReleasedFocus) then
           SelectNext(False);
@@ -690,13 +690,13 @@ constructor TProgram.Create;
 var
   R: TRect;
 begin
-  R.Assign(0, 0, ScreenWidth, ScreenHeight);
+  R := TRect.Create(0, 0, TScreen.ScreenWidth, TScreen.ScreenHeight);
   inherited Create(R);
   Application := Self;
   InitScreen;
   State := sfVisible or sfSelected or sfFocused or sfModal or sfExposed;
   Options := 0;
-  Buffer := ScreenBuffer;
+  Buffer := TScreen.ScreenBuffer;
   DeskTop := nil;
   StatusLine := nil;
   MenuBar := nil;
@@ -759,7 +759,7 @@ end;
 
 function ViewHasMouse(P: TView; S: Pointer): Boolean;
 begin
-  Result := ((P.State and sfVisible) <> 0) and P.MouseInView(PEvent(S)^.Where);
+  Result := ((P.State and sfVisible) <> 0) and P.MouseInView(PEvent(S)^.Mouse.Where);
 end;
 
 procedure TProgram.EventError(var Event: TEvent);
@@ -794,9 +794,9 @@ begin
       (((Event.What and evMouseDown) <> 0) and (FirstThat(@ViewHasMouse, @Event) = StatusLine)) then
       StatusLine.HandleEvent(Event);
   end;
-  if (Event.What = evCommand) and (Event.Command = cmScreenChanged) then
+  if (Event.What = evCommand) and (Event.Message.Command = cmScreenChanged) then
   begin
-    SetScreenMode(smUpdate);
+    SetScreenMode(TDisplay.smUpdate);
     ClearEvent(Event);
   end;
 end;
@@ -818,7 +818,7 @@ begin
   { Alt+1..Alt+9 select the window with that number }
   if Event.What = evKeyDown then
   begin
-    C := GetAltChar(Event.KeyCode);
+    C := GetAltChar(Event.KeyDown.KeyCode);
     if C in ['1'..'9'] then
       if not CanMoveFocus then
         ClearEvent(Event)
@@ -827,7 +827,7 @@ begin
         ClearEvent(Event);
   end;
   inherited HandleEvent(Event);
-  if (Event.What <> evCommand) or (Event.Command <> cmQuit) then
+  if (Event.What <> evCommand) or (Event.Message.Command <> cmQuit) then
     Exit;
   ClearEvent(Event);
   EndModal(cmQuit);
@@ -880,14 +880,14 @@ end;
 
 procedure TProgram.InitScreen;
 begin
-  case ScreenMode and $00FF of
-    smMono:
+  case TScreen.ScreenMode and $00FF of
+    TDisplay.smMono:
       begin
         ShowMarkers := True;
         ShadowSize := Point(0, 0);
         AppPalette := apMonochrome;
       end;
-    smBW80:
+    TDisplay.smBW80:
       AppPalette := apBlackWhite;
   else
     AppPalette := apColor;
@@ -896,7 +896,7 @@ begin
   begin
     ShowMarkers := False;
     { a narrow font has square cells: a shadow of one column looks right }
-    if (ScreenMode and smFont8x8) = 0 then
+    if (TScreen.ScreenMode and TDisplay.smFont8x8) = 0 then
       ShadowSize := Point(2, 1)
     else
       ShadowSize := Point(1, 1);
@@ -962,10 +962,10 @@ var
 begin
   if Assigned(OnSetVideoMode) then
     OnSetVideoMode(Mode);
-  Buffer := ScreenBuffer;
+  Buffer := TScreen.ScreenBuffer;
   InitScreen;
   Whole.A := Point(0, 0);
-  Whole.B := Point(ScreenWidth, ScreenHeight);
+  Whole.B := Point(TScreen.ScreenWidth, TScreen.ScreenHeight);
   ChangeBounds(Whole);
   { hide and show again, so that every view knows it must draw itself }
   SetState(sfExposed, False);
@@ -1059,7 +1059,7 @@ begin
   inherited HandleEvent(Event);
   if Event.What = evCommand then
   begin
-    case Event.Command of
+    case Event.Message.Command of
       cmDosShell: DosShell;
       cmCascade: Cascade;
       cmTile: Tile;

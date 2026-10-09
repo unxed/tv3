@@ -33,7 +33,7 @@ begin
   Check(MessageBox(mfError or mfOKButton, 'File %s: error %d', ['A.TXT', 5]) = cmOK, 'a formatted message');
   MemClear;
   MemKey(kbEnter);
-  R.Assign(10, 5, 60, 15);
+  R := TRect.Create(10, 5, 60, 15);
   Check(MessageBoxRect(R, 'In a given place', mfOKButton) = cmOK, 'a box with given bounds');
   MemClear;
   MemKey(kbEnter);

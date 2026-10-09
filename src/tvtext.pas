@@ -21,45 +21,48 @@ interface
 uses
   TvColors, TvCell;
 
-{ Length and width of the character at Text (Len bytes available). False when
-  Len = 0. Width is 0 for combining and format characters. }
-function TextNext(Text: PByte; Len: Integer; out CharLen, CharWidth: Integer): Boolean;
+type
+  TText = class
+  public
+    { Length and width of the character at Text (Len bytes available). False when
+      Len = 0. Width is 0 for combining and format characters. }
+    class function Next(Text: PByte; Len: Integer; out CharLen, CharWidth: Integer): Boolean; static;
 
-function TextWidth(Text: PByte; Len: Integer): Integer;
-function TextWidthS(const S: ShortString): Integer;
+    class function Width(Text: PByte; Len: Integer): Integer; static; overload;
+    class function Width(const S: ShortString): Integer; static; overload;
 
-{ Length in bytes of the character that ends at Index (Index > 0), 0 for Index = 0.
-  Tolerates invalid characters. }
-function TextPrev(Text: PByte; Index: Integer): Integer;
+    { Length in bytes of the character that ends at Index (Index > 0), 0 for Index = 0.
+      Tolerates invalid characters. }
+    class function Prev(Text: PByte; Index: Integer): Integer; static;
 
-{ Skips characters worth Count columns: Length is the number of bytes skipped,
-  Width the columns they take. With IncludeIncomplete, a double-width character
-  that does not fit entirely is skipped too (Width > Count then). }
-procedure TextScroll(Text: PByte; Len, Count: Integer; IncludeIncomplete: Boolean;
-  out Length, Width: Integer);
+    { Skips characters worth Count columns: ALength is the number of bytes skipped,
+      AWidth the columns they take. With IncludeIncomplete, a double-width character
+      that does not fit entirely is skipped too (AWidth > Count then). }
+    class procedure Scroll(Text: PByte; Len, Count: Integer; IncludeIncomplete: Boolean;
+      out ALength, AWidth: Integer); static;
 
-{ Writes one character of Text at Text[J] into Cells[I] (CellCount cells). I and J
-  advance by the cells and bytes used. A zero-width character is appended to the
-  previous cell and I does not advance. Attr, when not nil, is set in the cells
-  written. False when nothing was consumed. }
-function TextDrawOne(Cells: PScreenCell; CellCount: Integer; var I: Integer;
-  Text: PByte; TextLen: Integer; var J: Integer; Attr: PColorAttr): Boolean;
+    { Writes one character of Text at Text[J] into Cells[I] (CellCount cells). I and J
+      advance by the cells and bytes used. A zero-width character is appended to the
+      previous cell and I does not advance. Attr, when not nil, is set in the cells
+      written. False when nothing was consumed. }
+    class function DrawOne(Cells: PScreenCell; CellCount: Integer; var I: Integer;
+      Text: PByte; TextLen: Integer; var J: Integer; Attr: PColorAttr): Boolean; static;
 
-{ Writes Text starting at Cells[Indent], skipping the first TextIndent columns of
-  the text (a double-width character cut in the middle becomes a space). Returns
-  the number of cells filled. }
-function TextDrawStr(Cells: PScreenCell; CellCount, Indent: Integer;
-  Text: PByte; TextLen, TextIndent: Integer; Attr: PColorAttr): Integer;
-function TextDrawStrS(Cells: PScreenCell; CellCount, Indent: Integer;
-  const S: ShortString; TextIndent: Integer; Attr: PColorAttr): Integer;
+    { Writes Text starting at Cells[Indent], skipping the first TextIndent columns of
+      the text (a double-width character cut in the middle becomes a space). Returns
+      the number of cells filled. }
+    class function DrawStr(Cells: PScreenCell; CellCount, Indent: Integer;
+      Text: PByte; TextLen, TextIndent: Integer; Attr: PColorAttr): Integer; static; overload;
+    class function DrawStr(Cells: PScreenCell; CellCount, Indent: Integer;
+      const S: ShortString; TextIndent: Integer; Attr: PColorAttr): Integer; static; overload;
 
-{ Fills Cells with a byte character, setting Attr when not nil. }
-procedure TextDrawChar(Cells: PScreenCell; CellCount: Integer; Ch: Byte; Attr: PColorAttr);
+    { Fills Cells with a byte character, setting Attr when not nil. }
+    class procedure DrawChar(Cells: PScreenCell; CellCount: Integer; Ch: Byte; Attr: PColorAttr); static;
 
-{ Code page conversion of the first character of Text: the byte for ASCII, else the
-  byte of the current code page (0 if there is none). }
-function TextToCodePage(Text: PByte; Len: Integer): Byte;
-
+    { Code page conversion of the first character of Text: the byte for ASCII, else the
+      byte of the current code page (0 if there is none). }
+    class function ToCodePage(Text: PByte; Len: Integer): Byte; static;
+  end;
 
 implementation
 
@@ -72,7 +75,7 @@ type
 
 { length and width, as in ttext.cpp mbstat/nextImpl: only valid multi-byte
   characters get their own width; everything else is one column. }
-function TextNext(Text: PByte; Len: Integer; out CharLen, CharWidth: Integer): Boolean;
+class function TText.Next(Text: PByte; Len: Integer; out CharLen, CharWidth: Integer): Boolean;
 var
   CP: LongWord;
   Used, W: Integer;
@@ -100,27 +103,27 @@ begin
   end;
 end;
 
-function TextWidth(Text: PByte; Len: Integer): Integer;
+class function TText.Width(Text: PByte; Len: Integer): Integer;
 var
   I, L, W: Integer;
 begin
   Result := 0;
   I := 0;
-  while TextNext(Text + I, Len - I, L, W) do
+  while TText.Next(Text + I, Len - I, L, W) do
   begin
     Inc(I, L);
     Inc(Result, W);
   end;
 end;
 
-function TextWidthS(const S: ShortString): Integer;
+class function TText.Width(const S: ShortString): Integer;
 begin
   if Length(S) = 0 then
     Exit(0);
-  Result := TextWidth(@S[1], Length(S));
+  Result := TText.Width(@S[1], Length(S));
 end;
 
-function TextPrev(Text: PByte; Index: Integer): Integer;
+class function TText.Prev(Text: PByte; Index: Integer): Integer;
 var
   Lead, I, Used: Integer;
   CP: LongWord;
@@ -145,13 +148,13 @@ begin
   Result := 1;
 end;
 
-procedure TextScroll(Text: PByte; Len, Count: Integer; IncludeIncomplete: Boolean;
-  out Length, Width: Integer);
+class procedure TText.Scroll(Text: PByte; Len, Count: Integer; IncludeIncomplete: Boolean;
+  out ALength, AWidth: Integer);
 var
   I, W, I2, W2, L, CW: Integer;
 begin
-  Length := 0;
-  Width := 0;
+  ALength := 0;
+  AWidth := 0;
   if Count <= 0 then
     Exit;
   I := 0;
@@ -160,7 +163,7 @@ begin
   begin
     I2 := I;
     W2 := W;
-    if not TextNext(Text + I, Len - I, L, CW) then
+    if not TText.Next(Text + I, Len - I, L, CW) then
       Break;
     Inc(I, L);
     Inc(W, CW);
@@ -176,8 +179,8 @@ begin
       Break;
     end;
   end;
-  Length := I;
-  Width := W;
+  ALength := I;
+  AWidth := W;
 end;
 
 function IsZeroWidthJoiner(P: PByte; Len: Integer): Boolean;
@@ -256,22 +259,22 @@ begin
   end;
 end;
 
-function TextDrawOne(Cells: PScreenCell; CellCount: Integer; var I: Integer;
+class function TText.DrawOne(Cells: PScreenCell; CellCount: Integer; var I: Integer;
   Text: PByte; TextLen: Integer; var J: Integer; Attr: PColorAttr): Boolean;
 var
-  Len, Width: Integer;
+  Len, CellsUsed: Integer;
 begin
-  DrawOneImpl(PCellArray(Cells), CellCount, I, Text, TextLen, J, Len, Width);
-  if (Width > 0) and (Attr <> nil) then
+  DrawOneImpl(PCellArray(Cells), CellCount, I, Text, TextLen, J, Len, CellsUsed);
+  if (CellsUsed > 0) and (Attr <> nil) then
     PCellArray(Cells)^[I].Attribute := Attr^;
-  if (Width > 1) and (Attr <> nil) then
+  if (CellsUsed > 1) and (Attr <> nil) then
     PCellArray(Cells)^[I + 1].Attribute := Attr^;
-  Inc(I, Width);
+  Inc(I, CellsUsed);
   Inc(J, Len);
   Result := Len <> 0;
 end;
 
-function TextDrawStr(Cells: PScreenCell; CellCount, Indent: Integer;
+class function TText.DrawStr(Cells: PScreenCell; CellCount, Indent: Integer;
   Text: PByte; TextLen, TextIndent: Integer; Attr: PColorAttr): Integer;
 var
   I, J, LeadWidth, Skipped: Integer;
@@ -280,7 +283,7 @@ begin
   J := 0;
   if TextIndent > 0 then
   begin
-    TextScroll(Text, TextLen, TextIndent, True, Skipped, LeadWidth);
+    TText.Scroll(Text, TextLen, TextIndent, True, Skipped, LeadWidth);
     J := Skipped;
     if (LeadWidth > TextIndent) and (I < CellCount) then
     begin
@@ -290,19 +293,19 @@ begin
       Inc(I);
     end;
   end;
-  while TextDrawOne(Cells, CellCount, I, Text, TextLen, J, Attr) do ;
+  while TText.DrawOne(Cells, CellCount, I, Text, TextLen, J, Attr) do ;
   Result := I - Indent;
 end;
 
-function TextDrawStrS(Cells: PScreenCell; CellCount, Indent: Integer;
+class function TText.DrawStr(Cells: PScreenCell; CellCount, Indent: Integer;
   const S: ShortString; TextIndent: Integer; Attr: PColorAttr): Integer;
 begin
   if Length(S) = 0 then
     Exit(0);
-  Result := TextDrawStr(Cells, CellCount, Indent, @S[1], Length(S), TextIndent, Attr);
+  Result := TText.DrawStr(Cells, CellCount, Indent, @S[1], Length(S), TextIndent, Attr);
 end;
 
-procedure TextDrawChar(Cells: PScreenCell; CellCount: Integer; Ch: Byte; Attr: PColorAttr);
+class procedure TText.DrawChar(Cells: PScreenCell; CellCount: Integer; Ch: Byte; Attr: PColorAttr);
 var
   I: Integer;
 begin
@@ -314,7 +317,7 @@ begin
   end;
 end;
 
-function TextToCodePage(Text: PByte; Len: Integer): Byte;
+class function TText.ToCodePage(Text: PByte; Len: Integer): Byte;
 var
   CP: LongWord;
   Used: Integer;

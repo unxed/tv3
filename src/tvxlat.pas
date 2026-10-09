@@ -210,7 +210,7 @@ function FirstCodePoint(const Event: TEvent; out Cp: LongWord): Boolean;
 var
   Used: Integer;
 begin
-  Result := (Event.TextLength > 0) and Utf8Decode(PByte(@Event.Text[0]), Event.TextLength, Cp, Used);
+  Result := (Event.KeyDown.TextLength > 0) and Utf8Decode(PByte(@Event.KeyDown.Text[0]), Event.KeyDown.TextLength, Cp, Used);
 end;
 
 function XlatModded(var Event: TEvent): Boolean;
@@ -222,7 +222,7 @@ begin
   Result := False;
   if not XlatEnabled or (Event.What <> evKeyDown) then
     Exit;
-  if (Event.ControlKeyState and (kbCtrlShift or kbAltShift)) = 0 then
+  if (Event.KeyDown.ControlKeyState and (kbCtrlShift or kbAltShift)) = 0 then
     Exit;
   if not FirstCodePoint(Event, Cp) or (Cp < 128) then
     Exit;
@@ -231,15 +231,15 @@ begin
     Inc(Lat, 32);
   if (Lat < Ord('a')) or (Lat > Ord('z')) then
     Exit;
-  if (Event.ControlKeyState and kbAltShift) <> 0 then
+  if (Event.KeyDown.ControlKeyState and kbAltShift) <> 0 then
     Big := 2
   else
     Big := 1;
   Code := ModdedKeyCode(Word(Lat - Ord('a') + Ord('A')), Big);
   if Code = 0 then
     Exit;
-  Event.KeyCode := Code;
-  Event.TextLength := 0;          { it is a shortcut now, not text (as Alt+X is) }
+  Event.KeyDown.KeyCode := Code;
+  Event.KeyDown.TextLength := 0;          { it is a shortcut now, not text (as Alt+X is) }
   Result := True;
 end;
 
@@ -251,16 +251,16 @@ begin
   Result := False;
   if not XlatEnabled or (Event.What <> evKeyDown) then
     Exit;
-  if (Event.ControlKeyState and (kbCtrlShift or kbAltShift)) <> 0 then
+  if (Event.KeyDown.ControlKeyState and (kbCtrlShift or kbAltShift)) <> 0 then
     Exit;
   if not FirstCodePoint(Event, Cp) or (Cp < 128) then
     Exit;
   Lat := XlatLatin(Cp);
   if Lat = 0 then
     Exit;
-  Event.Text[0] := Char(Lat);
-  Event.TextLength := 1;
-  Event.CharCode := Byte(Lat);
+  Event.KeyDown.Text[0] := Char(Lat);
+  Event.KeyDown.TextLength := 1;
+  Event.KeyDown.CharScan.CharCode := Byte(Lat);
   Result := True;
 end;
 

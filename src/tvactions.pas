@@ -196,8 +196,8 @@ begin
   if Result then
   begin
     Event.What := evCommand;
-    Event.Command := Actions[I].Command;
-    Event.InfoPtr := nil;
+    Event.Message.Command := Actions[I].Command;
+    Event.Message.InfoPtr := nil;
   end;
 end;
 
@@ -250,9 +250,9 @@ begin
   if (I < 0) or (Actions[I].Key = kbNoKey) or (Event.What <> evKeyDown) then
     Exit;
   A := KeyMake(Actions[I].Key);
-  K := KeyMake(Event.KeyCode, Event.ControlKeyState and not kbShift);
+  K := KeyMake(Event.KeyDown.KeyCode, Event.KeyDown.ControlKeyState and not kbShift);
   Result := KeyEq(K, A);
-  Backward := Result and ((Event.ControlKeyState and kbShift) <> 0);
+  Backward := Result and ((Event.KeyDown.ControlKeyState and kbShift) <> 0);
 end;
 
 procedure UseActionsForSwitcher(const AName: ShortString);

@@ -6,7 +6,7 @@ uses TvGeom, TvColors, TvCell, TvCodePg, TvEvents, TvKeys, TvViews, TvObjs, TvUt
 
 function R(A, B, C, D: Integer): TRect;
 begin
-  Result.Assign(A, B, C, D);
+  Result := TRect.Create(A, B, C, D);
 end;
 
 procedure Key(V: TView; Code: Word);
@@ -74,8 +74,8 @@ begin
   Dlg.Groups.Owner.Select;
   ClearEvent(E);
   E.What := evBroadcast;
-  E.Command := cmNewColorItem;
-  E.InfoPtr := Dlg.Groups.GetGroup(0);
+  E.Message.Command := cmNewColorItem;
+  E.Message.InfoPtr := Dlg.Groups.GetGroup(0);
   Dlg.HandleEvent(E);
   Check(Dlg.GroupIndex = Dlg.Groups.Focused, 'the dialog knows the group');
 

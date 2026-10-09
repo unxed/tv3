@@ -311,7 +311,7 @@ begin
   LineLen := LineEnd - LineStart;
   if Wrap and (Width > 0) then
   begin
-    TextScroll(Text + LineStart, LineLen, Width, False, Wrapped, Dummy);
+    TText.Scroll(Text + LineStart, LineLen, Width, False, Wrapped, Dummy);
     if (Wrapped > 0) and (Wrapped < LineLen) then
     begin
       NewSize := Wrapped;
@@ -352,9 +352,9 @@ begin
     if Target <= Before + InPara then
     begin
       LStart := Target - (Before + Start) - 1;     { bytes of the line before the reference }
-      Loc.X := TextWidth(Para^.Text + Start, LStart);
+      Loc.X := TText.Width(Para^.Text + Start, LStart);
       Loc.Y := Row;
-      Length := TextWidth(Para^.Text + Start + LStart, X^.Length);
+      Length := TText.Width(Para^.Text + Start + LStart, X^.Length);
       Ref := X^.Ref;
       Exit;
     end;
@@ -432,7 +432,7 @@ begin
   for I := 1 to NumLines do
   begin
     S := GetLine(I);
-    W := TextWidthS(S);
+    W := TText.Width(S);
     if W > Result then
       Result := W;
   end;
@@ -736,7 +736,7 @@ begin
     begin
       B.MoveChar(0, Ord(' '), Normal, Size.X);
       Line := Topic.GetLine(Row + Delta.Y);
-      if TextWidthS(Line) > Delta.X then
+      if TText.Width(Line) > Delta.X then
         B.MoveStrS(0, Line, Normal, Size.X, Delta.X);
       while KeyPoint.Y = Row + Delta.Y do
       begin
@@ -760,7 +760,7 @@ begin
         else
           KeyPoint.Y := 0;
       end;
-      WriteLineD(0, Row - 1, Size.X, 1, B);
+      WriteLine(0, Row - 1, Size.X, 1, B);
     end;
   finally
     B.Free;
@@ -815,7 +815,7 @@ begin
   case Event.What of
     evKeyDown:
       begin
-        if Event.KeyCode = kbTab then
+        if Event.KeyDown.KeyCode = kbTab then
         begin
           Inc(Selected);
           if Selected > Refs then
@@ -823,7 +823,7 @@ begin
           if Refs > 0 then
             MakeSelectVisible(Selected - 1, KeyPoint, KeyLength, KeyRef);
         end
-        else if Event.KeyCode = kbShiftTab then
+        else if Event.KeyDown.KeyCode = kbShiftTab then
         begin
           Dec(Selected);
           if Selected <= 0 then
@@ -831,7 +831,7 @@ begin
           if Refs > 0 then
             MakeSelectVisible(Selected - 1, KeyPoint, KeyLength, KeyRef);
         end
-        else if Event.KeyCode = kbEnter then
+        else if Event.KeyDown.KeyCode = kbEnter then
         begin
           if (Selected >= 1) and (Selected <= Refs) then
           begin
@@ -839,10 +839,10 @@ begin
             SwitchToTopic(KeyRef);
           end;
         end
-        else if Event.KeyCode = kbEsc then
+        else if Event.KeyDown.KeyCode = kbEsc then
         begin
           Event.What := evCommand;
-          Event.Command := cmClose;
+          Event.Message.Command := cmClose;
           PutEvent(Event);
         end
         else
@@ -853,7 +853,7 @@ begin
     evMouseDown:
       begin
         { the place in the topic: columns from 0, lines from 1 }
-        Mouse := MakeLocal(Event.Where);
+        Mouse := MakeLocal(Event.Mouse.Where);
         Mouse.X := Mouse.X + Delta.X;
         Mouse.Y := Mouse.Y + Delta.Y + 1;
         Hit := -1;
@@ -876,7 +876,7 @@ begin
     evCommand:
       begin
         InModal := (Owner <> nil) and ((Owner.State and sfModal) <> 0);
-        if InModal and (Event.Command = cmClose) then
+        if InModal and (Event.Message.Command = cmClose) then
         begin
           ClearEvent(Event);
           EndModal(cmClose);
@@ -891,7 +891,7 @@ constructor THelpWindow.Create(AHelpFile: THelpFile; Context: Word);
 var
   R: TRect;
 begin
-  R.Assign(0, 0, 50, 18);
+  R := TRect.Create(0, 0, 50, 18);
   inherited Create(R, HelpWinTitle, wnNoNumber);
   Options := Options or ofCentered;
   R.Grow(-2, -1);

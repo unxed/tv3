@@ -96,40 +96,40 @@ begin
   T := 1;
   if Event.What = evKeyUp then
     T := 3;
-  Mods := Event.ControlKeyState;
+  Mods := Event.KeyDown.ControlKeyState;
   M := ModValue(Mods);
   Code := 0;
-  case Event.KeyCode of
+  case Event.KeyDown.KeyCode of
     kbEsc: Code := 27;
     kbEnter, kbCtrlEnter: Code := 13;
     kbTab, kbShiftTab: Code := 9;
     kbBack, kbCtrlBack: Code := 127;
   end;
-  if Event.KeyCode = kbShiftTab then
+  if Event.KeyDown.KeyCode = kbShiftTab then
     M := ModValue(Mods or kbShift);
-  if (Event.KeyCode = kbCtrlEnter) or (Event.KeyCode = kbCtrlBack) then
+  if (Event.KeyDown.KeyCode = kbCtrlEnter) or (Event.KeyDown.KeyCode = kbCtrlBack) then
     M := ModValue(Mods or kbCtrlShift);
   if Code = 0 then
   begin
-    if Event.TextLength > 0 then
+    if Event.KeyDown.TextLength > 0 then
     begin
-      if Utf8Decode(@Event.Text[0], Event.TextLength, Cp, Used) then
+      if Utf8Decode(@Event.KeyDown.Text[0], Event.KeyDown.TextLength, Cp, Used) then
       begin
         Code := Cp;
         if (Code >= Ord('A')) and (Code <= Ord('Z')) then
           Inc(Code, 32);                     { the code of a letter is the one of the key, lower case }
       end;
     end
-    else if (Event.CharCode >= 1) and (Event.CharCode <= 26) and (Event.ScanCode = 0) then
+    else if (Event.KeyDown.CharScan.CharCode >= 1) and (Event.KeyDown.CharScan.CharCode <= 26) and (Event.KeyDown.CharScan.ScanCode = 0) then
     begin
-      Code := Event.CharCode + 96;           { Ctrl and a letter without text: the letter }
+      Code := Event.KeyDown.CharScan.CharCode + 96;           { Ctrl and a letter without text: the letter }
       M := ModValue(Mods or kbCtrlShift);
     end;
   end;
   if Code <> 0 then
   begin
     Escaped := ((Flags and 8) <> 0) or (Code = 27) or ((Mods and (kbCtrlShift or kbAltShift)) <> 0)
-      or (M > 4) or ((Event.KeyCode = kbShiftTab) or (Event.KeyCode = kbCtrlEnter) or (Event.KeyCode = kbCtrlBack));
+      or (M > 4) or ((Event.KeyDown.KeyCode = kbShiftTab) or (Event.KeyDown.KeyCode = kbCtrlEnter) or (Event.KeyDown.KeyCode = kbCtrlBack));
     if not Escaped then
     begin
       if T = 3 then
@@ -187,7 +187,7 @@ var
 begin
   Vk := EventVirtualKey(Event);
   Cs := EventWin32State(Event);
-  Rc := Event.RepeatCount;
+  Rc := Event.KeyDown.RepeatCount;
   if Rc < 1 then
     Rc := 1;
   Kd := Ord(Event.What <> evKeyUp);
@@ -231,8 +231,8 @@ begin
   end;
   if Event.What = evKeyUp then
     Exit('');                                    { the releases are only for the win32 input mode }
-  Mods := Event.ControlKeyState;
-  K := Event.KeyCode;
+  Mods := Event.KeyDown.ControlKeyState;
+  K := Event.KeyDown.KeyCode;
   case K of
     kbUp, kbDown, kbRight, kbLeft, kbHome, kbEnd:
       begin
@@ -279,10 +279,10 @@ begin
   end;
   if Result = '' then
   begin
-    if Event.TextLength > 0 then
+    if Event.KeyDown.TextLength > 0 then
     begin
-      SetLength(Text, Event.TextLength);
-      Move(Event.Text[0], Text[1], Event.TextLength);
+      SetLength(Text, Event.KeyDown.TextLength);
+      Move(Event.KeyDown.Text[0], Text[1], Event.KeyDown.TextLength);
       { Ctrl and a letter or one of @ [ \ ] ^ _ ?: the control character }
       if ((Mods and kbCtrlShift) <> 0) and (Length(Text) = 1) then
       begin

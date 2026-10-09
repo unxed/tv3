@@ -386,7 +386,7 @@ var
   NewMods, Orig, Code: Word;
   Largest: Integer;
 begin
-  K := KeyMake(Event.KeyCode, Event.ControlKeyState);
+  K := KeyMake(Event.KeyDown.KeyCode, Event.KeyDown.ControlKeyState);
   NewMods := K.Mods and (kbShift or kbLeftCtrl or kbLeftAlt);
   if NewMods <> 0 then
   begin
@@ -400,14 +400,14 @@ begin
     Code := ModdedKeyCode(K.Code, Largest);
     if Code <> 0 then
     begin
-      Event.KeyCode := Code;
-      if Event.CharCode < Ord(' ') then
-        Event.TextLength := 0;
+      Event.KeyDown.KeyCode := Code;
+      if Event.KeyDown.CharScan.CharCode < Ord(' ') then
+        Event.KeyDown.TextLength := 0;
     end;
   end;
   { TKey does not tell the left and right modifiers apart; in TvKeys they are one bit, so the union is it }
-  Orig := Event.ControlKeyState;
-  Event.ControlKeyState := Orig or NewMods;
+  Orig := Event.KeyDown.ControlKeyState;
+  Event.KeyDown.ControlKeyState := Orig or NewMods;
 end;
 
 function PrintableFromCodepoint(CodePoint: LongWord): Byte;
@@ -432,8 +432,8 @@ begin
   if (Mods and 4) <> 0 then
     TvMods := TvMods or kbLeftCtrl;
   ClearEvent(Event);
-  Event.KeyCode := KeyCode;
-  Event.ControlKeyState := TvMods;
+  Event.KeyDown.KeyCode := KeyCode;
+  Event.KeyDown.ControlKeyState := TvMods;
   NormalizeKey(Event);
 end;
 
@@ -490,16 +490,16 @@ begin
   end;
   KeyWithXTermMods(Event, KeyCode, Mods);
   Event.What := evKeyDown;
-  if IsAlpha(Event.KeyCode) or ((Event.KeyCode = 0) and (Value >= Ord(' ')) and not IsPrivate(Value)) then
+  if IsAlpha(Event.KeyDown.KeyCode) or ((Event.KeyDown.KeyCode = 0) and (Value >= Ord(' ')) and not IsPrivate(Value)) then
   begin
-    if Event.KeyCode = 0 then
+    if Event.KeyDown.KeyCode = 0 then
       CodePoint := Value
     else
-      CodePoint := Event.KeyCode;
-    Event.TextLength := Utf8Encode(CodePoint, PByte(@Event.Text[0]));
-    Event.CharCode := PrintableFromCodepoint(CodePoint);
+      CodePoint := Event.KeyDown.KeyCode;
+    Event.KeyDown.TextLength := Utf8Encode(CodePoint, PByte(@Event.KeyDown.Text[0]));
+    Event.KeyDown.CharScan.CharCode := PrintableFromCodepoint(CodePoint);
   end;
-  Result := (Event.KeyCode <> 0) or (Event.TextLength <> 0);
+  Result := (Event.KeyDown.KeyCode <> 0) or (Event.KeyDown.TextLength <> 0);
 end;
 
 function KeyFromLetter(Letter, Mod_: LongWord; var Event: TEvent): Boolean;
@@ -542,10 +542,10 @@ begin
   if Letter > 255 then
     Exit(False);
   KeyWithXTermMods(Event, KeyCode, Mod_);
-  if IsAlpha(Event.KeyCode) then
+  if IsAlpha(Event.KeyDown.KeyCode) then
   begin
-    Event.Text[0] := Char(Event.KeyCode);
-    Event.TextLength := 1;
+    Event.KeyDown.Text[0] := Char(Event.KeyDown.KeyCode);
+    Event.KeyDown.TextLength := 1;
   end;
   Result := True;
 end;
@@ -558,11 +558,11 @@ const
 
 procedure MouseKeys(var Event: TEvent; Mod_: LongWord);
 begin
-  Event.ControlKeyState := 0;
+  Event.KeyDown.ControlKeyState := 0;
   if (Mod_ and mmAlt) <> 0 then
-    Event.ControlKeyState := Event.ControlKeyState or kbLeftAlt;
+    Event.KeyDown.ControlKeyState := Event.KeyDown.ControlKeyState or kbLeftAlt;
   if (Mod_ and mmCtrl) <> 0 then
-    Event.ControlKeyState := Event.ControlKeyState or kbLeftCtrl;
+    Event.KeyDown.ControlKeyState := Event.KeyDown.ControlKeyState or kbLeftCtrl;
 end;
 
 { Pre: "ESC [ M" has just been read; the rest is "abc": a is the button plus 32, b the column plus 32, c the row plus 32. }
@@ -596,20 +596,20 @@ begin
   end;
   ClearEvent(Event);
   Event.What := evMouse;
-  Event.Where.X := Col;
-  Event.Where.Y := Row;
+  Event.Mouse.Where.X := Col;
+  Event.Mouse.Where.Y := Row;
   MouseKeys(Event, Mod_);
   case But of
     0, 32: State.Buttons := State.Buttons or mbLeftButton;
     1, 33: State.Buttons := State.Buttons or mbMiddleButton;
     2, 34: State.Buttons := State.Buttons or mbRightButton;
     3: State.Buttons := 0;
-    64: Event.Wheel := mwUp;
-    65: Event.Wheel := mwDown;
-    66: Event.Wheel := mwLeft;
-    67: Event.Wheel := mwRight;
+    64: Event.Mouse.Wheel := mwUp;
+    65: Event.Mouse.Wheel := mwDown;
+    66: Event.Mouse.Wheel := mwLeft;
+    67: Event.Mouse.Wheel := mwRight;
   end;
-  Event.Buttons := State.Buttons;
+  Event.Mouse.Buttons := State.Buttons;
   Result := prAccepted;
 end;
 
@@ -637,18 +637,18 @@ begin
     Exit(prRejected);
   ClearEvent(Event);
   Event.What := evMouse;
-  Event.Where.X := Col;
-  Event.Where.Y := Row;
+  Event.Mouse.Where.X := Col;
+  Event.Mouse.Where.Y := Row;
   MouseKeys(Event, Mod_);
   if T = Ord('M') then
     case But of
       0, 32: State.Buttons := State.Buttons or mbLeftButton;
       1, 33: State.Buttons := State.Buttons or mbMiddleButton;
       2, 34: State.Buttons := State.Buttons or mbRightButton;
-      64: Event.Wheel := mwUp;
-      65: Event.Wheel := mwDown;
-      66: Event.Wheel := mwLeft;
-      67: Event.Wheel := mwRight;
+      64: Event.Mouse.Wheel := mwUp;
+      65: Event.Mouse.Wheel := mwDown;
+      66: Event.Mouse.Wheel := mwLeft;
+      67: Event.Mouse.Wheel := mwRight;
     end
   else
     case But of
@@ -656,7 +656,7 @@ begin
       1: State.Buttons := State.Buttons and not mbMiddleButton;
       2: State.Buttons := State.Buttons and not mbRightButton;
     end;
-  Event.Buttons := State.Buttons;
+  Event.Mouse.Buttons := State.Buttons;
   Result := prAccepted;
 end;
 
@@ -665,8 +665,8 @@ end;
 function SetKey(var Event: TEvent; KeyCode, Mods: Word): TParseResult;
 begin
   ClearEvent(Event);
-  Event.KeyCode := KeyCode;
-  Event.ControlKeyState := Mods;
+  Event.KeyDown.KeyCode := KeyCode;
+  Event.KeyDown.ControlKeyState := Mods;
   Event.What := evKeyDown;
   Result := prAccepted;
 end;
@@ -830,11 +830,11 @@ var
   { what the win32 mode tells and the old key code does not }
   procedure Fill;
   begin
-    Event.VirtualKey := Vk;
-    Event.Win32State := Cs0;
-    Event.RepeatCount := Rc;
+    Event.KeyDown.VirtualKey := Vk;
+    Event.KeyDown.Win32State := Cs0;
+    Event.KeyDown.RepeatCount := Rc;
     if Held then
-      Event.KeyFlags := kfRepeat;
+      Event.KeyDown.KeyFlags := kfRepeat;
     if Up then
       Event.What := evKeyUp;
   end;
@@ -879,9 +879,9 @@ begin
           end;
           ClearEvent(Event);
           Event.What := evKeyUp;
-          Event.ControlKeyState := ModsFromWin32State(Cs);
-          Event.VirtualKey := Vk;
-          Event.Win32State := Cs;
+          Event.KeyDown.ControlKeyState := ModsFromWin32State(Cs);
+          Event.KeyDown.VirtualKey := Vk;
+          Event.KeyDown.Win32State := Cs;
           Exit(prAccepted);
         end;
     end;
@@ -1028,7 +1028,7 @@ begin
       end;
       ClearEvent(Event);
       Event.What := evKeyUp;
-      Event.ControlKeyState := ModsFromXTerm(Mods);
+      Event.KeyDown.ControlKeyState := ModsFromXTerm(Mods);
       Exit(prAccepted);
     end;
     Exit(prIgnored);
@@ -1045,21 +1045,21 @@ begin
     Exit(prIgnored);
   { a key of a non-Latin layout that is a Latin letter in the base layout (Ctrl+Ф is Ctrl+A) }
   if (not IsAsciiLetter(KeyCode)) and IsAsciiLetter(BaseLayout) and
-    ((Event.ControlKeyState and (kbCtrlShift or kbAltShift)) <> 0) then
+    ((Event.KeyDown.ControlKeyState and (kbCtrlShift or kbAltShift)) <> 0) then
   begin
     Up := Word(BaseLayout - Ord('a') + Ord('A'));
-    if (Event.ControlKeyState and kbAltShift) <> 0 then
+    if (Event.KeyDown.ControlKeyState and kbAltShift) <> 0 then
       Big := 2
     else
       Big := 1;
     if ModdedKeyCode(Up, Big) <> 0 then
-      Event.KeyCode := ModdedKeyCode(Up, Big);
+      Event.KeyDown.KeyCode := ModdedKeyCode(Up, Big);
   end;
   Event.What := evKeyDown;
   if EventType = 3 then
     Event.What := evKeyUp
   else if EventType = 2 then
-    Event.KeyFlags := kfRepeat;
+    Event.KeyDown.KeyFlags := kfRepeat;
   Result := prAccepted;
 end;
 
@@ -1167,9 +1167,9 @@ var
 begin
   ClearEvent(Event);
   Event.What := evMouse;
-  Event.Where.X := Ev.X;
-  Event.Where.Y := Ev.Y;
-  Event.ControlKeyState := ModsFromWin32State(Ev.KeyState);
+  Event.Mouse.Where.X := Ev.X;
+  Event.Mouse.Where.Y := Ev.Y;
+  Event.KeyDown.ControlKeyState := ModsFromWin32State(Ev.KeyState);
   State.Buttons := 0;
   if (Ev.Buttons and 1) <> 0 then
     State.Buttons := State.Buttons or mbLeftButton;
@@ -1177,15 +1177,15 @@ begin
     State.Buttons := State.Buttons or mbRightButton;
   if (Ev.Buttons and 4) <> 0 then
     State.Buttons := State.Buttons or mbMiddleButton;
-  Event.Buttons := State.Buttons;
+  Event.Mouse.Buttons := State.Buttons;
   Delta := SmallInt(Word(Ev.Buttons shr 16));
   if (Ev.MouseFlags and 4) <> 0 then
   begin
-    if Delta > 0 then Event.Wheel := mwUp else if Delta < 0 then Event.Wheel := mwDown;
+    if Delta > 0 then Event.Mouse.Wheel := mwUp else if Delta < 0 then Event.Mouse.Wheel := mwDown;
   end
   else if (Ev.MouseFlags and 8) <> 0 then
   begin
-    if Delta > 0 then Event.Wheel := mwRight else if Delta < 0 then Event.Wheel := mwLeft;
+    if Delta > 0 then Event.Mouse.Wheel := mwRight else if Delta < 0 then Event.Mouse.Wheel := mwLeft;
   end;
   Result := prAccepted;
 end;
@@ -1317,7 +1317,7 @@ begin
         Res := ParseEscapeSeq(Buf, Event, State);
         if (Res = prAccepted) and (Event.What = evKeyDown) then
         begin
-          Event.ControlKeyState := Event.ControlKeyState or kbLeftAlt;
+          Event.KeyDown.ControlKeyState := Event.KeyDown.ControlKeyState or kbLeftAlt;
           NormalizeKey(Event);
         end;
       end;
@@ -1333,16 +1333,16 @@ begin
   ClearEvent(Event);
   Event.What := evKeyDown;
   case B of
-    0: begin Event.KeyCode := Ord('@'); Event.ControlKeyState := kbLeftCtrl; Event.Text[0] := '@'; Event.TextLength := 1; end;
-    1..7, 11, 12, 14..26: begin Event.KeyCode := B; Event.ControlKeyState := kbLeftCtrl; end;
-    8: Event.KeyCode := kbBack;
-    9: Event.KeyCode := kbTab;
-    10, 13: Event.KeyCode := kbEnter;
-    27: Event.KeyCode := kbEsc;
-    28: begin Event.KeyCode := Ord('\'); Event.ControlKeyState := kbLeftCtrl; Event.Text[0] := '\'; Event.TextLength := 1; end;
-    29: begin Event.KeyCode := Ord(']'); Event.ControlKeyState := kbLeftCtrl; Event.Text[0] := ']'; Event.TextLength := 1; end;
-    30: begin Event.KeyCode := Ord('^'); Event.ControlKeyState := kbLeftCtrl; Event.Text[0] := '^'; Event.TextLength := 1; end;
-    31: begin Event.KeyCode := Ord('_'); Event.ControlKeyState := kbLeftCtrl; Event.Text[0] := '_'; Event.TextLength := 1; end;
+    0: begin Event.KeyDown.KeyCode := Ord('@'); Event.KeyDown.ControlKeyState := kbLeftCtrl; Event.KeyDown.Text[0] := '@'; Event.KeyDown.TextLength := 1; end;
+    1..7, 11, 12, 14..26: begin Event.KeyDown.KeyCode := B; Event.KeyDown.ControlKeyState := kbLeftCtrl; end;
+    8: Event.KeyDown.KeyCode := kbBack;
+    9: Event.KeyDown.KeyCode := kbTab;
+    10, 13: Event.KeyDown.KeyCode := kbEnter;
+    27: Event.KeyDown.KeyCode := kbEsc;
+    28: begin Event.KeyDown.KeyCode := Ord('\'); Event.KeyDown.ControlKeyState := kbLeftCtrl; Event.KeyDown.Text[0] := '\'; Event.KeyDown.TextLength := 1; end;
+    29: begin Event.KeyDown.KeyCode := Ord(']'); Event.KeyDown.ControlKeyState := kbLeftCtrl; Event.KeyDown.Text[0] := ']'; Event.KeyDown.TextLength := 1; end;
+    30: begin Event.KeyDown.KeyCode := Ord('^'); Event.KeyDown.ControlKeyState := kbLeftCtrl; Event.KeyDown.Text[0] := '^'; Event.KeyDown.TextLength := 1; end;
+    31: begin Event.KeyDown.KeyCode := Ord('_'); Event.KeyDown.ControlKeyState := kbLeftCtrl; Event.KeyDown.Text[0] := '_'; Event.KeyDown.TextLength := 1; end;
   end;
 end;
 
@@ -1385,13 +1385,13 @@ begin
   else if K = 127 then
   begin
     Event.What := evKeyDown;
-    Event.KeyCode := kbBack;
+    Event.KeyDown.KeyCode := kbBack;
   end
   else
   begin
     { a printable character: UTF-8 text }
     Event.What := evKeyDown;
-    Event.Text[0] := Char(K);
+    Event.KeyDown.Text[0] := Char(K);
     N := 1 + Utf8BytesLeft(Byte(K));
     for I := 1 to N - 1 do
     begin
@@ -1401,34 +1401,34 @@ begin
         N := I;
         Break;
       end;
-      Event.Text[I] := Char(Used);
+      Event.KeyDown.Text[I] := Char(Used);
     end;
-    Event.TextLength := N;
-    if Utf8Decode(PByte(@Event.Text[0]), N, CodePoint, Used) then
-      Event.CharCode := PrintableFromCodepoint(CodePoint)
+    Event.KeyDown.TextLength := N;
+    if Utf8Decode(PByte(@Event.KeyDown.Text[0]), N, CodePoint, Used) then
+      Event.KeyDown.CharScan.CharCode := PrintableFromCodepoint(CodePoint)
     else
-      Event.CharCode := 0;
+      Event.KeyDown.CharScan.CharCode := 0;
     { text must not trigger the shortcuts of Ctrl+letter }
-    if Event.KeyCode <= kbCtrlZ then
-      Event.KeyCode := kbNoKey;
+    if Event.KeyDown.KeyCode <= kbCtrlZ then
+      Event.KeyDown.KeyCode := kbNoKey;
   end;
 
   if Alt then
   begin
-    Event.ControlKeyState := Event.ControlKeyState or kbLeftAlt;
+    Event.KeyDown.ControlKeyState := Event.KeyDown.ControlKeyState or kbLeftAlt;
     NormalizeKey(Event);
   end;
   if State.BracketedPaste then
   begin
-    Event.ControlKeyState := Event.ControlKeyState or kbPaste;
+    Event.KeyDown.ControlKeyState := Event.KeyDown.ControlKeyState or kbPaste;
     { in a paste the line breaks and the tabs are text }
-    if Event.TextLength = 0 then
-      case Event.KeyCode of
-        kbEnter: begin Event.Text[0] := #10; Event.TextLength := 1; end;
-        kbTab: begin Event.Text[0] := #9; Event.TextLength := 1; end;
+    if Event.KeyDown.TextLength = 0 then
+      case Event.KeyDown.KeyCode of
+        kbEnter: begin Event.KeyDown.Text[0] := #10; Event.KeyDown.TextLength := 1; end;
+        kbTab: begin Event.KeyDown.Text[0] := #9; Event.KeyDown.TextLength := 1; end;
       end;
   end;
-  Result := (Event.KeyCode <> kbNoKey) or (Event.TextLength <> 0);
+  Result := (Event.KeyDown.KeyCode <> kbNoKey) or (Event.KeyDown.TextLength <> 0);
 end;
 
 end.

@@ -10,19 +10,19 @@ function Key(Code: Word; Mods: Word): TEvent;
 begin
   FillChar(Result, SizeOf(Result), 0);
   Result.What := evKeyDown;
-  Result.KeyCode := Code;
-  Result.ControlKeyState := Mods;
+  Result.KeyDown.KeyCode := Code;
+  Result.KeyDown.ControlKeyState := Mods;
 end;
 
 function TextKey(const S: AnsiString; Mods: Word): TEvent;
 begin
   FillChar(Result, SizeOf(Result), 0);
   Result.What := evKeyDown;
-  Result.ControlKeyState := Mods;
-  Result.TextLength := Length(S);
-  Move(S[1], Result.Text[0], Length(S));
+  Result.KeyDown.ControlKeyState := Mods;
+  Result.KeyDown.TextLength := Length(S);
+  Move(S[1], Result.KeyDown.Text[0], Length(S));
   if (Length(S) = 1) then
-    Result.KeyCode := Ord(S[1]);
+    Result.KeyDown.KeyCode := Ord(S[1]);
 end;
 
 begin
@@ -98,7 +98,7 @@ begin
   KeyUp.What := evKeyUp;
   Check(VtKeyBytes(KeyUp, False, True) = #27'[65;30;97;0;0;1_', 'win32: the release of a key');
   Check(VtKeyBytes(KeyUp, False, False) = '', 'the release is not sent to a program that did not ask for the win32 mode');
-  KeyUp.RepeatCount := 4;
+  KeyUp.KeyDown.RepeatCount := 4;
   KeyUp.What := evKeyDown;
   Check(VtKeyBytes(KeyUp, False, True) = #27'[65;30;97;1;0;4_', 'win32: the repeat count');
 

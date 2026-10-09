@@ -291,7 +291,7 @@ constructor TChDirDialog.Create(Opts: Word; HistId: Word);
 
   function Box(AX, AY, BX, BY: Integer): TRect;
   begin
-    Result.Assign(AX, AY, BX, BY);
+    Result := TRect.Create(AX, AY, BX, BY);
   end;
 
   { a button of the right column: it stays at the right edge when the dialog grows }
@@ -397,7 +397,7 @@ begin
   inherited HandleEvent(Event);
   if Event.What = evCommand then
   begin
-    case Event.Command of
+    case Event.Message.Command of
       cmRevert:
         CurDir := CurrentDir;
       cmChangeDir:

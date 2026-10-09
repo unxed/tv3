@@ -78,7 +78,7 @@ begin
   B := TDrawBuffer.Create(W);
   Pair := GetColor(1);
   B.MoveChar(0, Ch, Pair.Lo, Size.X);
-  WriteLineD(0, 0, Size.X, Size.Y, B);
+  WriteLine(0, 0, Size.X, Size.Y, B);
   B.Free;
 end;
 
@@ -90,7 +90,7 @@ end;
 procedure TFill.HandleEvent(var Event: TEvent);
 begin
   inherited HandleEvent(Event);
-  if (Event.What = evCommand) and (Event.Command = cmOK) then
+  if (Event.What = evCommand) and (Event.Message.Command = cmOK) then
     ClearEvent(Event);
 end;
 
@@ -115,7 +115,7 @@ end;
 
 function Cell(X, Y: Integer): PScreenCell;
 begin
-  Result := ScreenBuffer + (Y * ScreenWidth + X);
+  Result := TScreen.ScreenBuffer + (Y * TScreen.ScreenWidth + X);
 end;
 
 { the characters of a row between two columns; '_' for a cell nothing drew }
@@ -147,7 +147,7 @@ end;
 
 function R(A, B, C, D: Integer): TRect;
 begin
-  Result.Assign(A, B, C, D);
+  Result := TRect.Create(A, B, C, D);
 end;
 
 var
@@ -180,7 +180,7 @@ begin
   { the top group, set up as the application does }
   Desk := TGroup.Create(R(0, 0, W, H));
   Desk.Options := 0;
-  Desk.Buffer := ScreenBuffer;
+  Desk.Buffer := TScreen.ScreenBuffer;
   Desk.State := sfVisible or sfSelected or sfFocused or sfModal or sfExposed;
 
   { background and two overlapping views }
@@ -227,13 +227,13 @@ begin
   Check(Row(6, 18, 27) = '..BBBB....', 'GrowTo makes it smaller');
   Rc := B.GetBounds;
   Check((Rc.A.X = 20) and (Rc.B.X = 24) and (Rc.B.Y = 8), 'GetBounds after GrowTo');
-  Rc.Assign(7, 2, 17, 6);
+  Rc := TRect.Create(7, 2, 17, 6);
   B.Locate(Rc);
   Check(Row(2, 0, 18) = '..AAAAABBBBBBBBBB..', 'Locate moves and resizes');
-  Rc.Assign(0, 0, 999, 999);
+  Rc := TRect.Create(0, 0, 999, 999);
   B.Locate(Rc);
   Check((B.Size.X = W) and (B.Size.Y = H), 'Locate limits the size to the owner');
-  Rc.Assign(7, 2, 17, 6);
+  Rc := TRect.Create(7, 2, 17, 6);
   B.Locate(Rc);
 
   { visibility }
@@ -275,7 +275,7 @@ begin
   V1.GrowMode := gfGrowHiX;
   G.Insert(V1);
   G.Size.X := 20;
-  Rc.Assign(0, 0, 0, 0);
+  Rc := TRect.Create(0, 0, 0, 0);
   V1.CalcBounds(Rc, Point(10, 0));
   Check((Rc.A.X = 0) and (Rc.B.X = 20) and (Rc.B.Y = 3), 'CalcBounds with gfGrowHiX');
   V1.GrowMode := gfGrowLoX or gfGrowHiX;
@@ -347,7 +347,7 @@ begin
   V1.SetCursor(2, 0);
   Check(CaretSize = 0, 'no caret before the cursor is shown');
   V1.ShowCursor;
-  Check((CaretX = 5) and (CaretY = 2) and (CaretSize = CursorLines), 'the caret is where the cursor is, in screen coordinates');
+  Check((CaretX = 5) and (CaretY = 2) and (CaretSize = TScreen.CursorLines), 'the caret is where the cursor is, in screen coordinates');
   V1.BlockCursor;
   Check(CaretSize = 100, 'a block cursor');
   V1.NormalCursor;
@@ -361,7 +361,7 @@ begin
   Desk.Delete(F);
   F.Free;
   V1.ResetCursor;
-  Check(CaretSize = CursorLines, 'the caret is back when uncovered');
+  Check(CaretSize = TScreen.CursorLines, 'the caret is back when uncovered');
   Desk.Delete(V1);
   V1.Free;
 
@@ -370,11 +370,11 @@ begin
   Check(Message(V1, evCommand, cmOK, nil) = Pointer(V1), 'a message that is handled returns the receiver');
   Check(Message(V1, evCommand, cmCancel, nil) = nil, 'a message that is not handled returns nil');
   Check(Message(nil, evCommand, cmOK, nil) = nil, 'a message to nil');
-  Ev.KeyCode := $1C0D;
+  Ev.KeyDown.KeyCode := $1C0D;
   V1.ClearEvent(Ev);
-  Check((Ev.KeyCode = $1C0D) and (Ev.CharCode = $0D) and (Ev.ScanCode = $1C), 'ClearEvent keeps the key');
+  Check((Ev.KeyDown.KeyCode = $1C0D) and (Ev.KeyDown.CharScan.CharCode = $0D) and (Ev.KeyDown.CharScan.ScanCode = $1C), 'ClearEvent keeps the key');
   V1.ClearEvent(Ev);
-  Check((Ev.What = evNothing) and (Ev.InfoPtr = Pointer(V1)), 'ClearEvent');
+  Check((Ev.What = evNothing) and (Ev.Message.InfoPtr = Pointer(V1)), 'ClearEvent');
   V1.Free;
 
   { commands }
@@ -445,17 +445,17 @@ begin
   GL.Free;
   GS.Free;
   M.Free;
-  { the procedure forms of Borland Pascal }
+  { the bounds and the coordinates of a view }
   V1 := TFill.Create(R(3, 2, 9, 5), 'p', $07);
-  V1.GetBounds(Rc);
-  Check((Rc.A.X = 3) and (Rc.B.Y = 5), 'GetBounds(var R)');
-  V1.GetExtent(Rc);
-  Check((Rc.A.X = 0) and (Rc.B.X = 6) and (Rc.B.Y = 3), 'GetExtent(var R)');
+  Rc := V1.GetBounds;
+  Check((Rc.A.X = 3) and (Rc.B.Y = 5), 'GetBounds');
+  Rc := V1.GetExtent;
+  Check((Rc.A.X = 0) and (Rc.B.X = 6) and (Rc.B.Y = 3), 'GetExtent');
   Pt.X := 1; Pt.Y := 1;
-  V1.MakeGlobal(Pt, Pt2);
-  Check(PointEq(V1.MakeGlobal(Pt), Pt2), 'MakeGlobal(Source, var Dest)');
-  V1.MakeLocal(Pt2, Pt);
-  Check((Pt.X = 1) and (Pt.Y = 1), 'MakeLocal(Source, var Dest)');
+  Pt2 := V1.MakeGlobal(Pt);
+  Check((Pt2.X = 4) and (Pt2.Y = 3), 'MakeGlobal');
+  Pt := V1.MakeLocal(Pt2);
+  Check((Pt.X = 1) and (Pt.Y = 1), 'MakeLocal');
   V1.Free;
 
   { the 16-bit interface of Borland Pascal: Word cells and BIOS attributes }

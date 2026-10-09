@@ -45,7 +45,7 @@ var
 begin
   ClearEvent(E);
   E.What := evCommand;
-  E.Command := Cmd;
+  E.Message.Command := Cmd;
   V.HandleEvent(E);
 end;
 
