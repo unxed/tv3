@@ -614,7 +614,8 @@ var
     Alt: Boolean;
     X: TEvent;
   begin
-    Alt := GetAltCharStr(E) <> '';
+    { Alt with a letter of another script has no Alt key code: the state of the modifiers tells it }
+    Alt := (GetAltCharStr(E) <> '') or ((E.KeyDown.ControlKeyState and kbAltShift) <> 0);
     if Alt then
     begin
       Target := TopMenu;
