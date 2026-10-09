@@ -23,6 +23,7 @@ interface
 uses
   SysUtils, TvGeom, TvColors, TvKeys, TvEvents, TvText, TvUtf8, TvCodePg, TvDrawBuf,
   TvObjs, TvUtil, TvClip, TvViews, TvDialog, TvMsgBox, TvApp, TvValid, TvWordNav;
+{$WARN 3018 OFF}  { "Constructor should be public": Create(streamableInit) is protected, as in tvision }
 
 type
   TInputLine = class;
@@ -101,7 +102,6 @@ const
   RightArrow = $10;
   LeftArrow = $11;
   InputLinePalette = #$13#$13#$14#$15;
-  PadKeys: array[0..5] of Byte = ($47, $4B, $4D, $4F, $73, $74);
 
 { a text typed (UTF-8) to the form the line keeps }
 function ToLine(const S: ShortString): ShortString;

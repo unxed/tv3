@@ -1,7 +1,7 @@
 { TvObjs: the base class of the streamable objects, the object streams and the collections:
   TStreamable, TStreamableClass, TStreamableTypes, TPWrittenObjects, TPReadObjects, pstream,
-  ipstream, opstream, iopstream, fpbase, ifpstream, ofpstream, fpstream; TCollection,
-  TSortedCollection, TStringCollection.
+  ipstream, opstream, iopstream, fpbase, ifpstream, ofpstream, fpstream, EStreamableError; TNSCollection,
+  TNSSortedCollection, TCollection, TSortedCollection, TStringCollection.
 
   Translated from magiblot/tvision @ b4831e2:
     include/tvision/tobjstrm.h, objects.h (the streams, the stream members of the collections)
@@ -11,7 +11,9 @@
 
   Differences from the C++ original (see tv/docs/API-NAMES.md):
     - sizes and counts are 32-bit (Integer);
-    - TNSCollection and TNSSortedCollection are merged into TCollection and TSortedCollection;
+    - a class has one base: TNSCollection descends from TStreamable (its stream members refuse), TCollection
+      from TNSCollection, TSortedCollection from TCollection (not from TNSSortedCollection);
+    - an error of a stream (pstream.Error) raises EStreamableError instead of abort();
     - the streambuf of a stream is a TStream of this unit, the filebuf of a file stream a TBufStream;
       the open modes are those of TDosStream (stOpenRead, stCreate ...), the seek directions those of
       FileSeek (fsFromBeginning, fsFromCurrent, fsFromEnd);
@@ -31,6 +33,7 @@ interface
 
 uses
   SysUtils, TvUtil;
+{$WARN 3018 OFF}  { "Constructor should be public": Create(streamableInit), private constructors (as in tvision) }
 
 const
   { Status of a stream: stOk, or the kind of the first failure (negative) }
@@ -175,11 +178,13 @@ type
 
   { Routines declared inside another routine (Turbo Pascal lets one pass them as @Name to FirstThat, LastThat
     and ForEach) are procedure variables of the nested kind: a program that does that is compiled with
-    {$modeswitch nestedprocvars} (tvdefs.inc has it); a plain function is accepted too. }
+    the mode switch nestedprocvars (tvdefs.inc has it); a plain function is accepted too. }
   TNestedTestProc = function(Item: Pointer): Boolean is nested;
   TNestedActionProc = procedure(Item: Pointer) is nested;
 
-  TCollection = class(TStreamable)
+  { a collection that is not streamable. A Pascal class has one base, so it descends from TStreamable (the base
+    of TCollection); its stream members refuse: it is not registered, writing it is the error peNotRegistered }
+  TNSCollection = class(TStreamable)
     Items: PItemList;
     Count: Integer;
     Limit: Integer;
@@ -208,6 +213,24 @@ type
     procedure Pack;
     procedure SetLimit(ALimit: Integer); virtual;
   protected
+    function StreamableName: ShortString; override;
+    function Read(Ip: ipstream): Pointer; override;
+    procedure Write(Os: opstream); override;
+  end;
+
+  { a sorted collection that is not streamable }
+  TNSSortedCollection = class(TNSCollection)
+    Duplicates: Boolean;
+    function Compare(Key1, Key2: Pointer): Integer; virtual;
+    function IndexOf(Item: Pointer): Integer; override;
+    procedure Insert(Item: Pointer); override;
+    function KeyOf(Item: Pointer): Pointer; virtual;
+    function Search(Key: Pointer; var Index: Integer): Boolean; virtual;
+  end;
+
+  TCollection = class(TNSCollection)
+    constructor Create(ALimit, ADelta: Integer); overload;
+  protected
     constructor Create(AInit: TStreamableInit); overload;
     function StreamableName: ShortString; override;
     function ReadItem(Ip: ipstream): Pointer; virtual; abstract;
@@ -221,6 +244,8 @@ type
   TCollTestProc = function(Item: Pointer): Boolean;
   TCollActionProc = procedure(Item: Pointer);
 
+  { the members of TNSSortedCollection, on a TCollection (a Pascal class has one base: it is not a
+    TNSSortedCollection; both run the same search) }
   TSortedCollection = class(TCollection)
     Duplicates: Boolean;
     constructor Create(ALimit, ADelta: Integer); overload;
@@ -249,7 +274,7 @@ type
 
 
   { the registry of the classes, sorted by name }
-  TStreamableTypes = class(TSortedCollection)
+  TStreamableTypes = class(TNSSortedCollection)
   public
     constructor Create;
     destructor Destroy; override;
@@ -261,7 +286,7 @@ type
   end;
 
   { the objects written to an opstream, sorted by address, with their numbers }
-  TPWrittenObjects = class(TSortedCollection)
+  TPWrittenObjects = class(TNSSortedCollection)
   private
     CurId: P_id_type;
     constructor Create;
@@ -282,7 +307,7 @@ type
   end;
 
   { the objects read from an ipstream, in the order of their numbers }
-  TPReadObjects = class(TCollection)
+  TPReadObjects = class(TNSCollection)
   private
     CurId: P_id_type;
     constructor Create;
@@ -312,6 +337,7 @@ type
     constructor Create; overload;
     procedure Error(E: StreamableError); overload;
     procedure Error(E: StreamableError; T: TStreamable); overload;
+    procedure Error(E: StreamableError; const TypeName: ShortString); overload;
     procedure Init(Sbp: TStream);
     procedure SetState(B: Integer);
   public
@@ -328,9 +354,18 @@ type
     class procedure RegisterType(Ts: TStreamableClass); static;
   end;
 
+  { the error of an object stream (a class not registered, an unknown kind of pointer): the object cannot be
+    read or written, the stream is not usable after it }
+  EStreamableError = class(Exception)
+    Kind: pstream.StreamableError;
+    TypeName: ShortString;             { the name of the class when it is known }
+    constructor Create(AKind: pstream.StreamableError; const ATypeName: ShortString);
+  end;
+
   ipstream = class(pstream)
   private
     Objs: TPReadObjects;
+    PrefixName: ShortString;           { the name of the class read last by ReadPrefix }
   protected
     constructor Create; overload;
     function ReadPrefix: TStreamableClass;
@@ -1294,20 +1329,31 @@ end;
 
 procedure pstream.Error(E: StreamableError);
 begin
-  if E = peInvalidType then
-    WriteLn(StdErr, 'pstream error: invalid type encountered')
-  else if E = peNotRegistered then
-    WriteLn(StdErr, 'pstream error: type not registered');
-  Halt(3);
+  Error(E, '');
 end;
 
 procedure pstream.Error(E: StreamableError; T: TStreamable);
 begin
-  if E = peNotRegistered then
-    WriteLn(StdErr, 'pstream error: type ''', T.StreamableName, ''' not registered')
+  Error(E, T.StreamableName);
+end;
+
+procedure pstream.Error(E: StreamableError; const TypeName: ShortString);
+begin
+  raise EStreamableError.Create(E, TypeName);
+end;
+
+{ --- EStreamableError --------------------------------------------------------- }
+
+constructor EStreamableError.Create(AKind: pstream.StreamableError; const ATypeName: ShortString);
+begin
+  if AKind = pstream.StreamableError.peInvalidType then
+    inherited Create('pstream error: invalid type encountered')
+  else if ATypeName <> '' then
+    inherited Create('pstream error: type ''' + ATypeName + ''' not registered')
   else
-    Error(E);
-  Halt(3);
+    inherited Create('pstream error: type not registered');
+  Kind := AKind;
+  TypeName := ATypeName;
 end;
 
 procedure pstream.Init(Sbp: TStream);
@@ -1463,7 +1509,8 @@ begin
   Assert(Ch = '[');
   if ReadString(@AName[0], SizeOf(AName)) = nil then
     AName[0] := #0;
-  Result := Types.Lookup(StrPas(@AName[0]));
+  PrefixName := StrPas(@AName[0]);
+  Result := Types.Lookup(PrefixName);
 end;
 
 function ipstream.ReadData(C: TStreamableClass; Mem: TStreamable): Pointer;
@@ -1471,7 +1518,7 @@ begin
   if Mem = nil then
   begin
     if C = nil then
-      Error(peNotRegistered);
+      Error(peNotRegistered, PrefixName);
     Mem := C.Build();
   end;
   RegisterObject(Mem);
@@ -1904,9 +1951,9 @@ begin
 end;
 
 
-{ --- TCollection ------------------------------------------------------------- }
+{ --- TNSCollection ----------------------------------------------------------- }
 
-constructor TCollection.Create(ALimit, ADelta: Integer);
+constructor TNSCollection.Create(ALimit, ADelta: Integer);
 begin
   inherited Create;
   { the fields start at zero (nil items, no count, no limit) }
@@ -1914,19 +1961,14 @@ begin
   SetLimit(ALimit);
 end;
 
-constructor TCollection.Create(AInit: TStreamableInit);
-begin
-  inherited Create;
-end;
-
-destructor TCollection.Destroy;
+destructor TNSCollection.Destroy;
 begin
   FreeAll;
   SetLimit(0);
   inherited Destroy;
 end;
 
-function TCollection.At(Index: Integer): Pointer;
+function TNSCollection.At(Index: Integer): Pointer;
 begin
   if (Index < 0) or (Index >= Count) then
   begin
@@ -1937,7 +1979,7 @@ begin
     Result := Items^[Index];
 end;
 
-procedure TCollection.AtRemove(Index: Integer);
+procedure TNSCollection.AtRemove(Index: Integer);
 var
   K: Integer;
 begin
@@ -1952,7 +1994,7 @@ begin
   Dec(Count);
 end;
 
-procedure TCollection.AtFree(Index: Integer);
+procedure TNSCollection.AtFree(Index: Integer);
 var
   Victim: Pointer;
 begin
@@ -1966,7 +2008,7 @@ begin
   FreeItem(Victim);
 end;
 
-procedure TCollection.AtInsert(Index: Integer; Item: Pointer);
+procedure TNSCollection.AtInsert(Index: Integer; Item: Pointer);
 begin
   if (Index < 0) or (Index > Count) then
     Error(coIndexError, Index)
@@ -1986,7 +2028,7 @@ begin
   end;
 end;
 
-procedure TCollection.AtReplace(Index: Integer; Item: Pointer);
+procedure TNSCollection.AtReplace(Index: Integer; Item: Pointer);
 var
   Old: Pointer;
 begin
@@ -2013,7 +2055,7 @@ begin
     FreeItem(Old);
 end;
 
-procedure TCollection.AtPut(Index: Integer; Item: Pointer);
+procedure TNSCollection.AtPut(Index: Integer; Item: Pointer);
 begin
   if (Index < 0) or (Index >= Count) then
     Error(coIndexError, Index)
@@ -2021,22 +2063,22 @@ begin
     Items^[Index] := Item;
 end;
 
-procedure TCollection.Remove(Item: Pointer);
+procedure TNSCollection.Remove(Item: Pointer);
 begin
   AtRemove(IndexOf(Item));
 end;
 
-procedure TCollection.RemoveAll;
+procedure TNSCollection.RemoveAll;
 begin
   Count := 0;
 end;
 
-procedure TCollection.Error(Code, Info: Integer);
+procedure TNSCollection.Error(Code, Info: Integer);
 begin
   RunError(212 - Code);
 end;
 
-function TCollection.FirstThat(Test: TNestedTestProc): Pointer;
+function TNSCollection.FirstThat(Test: TNestedTestProc): Pointer;
 var
   I: Integer;
 begin
@@ -2046,7 +2088,7 @@ begin
   Result := nil;
 end;
 
-procedure TCollection.ForEach(Action: TNestedActionProc);
+procedure TNSCollection.ForEach(Action: TNestedActionProc);
 var
   I: Integer;
 begin
@@ -2058,7 +2100,7 @@ begin
   end;
 end;
 
-function TCollection.LastThat(Test: TNestedTestProc): Pointer;
+function TNSCollection.LastThat(Test: TNestedTestProc): Pointer;
 var
   I: Integer;
 begin
@@ -2068,18 +2110,18 @@ begin
   Result := nil;
 end;
 
-procedure TCollection.Free;
+procedure TNSCollection.Free;
 begin
   inherited Free;
 end;
 
-procedure TCollection.Free(Item: Pointer);
+procedure TNSCollection.Free(Item: Pointer);
 begin
   Remove(Item);
   FreeItem(Item);
 end;
 
-procedure TCollection.FreeAll;
+procedure TNSCollection.FreeAll;
 var
   I: Integer;
 begin
@@ -2088,13 +2130,13 @@ begin
   Count := 0;
 end;
 
-procedure TCollection.FreeItem(Item: Pointer);
+procedure TNSCollection.FreeItem(Item: Pointer);
 begin
   if Item <> nil then
-    TStreamable(Item).Free;
+    TObject(Item).Free;
 end;
 
-function TCollection.IndexOf(Item: Pointer): Integer;
+function TNSCollection.IndexOf(Item: Pointer): Integer;
 var
   I: Integer;
 begin
@@ -2104,12 +2146,12 @@ begin
   Result := -1;
 end;
 
-procedure TCollection.Insert(Item: Pointer);
+procedure TNSCollection.Insert(Item: Pointer);
 begin
   AtInsert(Count, Item);
 end;
 
-procedure TCollection.Pack;
+procedure TNSCollection.Pack;
 var
   I, J: Integer;
 begin
@@ -2123,7 +2165,7 @@ begin
   Count := J;
 end;
 
-procedure TCollection.SetLimit(ALimit: Integer);
+procedure TNSCollection.SetLimit(ALimit: Integer);
 begin
   if ALimit < Count then
     ALimit := Count;
@@ -2133,6 +2175,120 @@ begin
     Exit;
   ReallocMem(Items, PtrUInt(ALimit) * SizeOf(Pointer));
   Limit := ALimit;
+end;
+
+function TNSCollection.StreamableName: ShortString;
+begin
+  Result := ClassName;
+end;
+
+function TNSCollection.Read(Ip: ipstream): Pointer;
+begin
+  Ip.Error(pstream.StreamableError.peNotRegistered, Self);
+  Result := nil;
+end;
+
+procedure TNSCollection.Write(Os: opstream);
+begin
+  Os.Error(pstream.StreamableError.peNotRegistered, Self);
+end;
+
+{ --- the search of the sorted collections ------------------------------------- }
+
+type
+  TKeyCompare = function(Key1, Key2: Pointer): Integer of object;
+  TItemKey = function(Item: Pointer): Pointer of object;
+  TKeySearch = function(Key: Pointer; var Index: Integer): Boolean of object;
+
+function SortedSearch(C: TNSCollection; Compare: TKeyCompare; KeyOf: TItemKey; Key: Pointer;
+  var Index: Integer): Boolean;
+var
+  Lo, Hi, Mid, R: Integer;
+begin
+  { lower bound: the first item whose key is not less than Key }
+  Result := False;
+  Lo := 0;
+  Hi := C.Count;
+  while Lo < Hi do
+  begin
+    Mid := Lo + (Hi - Lo) div 2;
+    R := Compare(KeyOf(C.Items^[Mid]), Key);
+    if R < 0 then
+      Lo := Mid + 1
+    else
+    begin
+      if R = 0 then
+        Result := True;
+      Hi := Mid;
+    end;
+  end;
+  Index := Lo;
+end;
+
+function SortedIndexOf(C: TNSCollection; Compare: TKeyCompare; KeyOf: TItemKey; Search: TKeySearch;
+  Duplicates: Boolean; Item: Pointer): Integer;
+var
+  Key: Pointer;
+  I: Integer;
+begin
+  Result := -1;
+  Key := KeyOf(Item);
+  if not Search(Key, I) then
+    Exit;
+  if not Duplicates then
+    Exit(I);
+  { among equal keys, look for this very item }
+  while (I < C.Count) and (Compare(Key, KeyOf(C.Items^[I])) = 0) do
+  begin
+    if C.Items^[I] = Item then
+      Exit(I);
+    Inc(I);
+  end;
+end;
+
+{ --- TNSSortedCollection ------------------------------------------------------ }
+
+function TNSSortedCollection.Compare(Key1, Key2: Pointer): Integer;
+begin
+  { abstract }
+  RunError(211);
+  Result := 0;
+end;
+
+function TNSSortedCollection.IndexOf(Item: Pointer): Integer;
+begin
+  Result := SortedIndexOf(Self, @Compare, @KeyOf, @Search, Duplicates, Item);
+end;
+
+procedure TNSSortedCollection.Insert(Item: Pointer);
+var
+  Where: Integer;
+begin
+  if Search(KeyOf(Item), Where) and not Duplicates then
+    Exit;
+  AtInsert(Where, Item);
+end;
+
+function TNSSortedCollection.KeyOf(Item: Pointer): Pointer;
+begin
+  Result := Item;
+end;
+
+function TNSSortedCollection.Search(Key: Pointer; var Index: Integer): Boolean;
+begin
+  Result := SortedSearch(Self, @Compare, @KeyOf, Key, Index);
+end;
+
+{ --- TCollection -------------------------------------------------------------- }
+
+constructor TCollection.Create(ALimit, ADelta: Integer);
+begin
+  inherited Create(ALimit, ADelta);
+end;
+
+constructor TCollection.Create(AInit: TStreamableInit);
+begin
+  inherited Create;
 end;
 
 function TCollection.StreamableName: ShortString;
@@ -2185,23 +2341,8 @@ begin
 end;
 
 function TSortedCollection.IndexOf(Item: Pointer): Integer;
-var
-  Key: Pointer;
-  I: Integer;
 begin
-  Result := -1;
-  Key := KeyOf(Item);
-  if not Search(Key, I) then
-    Exit;
-  if not Duplicates then
-    Exit(I);
-  { among equal keys, look for this very item }
-  while (I < Count) and (Compare(Key, KeyOf(Items^[I])) = 0) do
-  begin
-    if Items^[I] = Item then
-      Exit(I);
-    Inc(I);
-  end;
+  Result := SortedIndexOf(Self, @Compare, @KeyOf, @Search, Duplicates, Item);
 end;
 
 procedure TSortedCollection.Insert(Item: Pointer);
@@ -2219,27 +2360,8 @@ begin
 end;
 
 function TSortedCollection.Search(Key: Pointer; var Index: Integer): Boolean;
-var
-  Lo, Hi, Mid, C: Integer;
 begin
-  { lower bound: the first item whose key is not less than Key }
-  Result := False;
-  Lo := 0;
-  Hi := Count;
-  while Lo < Hi do
-  begin
-    Mid := Lo + (Hi - Lo) div 2;
-    C := Compare(KeyOf(Items^[Mid]), Key);
-    if C < 0 then
-      Lo := Mid + 1
-    else
-    begin
-      if C = 0 then
-        Result := True;
-      Hi := Mid;
-    end;
-  end;
-  Index := Lo;
+  Result := SortedSearch(Self, @Compare, @KeyOf, Key, Index);
 end;
 
 function TSortedCollection.StreamableName: ShortString;

@@ -19,6 +19,7 @@ interface
 
 uses
   TvGeom, TvColors, TvCell, TvKeys, TvEvents, TvText, TvDrawBuf, TvObjs, TvUtil, TvViews, TvWindow;
+{$WARN 3018 OFF}  { "Constructor should be public": Create(streamableInit) is protected, as in tvision }
 
 const
   MagicHeader = $46484246;          { 'FBHF' }

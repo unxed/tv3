@@ -21,6 +21,7 @@ interface
 
 uses
   TvGeom, TvColors, TvCell, TvKeys, TvEvents, TvDrawBuf, TvScreen, TvObjs, TvViews, TvUtil, TvText, TvGlyphs, TvXlat, TvSys;
+{$WARN 3018 OFF}  { "Constructor should be public": Create(streamableInit) is protected, as in tvision }
 
 type
   TMenu = class;

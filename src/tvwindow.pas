@@ -23,6 +23,7 @@ interface
 
 uses
   TvGeom, TvColors, TvCell, TvKeys, TvEvents, TvText, TvDrawBuf, TvScreen, TvObjs, TvViews, TvUtil, TvGlyphs;
+{$WARN 3018 OFF}  { "Constructor should be public": Create(streamableInit) is protected, as in tvision }
 
 const
   { TWindow.Number of a window without a number }

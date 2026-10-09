@@ -653,7 +653,7 @@ end;
 
 procedure TVtEmu.PutCp(Cp: LongWord);
 var
-  W, I, N, PX: Integer;
+  W, N, PX: Integer;
   Buf: array[0..4] of Byte;
   Ch: TScreenCharacter;
 begin

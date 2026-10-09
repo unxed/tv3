@@ -19,6 +19,7 @@ interface
 uses
   TvGeom, TvColors, TvCell, TvKeys, TvEvents, TvDrawBuf, TvObjs, TvUtil, TvViews, TvDialog,
   TvWindow, TvGlyphs;
+{$WARN 3018 OFF}  { "Constructor should be public": Create(streamableInit) is protected, as in tvision }
 
 const
   EmptyText = '<empty>';

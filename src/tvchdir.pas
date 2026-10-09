@@ -23,6 +23,7 @@ interface
 uses
   TvGeom, TvColors, TvCell, TvKeys, TvEvents, TvDrawBuf, TvObjs, TvUtil, TvViews, TvDialog,
   TvWindow, TvList, TvInput, TvHist, TvMsgBox, TvFiles, TvFileDlg, TvGlyphs;
+{$WARN 3018 OFF}  { "Constructor should be public": Create(streamableInit) is protected, as in tvision }
 
 const
   cdNormal     = $0000;

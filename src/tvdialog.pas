@@ -21,6 +21,7 @@ interface
 uses
   TvGeom, TvColors, TvCell, TvKeys, TvEvents, TvText, TvDrawBuf, TvScreen, TvObjs,
   TvUtil, TvTimer, TvViews, TvWindow, TvGlyphs;
+{$WARN 3018 OFF}  { "Constructor should be public": Create(streamableInit) is protected, as in tvision }
 
 const
   { the characters of the markers shown instead of colors on monochrome screens }

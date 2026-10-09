@@ -246,7 +246,6 @@ end;
 function XlatPlain(var Event: TEvent): Boolean;
 var
   Cp, Lat: LongWord;
-  Upper: Boolean;
 begin
   Result := False;
   if not XlatEnabled or (Event.What <> evKeyDown) then

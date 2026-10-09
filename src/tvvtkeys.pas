@@ -218,7 +218,6 @@ var
   K: Word;
   C: Byte;
   Text: AnsiString;
-  I: Integer;
 begin
   Result := '';
   if Win32 then
@@ -305,7 +304,6 @@ begin
   end;
   if ((Mods and kbAltShift) <> 0) and (Result <> '') then
     Result := #27 + Result;
-  I := 0;
 end;
 
 function VtMouseBytes(Mode, Enc, X, Y, Button: Integer; Down, Moved: Boolean; Wheel: Integer; Mods: Word): AnsiString;

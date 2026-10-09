@@ -60,7 +60,7 @@ end;
 
 function TPty.Open(ACols, ARows: Integer; const Prog: AnsiString; const Args: array of AnsiString; const Cwd: AnsiString): Boolean;
 var
-  Unlock, N, I, J, Sfd: cint;
+  Unlock, N, I, Sfd: cint;
   Slave: AnsiString;
   WS: TWinSize;
   Argv, Env: array of PChar;
@@ -143,7 +143,6 @@ begin
     fpExecve(PChar(Prog), @Argv[0], @Env[0]);
     fpExit(127);
   end;
-  J := 0;
   Flags := fpFcntl(Master, F_GETFL);
   fpFcntl(Master, F_SETFL, Flags or O_NONBLOCK);
   Running := True;

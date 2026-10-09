@@ -26,6 +26,7 @@ uses
   TvUtil, TvObjs, TvGeom, TvColors, TvCell, TvGlyphs, TvDrawBuf, TvScreen,
   TvKeys, TvEvents, TvXlat, TvSys, TvTimer,
   TvViews, TvWindow, TvMenus;
+{$WARN 3018 OFF}  { "Constructor should be public": Create(streamableInit) is protected, as in tvision }
 
 const
   { AppPalette }

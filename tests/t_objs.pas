@@ -57,6 +57,12 @@ type
     procedure FreeItem(Item: Pointer); override;
   end;
 
+  { a sorted collection that is not streamable }
+  TIntNSColl = class(TNSSortedCollection)
+    function Compare(Key1, Key2: Pointer): Integer; override;
+    procedure FreeItem(Item: Pointer); override;
+  end;
+
 
 var
   Freed: Integer = 0;
@@ -159,6 +165,15 @@ begin
     Result := 1
   else
     Result := 0;
+end;
+
+procedure TIntNSColl.FreeItem(Item: Pointer);
+begin
+end;
+
+function TIntNSColl.Compare(Key1, Key2: Pointer): Integer;
+begin
+  Result := PtrInt(Key1) - PtrInt(Key2);
 end;
 
 function IsBig(Item: Pointer): Boolean;
@@ -360,6 +375,98 @@ begin
 
 end;
 
+{ reads one pointer from M; the error it raises, if any }
+function ReadError(M: TMemoryStream; out Kind: pstream.StreamableError; out TypeName: ShortString;
+  out Msg: AnsiString): Boolean;
+var
+  Ip: ipstream;
+  O: Pointer;
+begin
+  Result := False;
+  M.Seek(0);
+  Ip := ipstream.Create(M);
+  try
+    O := Ip.ReadPointer;
+    TObject(O).Free;
+  except
+    on E: EStreamableError do
+    begin
+      Result := True;
+      Kind := E.Kind;
+      TypeName := E.TypeName;
+      Msg := E.Message;
+    end;
+  end;
+  Ip.Free;
+end;
+
+{ writes T as a pointer; the error it raises, if any }
+function WriteError(T: TStreamable; out TypeName: ShortString): Boolean;
+var
+  M: TMemoryStream;
+  Os: opstream;
+begin
+  Result := False;
+  M := TMemoryStream.Create(0, 64);
+  Os := opstream.Create(M);
+  try
+    Os.WritePointer(T);
+  except
+    on E: EStreamableError do
+    begin
+      Result := (E.Kind = pstream.StreamableError.peNotRegistered);
+      TypeName := E.TypeName;
+    end;
+  end;
+  Os.Free;
+  M.Free;
+end;
+
+procedure StreamErrors;
+var
+  M: TMemoryStream;
+  Os: opstream;
+  Pt: TPt;
+  Kind: pstream.StreamableError;
+  TypeName: ShortString;
+  Msg: AnsiString;
+  NS: TNSCollection;
+  NSS: TIntNSColl;
+begin
+  { --- a stream that names a class that is not registered ----------------------------- }
+  M := TMemoryStream.Create(0, 64);
+  Os := opstream.Create(M);
+  Pt := TPt.Create(1, 2);
+  Os.WritePointer(Pt);
+  Pt.Free;
+  Os.Free;
+  PChar(M.Data)[5] := 'x';                     { ptObject, '[', 3, 'TPt' -> 'TPx' }
+  Check(ReadError(M, Kind, TypeName, Msg) and (Kind = pstream.StreamableError.peNotRegistered) and
+    (TypeName = 'TPx') and (Pos('''TPx''', Msg) > 0), 'reading a class that is not registered raises EStreamableError');
+  PByte(M.Data)[0] := 7;                       { no kind of pointer }
+  Check(ReadError(M, Kind, TypeName, Msg) and (Kind = pstream.StreamableError.peInvalidType),
+    'an unknown kind of pointer raises EStreamableError');
+  M.Free;
+
+  { --- writing an object of a class that is not registered ---------------------------- }
+  Pt := TLost.Create(1, 2);
+  Check(WriteError(Pt, TypeName) and (TypeName = 'TLost'), 'writing a class that is not registered raises EStreamableError');
+  Pt.Free;
+  NS := TNSCollection.Create(2, 2);
+  Check(WriteError(NS, TypeName) and (TypeName = 'TNSCollection'), 'a TNSCollection is not streamable');
+  NS.Free;
+
+  { --- a sorted collection that is not streamable ------------------------------------- }
+  NSS := TIntNSColl.Create(2, 2);
+  NSS.Insert(Pointer(30));
+  NSS.Insert(Pointer(10));
+  NSS.Insert(Pointer(20));
+  NSS.Insert(Pointer(10));
+  Check((NSS.Count = 3) and (NSS.At(0) = Pointer(10)) and (NSS.At(2) = Pointer(30)) and (NSS.IndexOf(Pointer(20)) = 1),
+    'TNSSortedCollection keeps its order and drops duplicates');
+  NSS.Free;
+end;
+
 function StringCollThroughStream(SC: TStringCollection): TStringCollection;
 var
   M: TMemoryStream;
@@ -498,6 +605,8 @@ begin
   DisposeStr(P);
   SC := StringCollThroughStream(SC);
   SC.Free;
+
+  StreamErrors;
 
   Check(GetFPCHeapStatus.CurrHeapUsed = Used0, 'no memory is left behind');
   Finish;

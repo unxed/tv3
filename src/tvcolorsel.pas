@@ -25,6 +25,7 @@ interface
 uses
   TvGeom, TvColors, TvCell, TvKeys, TvEvents, TvText, TvDrawBuf, TvObjs, TvUtil, TvViews,
   TvGlyphs, TvWindow, TvDialog, TvCluster, TvList;
+{$WARN 3018 OFF}  { "Constructor should be public": Create(streamableInit) is protected, as in tvision }
 
 const
   { broadcasts between the views of the dialog }

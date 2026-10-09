@@ -25,6 +25,7 @@ interface
 uses
   TvGeom, TvColors, TvCell, TvKeys, TvEvents, TvDrawBuf, TvObjs, TvUtil, TvViews, TvDialog,
   TvWindow, TvList, TvInput, TvHist, TvMsgBox, TvApp, TvFiles;
+{$WARN 3018 OFF}  { "Constructor should be public": Create(streamableInit) is protected, as in tvision }
 
 const
   { commands }
@@ -645,7 +646,7 @@ begin
   First := 1;
   while (First <= Length(S)) and (S[First] <= ' ') do
     Inc(First);
-  if PathHasDrives then
+  if NativePathRules.Drives then
   begin
     Last := First;
     while (Last <= Length(S)) and (S[Last] > ' ') do

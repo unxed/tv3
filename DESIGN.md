@@ -54,7 +54,7 @@ the library (`source/tvision`, `source/platform`, `include/tvision` without `com
 | 7b | `TvTimer` — the timer queue `TTimerQueue` | `system.h`, `ttimerqu.cpp` | done |
 | 7c | `TvApp` — `TBackground`, `TDeskTop` (Tile, Cascade), `TProgram`, `TApplication` | `app.h`, `tprogram.cpp`, `tapplica.cpp`, `tdesktop.cpp`, `tbkgrnd.cpp` | done (without streams, `LowMemory`; dialog — any view) |
 | 7d | `TvMouse` — mouse state → events (press, release, move, auto-repeat, wheel, double and triple click) | `tevent.cpp` (`getMouseEvent`) | done; delays in ms (in the original, ticks of 55 ms), configurable via variables |
-| 7e | `TvObjs` — `TStreamable`, the object streams (`pstream`, `ipstream`, `opstream`, `fpstream` ...), the byte streams `TStream`/`TDosStream`/`TBufStream`/`TMemoryStream`, the collections `TCollection`/`TSortedCollection`/`TStringCollection` | magiblot `tobjstrm`, `tcollect`, `tsortcol`, `tstrcoll` | written; `TView` is now a descendant of `TStreamable` |
+| 7e | `TvObjs` — `TStreamable`, the object streams (`pstream`, `ipstream`, `opstream`, `fpstream` ...), the byte streams `TStream`/`TDosStream`/`TBufStream`/`TMemoryStream`, the collections `TNSCollection`/`TNSSortedCollection`/`TCollection`/`TSortedCollection`/`TStringCollection` | magiblot `tobjstrm`, `tcollect`, `tsortcol`, `tstrcoll` | written; `TView` is now a descendant of `TStreamable` |
 | 9a | `TvDialog` — `TDialog`, `TStaticText`, `TLabel`, `TButton` | `dialogs.h`, `tdialog.cpp`, `tstatict.cpp`, `tlabel.cpp`, `tbutton.cpp` | done (without streams) |
 | 9b | `TvMsgBox` — `MessageBox`, `MessageBoxRect`, formatted variants | `msgbox.h`, `msgbox.cpp` | done; `InputBox` is in `TvInput` |
 | 9c | `TvValid` — `TValidator`, `TPXPictureValidator`, `TFilterValidator`, `TRangeValidator`, `TLookupValidator`, `TStringLookupValidator` | `validate.h`, `tvalidat.cpp` | done (without streams) |
@@ -270,11 +270,13 @@ collections and streams, the editor — to the extent that DN uses them.
   is left for milestone 5. Text only.
 - **`TvObjs` — the object streams and the collections of tvision** (`pstream`, `ipstream`, `opstream`, `iopstream`,
   `fpbase`, `ifpstream`, `ofpstream`, `fpstream`, `TStreamable`, `TStreamableClass`, `TStreamableTypes`, `TPWrittenObjects`,
-  `TPReadObjects`; `TCollection`, `TSortedCollection`, `TStringCollection`). The format of tvision: a pointer is a byte
+  `TPReadObjects`, `EStreamableError`; `TNSCollection`, `TNSSortedCollection`, `TCollection`, `TSortedCollection`,
+  `TStringCollection`). The format of tvision: a pointer is a byte
   (`ptNull`, `ptIndexed` with the index of an object already written, `ptObject` with `[`, the name of the class, the data
   and `]`); a string is a length byte (255 for a null string) and the characters. A class is registered by name:
   `RView := TStreamableClass.Create('TView', @TView.Build)`; `Build` makes an empty object through the protected
-  `Create(streamableInit)` and `Read` fills it. The differences are listed in `docs/API-NAMES.md` (section 1).
+  `Create(streamableInit)` and `Read` fills it. An error of a stream (a class not registered, an unknown kind of
+  pointer) raises `EStreamableError`. The differences are listed in `docs/API-NAMES.md` (section 1).
   The unit also has the byte streams `TStream`, `TDosStream`, `TBufStream`, `TMemoryStream` (the buffers of the object
   streams, and the files of dn).
 - **FPC trap:** `SizeOf(X)` for a class variable with a VMT reads the size from the VMT

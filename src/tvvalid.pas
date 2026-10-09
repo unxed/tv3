@@ -18,6 +18,7 @@ interface
 
 uses
   SysUtils, TvObjs, TvUtil, TvMsgBox;
+{$WARN 3018 OFF}  { "Constructor should be public": Create(streamableInit) is protected, as in tvision }
 
 const
   { validator status }

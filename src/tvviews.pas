@@ -27,6 +27,7 @@ uses
   TvGeom, TvColors, TvCell, TvKeys,
   TvEvents, TvText, TvDrawBuf, TvScreen,
   TvObjs, TvTimer, TvSys, TvXlat;
+{$WARN 3018 OFF}  { "Constructor should be public": Create(streamableInit) is protected, as in tvision }
 
 const
   { Commands of the standard views and of the application (in alphabetical order). }

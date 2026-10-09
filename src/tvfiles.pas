@@ -313,8 +313,10 @@ begin
 end;
 
 function GetDisk: Char;
+{$IFDEF DRIVES}
 var
   S: ShortString;
+{$ENDIF}
 begin
 {$IFDEF DRIVES}
   GetDir(0, S);

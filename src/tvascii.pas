@@ -26,6 +26,7 @@ interface
 
 uses
   TvGeom, TvColors, TvEvents, TvKeys, TvDrawBuf, TvObjs, TvViews, TvWindow;
+{$WARN 3018 OFF}  { "Constructor should be public": Create(streamableInit) is protected, as in tvision }
 
 const
   AsciiCols = 32;

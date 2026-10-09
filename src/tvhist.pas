@@ -25,6 +25,7 @@ interface
 uses
   TvGeom, TvColors, TvCell, TvKeys, TvEvents, TvText, TvDrawBuf, TvObjs, TvUtil, TvViews,
   TvDialog, TvWindow, TvList, TvInput, TvGlyphs;
+{$WARN 3018 OFF}  { "Constructor should be public": Create(streamableInit) is protected, as in tvision }
 
 var
   { the size of the history block in bytes; set it before the first HistoryAdd }
