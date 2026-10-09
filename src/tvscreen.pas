@@ -11,8 +11,9 @@
   in ScreenBuffer. Borland disclaimer and MIT notice: COPYRIGHT.magiblot.
 
   Views write cells into ScreenBuffer themselves (the top group's buffer is the
-  screen buffer) and then call ScreenWrite for the changed run so that the
-  backend can flush it. }
+  screen buffer) and then call THardwareInfo.ScreenWrite for the changed run so that the
+  backend can flush it. THardwareInfo has the members of tvision that the backend has a
+  counterpart for (docs/API-NAMES.md). }
 unit TvScreen;
 
 {$I tvdefs.inc}
@@ -49,14 +50,40 @@ type
     class var CursorLines: Integer;
   end;
 
+  { the procedure that THardwareInfo.RequestClipboardText gives the text to }
+  TClipboardAcceptProc = procedure(const Text: AnsiString);
+
+  THardwareInfo = class
+  private
+    class var CaretSize: Word;
+  public
+    { the clock in ticks of 55 ms and in milliseconds (TvSys.GetClockMs of the backend, else the tick counter of the system) }
+    class function GetTickCount: LongWord; static;
+    class function GetTickCountMs: QWord; static;
+    { Size 0 hides the caret, 1..100 is a percentage of the cell height. }
+    class procedure SetCaretSize(Size: Word); static;
+    class function GetCaretSize: Word; static;
+    class procedure SetCaretPosition(X, Y: Word); static;
+    class function IsCaretVisible: Boolean; static;
+    class function GetScreenRows: Word; static;
+    class function GetScreenCols: Word; static;
+    class function GetScreenMode: Word; static;
+    { through TvSys.OnSetVideoMode of the backend; TDisplay.smUpdate: the backend reads the size of the screen again }
+    class procedure SetScreenMode(Mode: Word); static;
+    { The cells at (X, Y), Len of them, have changed in TScreen.ScreenBuffer. }
+    class procedure ScreenWrite(X, Y: Word; Buf: PScreenCell; Len: LongWord); static;
+    { the system clipboard of the backend (the hooks of TvClip): False when there is none or it failed }
+    class function SetClipboardText(const Text: AnsiString): Boolean; static;
+    class function RequestClipboardText(Accept: TClipboardAcceptProc): Boolean; static;
+  end;
+
 var
   { shadow of a view: its offset and attribute (BIOS $08: dark gray on black) }
   ShadowSize: TPoint = (X: 2; Y: 1);
   ShadowAttr: TColorAttr;
-  { the caret as last set through SetCaretPosition and SetCaretSize }
+  { the caret as last set through THardwareInfo.SetCaretPosition }
   CaretX: Integer = 0;
   CaretY: Integer = 0;
-  CaretSize: Integer = 0;
   { hooks of the backend, nil when there is nothing to notify }
   OnScreenWrite: TScreenWriteHook = nil;
   OnCaretPosition: TCaretPositionHook = nil;
@@ -65,13 +92,11 @@ var
 { Allocates (or reallocates) a screen of W x H zeroed cells. }
 procedure ScreenCreate(W, H: Integer);
 procedure ScreenDestroy;
-{ The cells at (X, Y), Count of them, have changed in ScreenBuffer. }
-procedure ScreenWrite(X, Y: Integer; Cells: PScreenCell; Count: Integer);
-procedure SetCaretPosition(X, Y: Integer);
-{ Size 0 hides the caret, 1..100 is a percentage of the cell height. }
-procedure SetCaretSize(Size: Integer);
 
 implementation
+
+uses
+  SysUtils, TvSys, TvClip;
 
 procedure ScreenCreate(W, H: Integer);
 begin
@@ -91,13 +116,32 @@ begin
   TScreen.ScreenHeight := 0;
 end;
 
-procedure ScreenWrite(X, Y: Integer; Cells: PScreenCell; Count: Integer);
+class function THardwareInfo.GetTickCount: LongWord;
 begin
-  if Assigned(OnScreenWrite) then
-    OnScreenWrite(X, Y, Cells, Count);
+  Result := LongWord(GetTickCountMs div 55);
 end;
 
-procedure SetCaretPosition(X, Y: Integer);
+class function THardwareInfo.GetTickCountMs: QWord;
+begin
+  if Assigned(GetClockMs) then
+    Result := GetClockMs()
+  else
+    Result := SysUtils.GetTickCount64;
+end;
+
+class procedure THardwareInfo.SetCaretSize(Size: Word);
+begin
+  CaretSize := Size;
+  if Assigned(OnCaretSize) then
+    OnCaretSize(Size);
+end;
+
+class function THardwareInfo.GetCaretSize: Word;
+begin
+  Result := CaretSize;
+end;
+
+class procedure THardwareInfo.SetCaretPosition(X, Y: Word);
 begin
   CaretX := X;
   CaretY := Y;
@@ -105,15 +149,55 @@ begin
     OnCaretPosition(X, Y);
 end;
 
-procedure SetCaretSize(Size: Integer);
+class function THardwareInfo.IsCaretVisible: Boolean;
 begin
-  CaretSize := Size;
-  if Assigned(OnCaretSize) then
-    OnCaretSize(Size);
+  Result := CaretSize <> 0;
+end;
+
+class function THardwareInfo.GetScreenRows: Word;
+begin
+  Result := TScreen.ScreenHeight;
+end;
+
+class function THardwareInfo.GetScreenCols: Word;
+begin
+  Result := TScreen.ScreenWidth;
+end;
+
+class function THardwareInfo.GetScreenMode: Word;
+begin
+  Result := TScreen.ScreenMode;
+end;
+
+class procedure THardwareInfo.SetScreenMode(Mode: Word);
+begin
+  if Assigned(OnSetVideoMode) then
+    OnSetVideoMode(Mode);
+end;
+
+class procedure THardwareInfo.ScreenWrite(X, Y: Word; Buf: PScreenCell; Len: LongWord);
+begin
+  if Assigned(OnScreenWrite) then
+    OnScreenWrite(X, Y, Buf, Len);
+end;
+
+class function THardwareInfo.SetClipboardText(const Text: AnsiString): Boolean;
+begin
+  Result := Assigned(OnClipboardSet) and OnClipboardSet(Text);
+end;
+
+class function THardwareInfo.RequestClipboardText(Accept: TClipboardAcceptProc): Boolean;
+var
+  Text: AnsiString;
+begin
+  Result := Assigned(OnClipboardGet) and OnClipboardGet(Text);
+  if Result then
+    Accept(Text);
 end;
 
 initialization
   TScreen.ScreenMode := TDisplay.smCO80;
   TScreen.CursorLines := 20;
+  THardwareInfo.CaretSize := 0;
   ShadowAttr := TColorAttr(LongInt($08));
 end.

@@ -1,10 +1,11 @@
 { TvClip: the clipboard of the program: text in UTF-8, an internal buffer, and hooks for
   the system clipboard of a backend (WinOldAp under DOS, OSC 52 or a library elsewhere).
 
-  ClipboardSetText keeps the text in the internal buffer and passes it to the system
+  TClipboard.SetText keeps the text in the internal buffer and passes it to the system
   clipboard if the backend has one. ClipboardGetText asks the system clipboard first;
   when it has no text (or there is none) the internal buffer is returned, so that cut and
-  paste work inside the program everywhere.
+  paste work inside the program everywhere; TClipboard.RequestText gives the same text as
+  the key events of a paste (TEventQueue.SetPasteText).
 
   Besides the text, the clipboard can hold several formats at once (ClipboardSetItems): HTML, the mark of a vertical block, formats that a program registers
   by name. The text formats (cfText, cfUnicodeText) carry UTF-8 here. A backend whose clipboard keeps formats (the far2l terminal extensions) takes them all
@@ -54,9 +55,16 @@ var
   OnClipboardGetItem: TClipGetItemHook = nil;
   OnClipboardHasItem: TClipHasItemHook = nil;
 
-procedure ClipboardSetText(const Text: AnsiString);
+type
+  TClipboard = class
+  public
+    class procedure SetText(const Text: AnsiString); static;
+    { The text of the clipboard comes as the key events of a paste (kbPaste), through TEventQueue.GetKeyEvent. }
+    class procedure RequestText; static;
+  end;
+
 function ClipboardGetText: AnsiString;
-{ True if the last ClipboardSetText reached the system clipboard. }
+{ True if the last TClipboard.SetText reached the system clipboard. }
 function ClipboardIsSystem: Boolean;
 
 function ClipItem(Format: LongWord; const Data: AnsiString): TClipItem;
@@ -86,6 +94,9 @@ function ToLf(const S: AnsiString): AnsiString;
 
 implementation
 
+uses
+  TvSys, TvScreen;
+
 var
   Internal: AnsiString = '';
   LastWasSystem: Boolean = False;
@@ -96,15 +107,18 @@ var
 procedure PutText(const Text: AnsiString);
 begin
   Internal := Text;
-  LastWasSystem := False;
-  if Assigned(OnClipboardSet) then
-    LastWasSystem := OnClipboardSet(Text);
+  LastWasSystem := THardwareInfo.SetClipboardText(Text);
 end;
 
-procedure ClipboardSetText(const Text: AnsiString);
+class procedure TClipboard.SetText(const Text: AnsiString);
 begin
   Items_ := nil;                      { the text alone: the formats of an earlier set are gone }
   PutText(Text);
+end;
+
+class procedure TClipboard.RequestText;
+begin
+  TEventQueue.SetPasteText(ClipboardGetText);
 end;
 
 function ClipItem(Format: LongWord; const Data: AnsiString): TClipItem;

@@ -1,6 +1,6 @@
 program t_mouse;
 {$I ../src/tvdefs.inc}
-uses TvGeom, TvEvents, TvKeys, TvMouse;
+uses TvGeom, TvEvents, TvKeys, TvSys, TvMouse;
 {$I testlib.inc}
 
 var
@@ -106,13 +106,13 @@ begin
   Check(Ev.What = evNothing, 'the wheel is an event, not a state');
 
   { reversed buttons }
-  MouseReverse := True;
+  TEventQueue.MouseReverse := True;
   Step(St(4, 3, 1));
   Check((Ev.What = evMouseDown) and (Ev.Mouse.Buttons = 2), 'reversed: left is right');
   Step(St(4, 3, 0));
   Step(St(4, 3, 3));
   Check((Ev.What = evMouseDown) and (Ev.Mouse.Buttons = 3), 'both buttons stay both');
-  MouseReverse := False;
+  TEventQueue.MouseReverse := False;
   Step(St(4, 3, 0));
 
   { the control keys of the state go to the event }

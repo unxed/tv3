@@ -48,7 +48,7 @@ begin
 
   { without a system clipboard: the internal buffer }
   Check(ClipboardGetText = '', 'empty at the start');
-  ClipboardSetText('hello');
+  TClipboard.SetText('hello');
   Check(ClipboardGetText = 'hello', 'the internal buffer keeps the text');
   Check(not ClipboardIsSystem, 'and it did not reach a system clipboard');
 
@@ -56,7 +56,7 @@ begin
   OnClipboardSet := @FakeSet;
   OnClipboardGet := @FakeGet;
   Stored := ''; SysHas := False; Fail := False;
-  ClipboardSetText('Привет');
+  TClipboard.SetText('Привет');
   Check(Stored = 'Привет', 'the text goes to the system clipboard');
   Check(ClipboardIsSystem, 'which is known');
   Check(ClipboardGetText = 'Привет', 'and comes back from it');
@@ -65,7 +65,7 @@ begin
   Stored := '';
   Check(ClipboardGetText = 'Привет', 'an empty system clipboard: the internal buffer');
   Fail := True;
-  ClipboardSetText('local only');
+  TClipboard.SetText('local only');
   Check(not ClipboardIsSystem, 'a failed system set is known');
   Check(ClipboardGetText = 'local only', 'the internal buffer still has the text');
   OnClipboardSet := nil;
@@ -82,7 +82,7 @@ begin
   Check(ClipboardHasItem(VFmt) and ClipboardGetItem(VFmt, Got) and (Got = #0#0#0#0), 'the other format is kept in the program');
   Check(ClipboardGetItem(cfUnicodeText, Got) and (Got = 'block'), 'the text as cfUnicodeText (UTF-8 here)');
   Check(not ClipboardHasItem(cfHtml), 'a format that was not set');
-  ClipboardSetText('plain');
+  TClipboard.SetText('plain');
   Check(not ClipboardHasItem(VFmt), 'a text set alone drops the other formats');
   OnClipboardSet := @FakeSet;
   OnClipboardGet := @FakeGet;

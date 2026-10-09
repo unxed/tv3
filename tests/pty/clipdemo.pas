@@ -8,7 +8,7 @@ begin
     WriteLn('no terminal');
     Halt(1);
   end;
-  ClipboardSetText('Привет, мир');
+  TClipboard.SetText('Привет, мир');
   UnixFlush;
   Sleep(300);
   UnixDone;

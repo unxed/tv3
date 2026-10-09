@@ -18,7 +18,7 @@ var
 begin
   N := 0;
   repeat
-    PollEvent(0, E);
+    OnPollEvent(0, E);
     Inc(N);
   until (E.What = evNothing) or (N > 100);
 end;
@@ -72,19 +72,19 @@ begin
   Drain;
   Check(DosKeyBufferEmpty, 'the keyboard buffer is empty');
   DosStuffKey($3B00);
-  PollEvent(0, Ev);
+  OnPollEvent(0, Ev);
   Check((Ev.What = evKeyDown) and (Ev.KeyDown.KeyCode = kbF1), 'F1');
   DosStuffKey($1E61);
-  PollEvent(0, Ev);
+  OnPollEvent(0, Ev);
   Check((Ev.What = evKeyDown) and (Ev.KeyDown.KeyCode = $1E61) and (Ev.KeyDown.TextLength = 1) and (Ev.KeyDown.Text[0] = 'a'), 'a letter has text');
   DosStuffKey($198F);
-  PollEvent(0, Ev);
+  OnPollEvent(0, Ev);
   Check((Ev.What = evKeyDown) and (Ev.KeyDown.TextLength = 2) and (Ev.KeyDown.Text[0] = #$D0) and (Ev.KeyDown.Text[1] = #$9F),
     'a CP866 letter has its UTF-8 as text');
   DosStuffKey($2D00);
-  PollEvent(0, Ev);
+  OnPollEvent(0, Ev);
   Check((Ev.What = evKeyDown) and (Ev.KeyDown.KeyCode = kbAltX), 'Alt-X');
-  PollEvent(0, Ev);
+  OnPollEvent(0, Ev);
   Check(Ev.What = evNothing, 'no key: no event');
   DosKeyToEvent($4800 or $E0, 0, Ev);
   Check(Ev.KeyDown.KeyCode = kbUp, 'an enhanced key ($E0) loses its character');
@@ -99,21 +99,21 @@ begin
 
   { the clock and waiting }
   Drain;
-  T0 := ClockMs;
+  T0 := THardwareInfo.GetTickCountMs;
   DosYields := 0;
-  PollEvent(150, Ev);
-  Check((ClockMs - T0 >= 100) and (ClockMs - T0 < 1500), 'waiting for an event takes the time asked for');
+  OnPollEvent(150, Ev);
+  Check((Int64(THardwareInfo.GetTickCountMs) - T0 >= 100) and (Int64(THardwareInfo.GetTickCountMs) - T0 < 1500), 'waiting for an event takes the time asked for');
   Check(DosYields > 0, 'and gives the time slice away');
 
   { the caret }
-  SetCaretPosition(5, 7);
-  SetCaretSize(100);
+  THardwareInfo.SetCaretPosition(5, 7);
+  THardwareInfo.SetCaretSize(100);
   Regs.ah := 3;
   Regs.bh := 0;
   Intr($10, Regs);
   Check((Regs.dh = 7) and (Regs.dl = 5), 'caret position');
   Check((Regs.ch = 0) and (Regs.cl > 7), 'a full-height caret');
-  SetCaretSize(0);
+  THardwareInfo.SetCaretSize(0);
   Regs.ah := 3;
   Regs.bh := 0;
   Intr($10, Regs);
@@ -125,7 +125,7 @@ begin
   begin
     WriteLn('INFO WinOldAp is available');
     Check(Assigned(OnClipboardSet) and Assigned(OnClipboardGet), 'DosInit connected the clipboard');
-    ClipboardSetText('Привет'#10'мир');
+    TClipboard.SetText('Привет'#10'мир');
     Check(ClipboardIsSystem, 'the text reached the Windows clipboard');
     Check(DosClipGet(Got) and (Got = 'Привет'#13#10'мир'), 'and comes back as CP866 text with CR LF');
     Check(ClipboardGetText = 'Привет'#13#10'мир', 'ClipboardGetText takes it from the system');
@@ -134,7 +134,7 @@ begin
   begin
     WriteLn('INFO WinOldAp is not available in this DOS');
     Check(not Assigned(OnClipboardSet), 'no WinOldAp: no system clipboard hook');
-    ClipboardSetText('local');
+    TClipboard.SetText('local');
     Check((ClipboardGetText = 'local') and not ClipboardIsSystem, 'the internal buffer works');
   end;
 

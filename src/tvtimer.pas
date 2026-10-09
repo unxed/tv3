@@ -4,7 +4,7 @@
     include/tvision/system.h (TTimerQueue), source/tvision/ttimerqu.cpp
   Borland disclaimer and MIT notice: COPYRIGHT.magiblot.
 
-  Differences from the C++ original: the clock is TvSys.ClockMs unless a clock
+  Differences from the C++ original: the clock is THardwareInfo.GetTickCountMs unless a clock
   function is given to Init (tests use a fake one); times are Int64 milliseconds,
   so they do not wrap. }
 unit TvTimer;
@@ -14,7 +14,7 @@ unit TvTimer;
 interface
 
 uses
-  TvSys;
+  TvSys, TvScreen;
 
 type
   TTimerId = Pointer;
@@ -71,7 +71,7 @@ begin
   if Assigned(Clock) then
     Result := Clock()
   else
-    Result := ClockMs;
+    Result := THardwareInfo.GetTickCountMs;
 end;
 
 function TTimerQueue.SetTimer(TimeoutMs: LongWord; PeriodMs: Integer): TTimerId;

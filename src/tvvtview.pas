@@ -139,7 +139,7 @@ end;
 
 procedure VtClipboard(Data: Pointer; const Text: AnsiString);
 begin
-  ClipboardSetText(Text);
+  TClipboard.SetText(Text);
 end;
 
 function VtClipboardGet(Data: Pointer; out Text: AnsiString): Boolean;

@@ -7,7 +7,8 @@
 
   Differences from the C++ original: times are milliseconds (the original counts BIOS
   ticks of 55 ms: the delays are 8 ticks = 440 ms for a double click and for the first
-  repeat, then 1 tick), and they can be changed through the variables below. }
+  repeat, then 1 tick); the delays of the repeat can be changed through the variables
+  below. TEventQueue.DoubleDelay (ticks) and TEventQueue.MouseReverse are in TvSys. }
 unit TvMouse;
 
 {$I tvdefs.inc}
@@ -15,7 +16,7 @@ unit TvMouse;
 interface
 
 uses
-  TvGeom, TvEvents;
+  TvGeom, TvEvents, TvSys;
 
 type
   TMouseState = record
@@ -26,11 +27,8 @@ type
   end;
 
 var
-  DoubleDelayMs: Integer = 440;   { two presses closer than this are a double click }
   RepeatDelayMs: Integer = 440;   { before the first evMouseAuto }
   AutoDelayMs: Integer = 55;      { between evMouseAuto events }
-  { swap the left and right buttons }
-  MouseReverse: Boolean = False;
 
 { Forgets the previous state (the buttons are up). }
 procedure MouseQueueReset;
@@ -94,7 +92,7 @@ begin
   Cur.Buttons := State.Buttons;
   Cur.Wheel := State.Wheel;
   Cur.EventFlags := 0;
-  if MouseReverse and (Cur.Buttons <> 0) and (Cur.Buttons <> 3) then
+  if TEventQueue.MouseReverse and (Cur.Buttons <> 0) and (Cur.Buttons <> 3) then
     Cur.Buttons := Cur.Buttons xor 3;
 
   { the buttons went up }
@@ -126,7 +124,7 @@ begin
   if (Cur.Buttons <> 0) and (LastMouse.Buttons = 0) then
   begin
     if (Cur.Buttons = DownMouse.Buttons) and (Cur.Where = DownMouse.Where) and
-      (Now - DownTicks <= DoubleDelayMs) then
+      (Now - DownTicks <= TEventQueue.DoubleDelay * 55) then
     begin
       if (DownMouse.EventFlags and (meDoubleClick or meTripleClick)) = 0 then
         Cur.EventFlags := Cur.EventFlags or meDoubleClick

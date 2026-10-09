@@ -45,6 +45,15 @@ begin
     Result := vcaRemote;
 end;
 
+{ the next event within TimeoutMs, as TProgram.GetEvent reads it }
+procedure NextEvent(TimeoutMs: Integer; var Ev: TEvent);
+begin
+  TEventQueue.WaitForEvents(TimeoutMs);
+  TEventQueue.GetMouseEvent(Ev);
+  if Ev.What = evNothing then
+    TEventQueue.GetKeyEvent(Ev);
+end;
+
 { Ctrl+V (not with Alt) or Shift+Ins (not with Ctrl or Alt): the program may read the clipboard for a while }
 function PasteKey(const Ev: TEvent): Boolean;
 begin
@@ -59,7 +68,7 @@ end;
 { OSC 52 of the program on the whole screen: it sets and reads the clipboard of the application }
 procedure RunClip(Data: Pointer; const Text: AnsiString);
 begin
-  ClipboardSetText(Text);
+  TClipboard.SetText(Text);
 end;
 
 function RunClipGet(Data: Pointer; out Text: AnsiString): Boolean;
@@ -86,25 +95,24 @@ begin
     begin
       for X := 0 to W - 1 do
         TScreen.ScreenBuffer[Y * W + X] := Emu.CellAt(X, Y);
-      ScreenWrite(0, Y, @TScreen.ScreenBuffer[Y * W], W);
+      THardwareInfo.ScreenWrite(0, Y, @TScreen.ScreenBuffer[Y * W], W);
     end;
   Emu.ClearDirty;
   if Emu.CursorVisible then
   begin
-    SetCaretPosition(Emu.CursorX, Emu.CursorY);
+    THardwareInfo.SetCaretPosition(Emu.CursorX, Emu.CursorY);
     if Emu.Ext.CursorPercent > 0 then
-      SetCaretSize(Emu.Ext.CursorPercent)
+      THardwareInfo.SetCaretSize(Emu.Ext.CursorPercent)
     else
-      SetCaretSize(15);
+      THardwareInfo.SetCaretSize(15);
   end
   else
-    SetCaretSize(0);
+    THardwareInfo.SetCaretSize(0);
 end;
 
 procedure ScreenAgain;
 begin
-  if Assigned(OnSetVideoMode) then
-    OnSetVideoMode(TDisplay.smUpdate);
+  THardwareInfo.SetScreenMode(TDisplay.smUpdate);
 end;
 
 function VtRunScreen(var Emu: TVtEmu; const Prog: AnsiString; const Args: array of AnsiString; const Cwd, Echo: AnsiString; Pause: Integer): Integer;
@@ -170,7 +178,7 @@ begin
     if Over then
       Break;
     { what the user does }
-    PollEvent(20, Ev);
+    NextEvent(20, Ev);
     if Emu.Ext.Active then
       case Ev.What of
         evKeyDown, evKeyUp:
@@ -265,7 +273,7 @@ begin
       '): Press Enter ] '#27'[0m'#13#10);
     Blit(Emu, False);
     repeat
-      PollEvent(100, Ev);
+      NextEvent(100, Ev);
       if Ev.What = evCommand then
         if Ev.Message.Command = cmScreenChanged then
         begin
@@ -275,7 +283,7 @@ begin
         end;
     until (Ev.What = evKeyDown) and ((Ev.KeyDown.KeyCode = kbEnter) or (Ev.KeyDown.KeyCode = kbEsc));
   end;
-  SetCaretSize(0);
+  THardwareInfo.SetCaretSize(0);
   { the terminal is taken again as after a shell: the state of the input parser is clean, the whole screen is drawn again by the caller }
   if Assigned(OnSuspend) and Assigned(OnResume) then
   begin
@@ -296,7 +304,7 @@ begin
   FitEmu(Emu);
   Blit(Emu, True);
   repeat
-    PollEvent(100, Ev);
+    NextEvent(100, Ev);
     if (Ev.What = evCommand) and (Ev.Message.Command = cmScreenChanged) then
     begin
       ScreenAgain;
@@ -304,7 +312,7 @@ begin
       Blit(Emu, True);
     end;
   until (Ev.What = evKeyDown) or (Ev.What = evMouseDown);
-  SetCaretSize(0);
+  THardwareInfo.SetCaretSize(0);
   ScreenAgain;
 end;
 {$ENDIF}

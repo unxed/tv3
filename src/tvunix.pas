@@ -10,7 +10,7 @@
   Borland disclaimer and MIT notice: COPYRIGHT.magiblot.
 
   Differences from the C++ original (see tv/DESIGN.md):
-    - one thread: the wait for input and the drawing are in PollEvent;
+    - one thread: the wait for input and the drawing are in UnixPollEvent;
     - the colors, the quirks of terminals and the keys are guessed from TERM and COLORTERM (TvAnsi, TvTermIO), not
       read from terminfo; TV_COLORS forces the colors, TV_MOUSE=0 switches the mouse off, TV_WIN32_INPUT=1|0 asks for the win32 input
       mode of the terminal or not (default: yes in Windows Terminal only), ESCDELAY is the time
@@ -113,22 +113,22 @@ begin
     Exit;
   if Dirty or CaretMoved then
   begin
-    if CaretSize > 0 then
+    if THardwareInfo.GetCaretSize > 0 then
     begin
       Writer.SetCaretPosition(CaretX, CaretY);
       if F2lOn then
       begin
         { the height in percent (the request h) instead of the shapes of DECSCUSR }
-        if CaretSize <> CaretHeightSent then
+        if THardwareInfo.GetCaretSize <> CaretHeightSent then
         begin
-          CaretHeightSent := CaretSize;
-          F2l.SetCursorHeight(CaretSize);
+          CaretHeightSent := THardwareInfo.GetCaretSize;
+          F2l.SetCursorHeight(THardwareInfo.GetCaretSize);
         end;
       end
       else
       begin
         Shape := 2;                       { steady block }
-        if CaretSize < 50 then
+        if THardwareInfo.GetCaretSize < 50 then
           Shape := 4;                     { steady underline }
         if Shape <> CaretShape then
         begin

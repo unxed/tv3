@@ -18,7 +18,7 @@ unit TvVtExt;
 interface
 
 uses
-  SysUtils, TvFar2l, TvClip, TvSys, TvEvents, TvKeys;
+  SysUtils, TvFar2l, TvClip, TvSys, TvScreen, TvEvents, TvKeys;
 
 type
   { the answers of the user to a client that asks for the clipboard }
@@ -69,7 +69,7 @@ type
     Active: Boolean;              { between far2l1 and far2l0 }
     CursorPercent: Integer;       { the height of the cursor that the program asked for (h), -1: none }
     AuthedsPath: AnsiString;      { the file of the clients let in always }
-    Now: TVtClockFunc;            { the clock of the paste gestures (TvSys.ClockMs) }
+    Now: TVtClockFunc;            { the clock of the paste gestures (THardwareInfo.GetTickCountMs) }
     constructor Create(ACols, ARows: Integer);
     destructor Destroy; override;
     { the body of an APC string (without ESC _ and the terminator); the bytes for the program }
@@ -159,7 +159,7 @@ end;
 
 function DefaultNow: Int64;
 begin
-  Result := TvSys.ClockMs;
+  Result := THardwareInfo.GetTickCountMs;
 end;
 
 const
