@@ -18,7 +18,7 @@ unit TvMsgBox;
 interface
 
 uses
-  SysUtils, TvGeom, TvEvents, TvText, TvViews, TvDialog, TvApp;
+  SysUtils, TvGeom, TvEvents, TvText, TvViews, TvDialog, TvApp, TvFormat;
 
 const
   mfWarning      = $0000;     { display a warning box }
@@ -51,16 +51,6 @@ function MessageBoxRectFmt(const R: TRect; AOptions: Word; const Fmt: ShortStrin
   const Args: array of const): Word;
 
 implementation
-
-function FormatStr(const Fmt: ShortString; const Args: array of const): ShortString;
-var
-  S: AnsiString;
-begin
-  S := Format(Fmt, Args);
-  if Length(S) > 255 then
-    SetLength(S, 255);
-  Result := S;
-end;
 
 function MessageBoxRect(const R: TRect; const Msg: ShortString; AOptions: Word): Word;
 const

@@ -1,4 +1,5 @@
-{ TvFormat: a text built from a format with % items and an array of parameter slots (the FormatStr of the Drivers API).
+{ TvFormat: FormatStr, a text built from a format with % items and an array of parameter slots (the Drivers API);
+  an overload takes an array of const and a format of SysUtils.Format.
 
   MIT (see LICENSE).
 
@@ -23,7 +24,9 @@ unit TvFormat;
 
 interface
 
-procedure FormatSlots(var Result: ShortString; const Format: ShortString; var Params);
+procedure FormatStr(var Result: ShortString; const Format: ShortString; var Params); overload;
+{ SysUtils.Format with Args, cut at 255 characters. }
+function FormatStr(const Fmt: ShortString; const Args: array of const): ShortString; overload;
 
 implementation
 
@@ -34,7 +37,7 @@ type
   TSlots = array[0..(MaxInt div SizeOf(PtrInt)) - 1] of PtrInt;
   PSlots = ^TSlots;
 
-procedure FormatSlots(var Result: ShortString; const Format: ShortString; var Params);
+procedure FormatStr(var Result: ShortString; const Format: ShortString; var Params);
 var
   Slots: PSlots;
   Next: Integer;
@@ -150,6 +153,16 @@ begin
     Res := Res + Text;
   end;
   Result := Copy(Res, 1, 255);
+end;
+
+function FormatStr(const Fmt: ShortString; const Args: array of const): ShortString;
+var
+  S: AnsiString;
+begin
+  S := SysUtils.Format(Fmt, Args);
+  if Length(S) > 255 then
+    SetLength(S, 255);
+  Result := S;
 end;
 
 end.

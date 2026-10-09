@@ -1,5 +1,5 @@
 program t_format;
-{ TvFormat: FormatSlots. }
+{ TvFormat: FormatStr. }
 {$I ../src/tvdefs.inc}
 uses SysUtils, TvFormat;
 {$I testlib.inc}
@@ -11,7 +11,7 @@ var
 
 function F(const Fmt: ShortString): ShortString;
 begin
-  FormatSlots(R, Fmt, P);
+  FormatStr(R, Fmt, P);
   Result := R;
 end;
 
@@ -59,5 +59,7 @@ begin
 {$ENDIF}
   P[0] := Low(LongInt);
   Check(F('%d') = IntToStr(Low(LongInt)), 'the lowest number');
+  Check(FormatStr('%s=%d', ['n', 5]) = 'n=5', 'the array of const variant');
+  Check(Length(FormatStr('%s', [StringOfChar('a', 300)])) = 255, 'the array of const variant is cut at 255');
   Finish;
 end.
