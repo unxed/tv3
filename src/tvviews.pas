@@ -91,9 +91,6 @@ type
     application, to a real color). }
   TPalette = array of TColorAttr;
 
-  TPhaseType = (phFocused, phPreProcess, phPostProcess);
-  TSelectMode = (normalSelect, enterSelect, leaveSelect);
-
   TForEachProc = procedure(P: TView; Args: Pointer);
   TNestedViewTest = function(P: TView): Boolean is nested;
   TNestedViewAction = procedure(P: TView) is nested;
@@ -105,6 +102,10 @@ type
   end;
 
   TView = class(TStreamable)
+  public type
+    PhaseType = (phFocused, phPreProcess, phPostProcess);
+    SelectMode = (normalSelect, enterSelect, leaveSelect);
+  public
     Next: TView;
     Size: TPoint;
     Options: Word;
@@ -243,7 +244,7 @@ type
   TGroup = class(TView)
     Last: TView;
     Clip: TRect;
-    Phase: TPhaseType;
+    Phase: PhaseType;
     Buffer: PScreenCell;
     LockFlag: Byte;
     EndState: Word;
@@ -265,7 +266,7 @@ type
     procedure Delete(P: TView);
     procedure RemoveView(P: TView);
     procedure ResetCurrent;
-    procedure SetCurrent(P: TView; Mode: TSelectMode);
+    procedure SetCurrent(P: TView; Mode: SelectMode);
     procedure SelectNext(Forwards: Boolean);
     function FirstThat(Func: TFirstThatFunc; Args: Pointer): TView; overload;
     { The forms of Turbo Vision for Borland Pascal (a routine that is declared inside the caller is fine). }
@@ -2389,7 +2390,7 @@ begin
     P.SetState(sfFocused, Enable);
 end;
 
-procedure TGroup.SetCurrent(P: TView; Mode: TSelectMode);
+procedure TGroup.SetCurrent(P: TView; Mode: SelectMode);
 begin
   if Current <> P then
   begin
