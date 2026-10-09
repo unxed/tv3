@@ -59,8 +59,7 @@ type
   { the data record of a list box: the collection (owned by the list box after SetData)
     and the number of the selected item }
   PListBoxRec = ^TListBoxRec;
-  { packed: the data records of the dialogs of an application can be byte-aligned }
-  TListBoxRec = packed record
+  TListBoxRec = record
     Items: TCollection;
     Selection: Word;
   end;
