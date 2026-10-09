@@ -189,7 +189,7 @@ collections and streams, the editor — to the extent that DN uses them.
   values as in the original.
 - **Menus are built with the Pascal TV functions** (`NewMenu`, `NewSubMenu`, `NewItem`, `NewLine`), and not with the
   overloaded `operator +` from C++. The item key is a key code (`Word`), a normalized
-  `TKey` is stored inside; comparison is `KeyEq`. An item and a menu are records, the name is a pointer to
+  `TKey` is stored inside; comparison is `=`. An item and a menu are records, the name is a pointer to
   `ShortString` (`nil` is a separator). `DisposeMenu` frees a menu with its submenus; `TMenuBar`
   and `TMenuPopup` free their menu in `Done`, `TMenuBox` does not (it belongs to the parent).
 - **`EqualsIgnoreCase`** lowercases using a small built-in table (Latin-1, Latin

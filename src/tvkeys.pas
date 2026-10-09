@@ -106,10 +106,12 @@ type
   TKey = record
     Code: Word;
     Mods: Word;
+    constructor Create(KeyCode: Word; ShiftState: Word = 0);
+    class operator :=(KeyCode: Word): TKey;
+    class operator =(const A, B: TKey): Boolean; inline;
+    class operator <>(const A, B: TKey): Boolean; inline;
   end;
 
-function KeyMake(KeyCode: Word; ShiftState: Word = 0): TKey;
-function KeyEq(const A, B: TKey): Boolean; inline;
 { Maps the Wordstar control keys (Ctrl+S, Ctrl+D, ...) to the arrow keys; other keys
   are returned unchanged (drivers2.cpp: ctrlToArrow). }
 function CtrlToArrow(KeyCode: Word): Word;
@@ -214,17 +216,17 @@ begin
   Result := (ScanCode = $35) or (ScanCode = $37) or (ScanCode = $4A) or (ScanCode = $4E);
 end;
 
-function KeyMake(KeyCode: Word; ShiftState: Word): TKey;
+constructor TKey.Create(KeyCode: Word; ShiftState: Word);
 var
-  Code, Mods: Word;
+  ACode, AMods: Word;
   ScanCode, CharCode: Byte;
   Entry: ^TLookupEntry;
 begin
-  Code := KeyCode;
-  Mods := 0;
-  if (ShiftState and kbShift) <> 0 then Mods := Mods or kbShift;
-  if (ShiftState and kbCtrlShift) <> 0 then Mods := Mods or kbCtrlShift;
-  if (ShiftState and kbAltShift) <> 0 then Mods := Mods or kbAltShift;
+  ACode := KeyCode;
+  AMods := 0;
+  if (ShiftState and kbShift) <> 0 then AMods := AMods or kbShift;
+  if (ShiftState and kbCtrlShift) <> 0 then AMods := AMods or kbCtrlShift;
+  if (ShiftState and kbAltShift) <> 0 then AMods := AMods or kbAltShift;
   ScanCode := KeyCode shr 8;
   CharCode := KeyCode and $FF;
   Entry := nil;
@@ -238,9 +240,9 @@ begin
   else if IsPrintableCharacter(CharCode) then
   begin
     if (CharCode >= Ord('a')) and (CharCode <= Ord('z')) then
-      Code := CharCode - Ord('a') + Ord('A')
+      ACode := CharCode - Ord('a') + Ord('A')
     else if not IsKeypadCharacter(ScanCode) then
-      Code := Code and $FF;
+      ACode := ACode and $FF;
   end
   else if KeyCode = kbCtrlBack then
     Entry := @CtrlBackEntry
@@ -248,20 +250,30 @@ begin
     Entry := @CtrlEnterEntry;
   if Entry <> nil then
   begin
-    Mods := Mods or Entry^.Mods;
+    AMods := AMods or Entry^.Mods;
     if Entry^.Normal <> 0 then
-      Code := Entry^.Normal;
+      ACode := Entry^.Normal;
   end;
-  Result.Code := Code;
-  if Code <> kbNoKey then
-    Result.Mods := Mods
+  Code := ACode;
+  if ACode <> kbNoKey then
+    Mods := AMods
   else
-    Result.Mods := 0;
+    Mods := 0;
 end;
 
-function KeyEq(const A, B: TKey): Boolean;
+class operator TKey.:=(KeyCode: Word): TKey;
+begin
+  Result := TKey.Create(KeyCode);
+end;
+
+class operator TKey.=(const A, B: TKey): Boolean;
 begin
   Result := (A.Code = B.Code) and (A.Mods = B.Mods);
+end;
+
+class operator TKey.<>(const A, B: TKey): Boolean;
+begin
+  Result := not (A = B);
 end;
 
 function CtrlToArrow(KeyCode: Word): Word;

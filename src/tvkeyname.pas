@@ -129,7 +129,7 @@ end;
 
 function KeyCodeToStr(KeyCode: Word): AnsiString;
 begin
-  Result := KeyToStr(KeyMake(KeyCode));
+  Result := KeyToStr(TKey.Create(KeyCode));
 end;
 
 { "Ctrl+Alt+X" into the modifiers and the text of the key; "Ctrl++" has the key "+", "Num-" has the key "Num-" }
@@ -172,14 +172,14 @@ begin
     Exit;
   if FindName(Txt, Code) then
   begin
-    K := KeyMake(Code, Mods);
+    K := TKey.Create(Code, Mods);
     Exit(True);
   end;
   if Length(Txt) = 1 then
   begin
     if (Txt[1] > ' ') and (Txt[1] < #$7F) then
     begin
-      K := KeyMake(Ord(UpCase(Txt[1])), Mods);
+      K := TKey.Create(Ord(UpCase(Txt[1])), Mods);
       Exit(True);
     end;
     Exit;
@@ -189,7 +189,7 @@ begin
     Code := StrToIntDef('$' + Copy(Txt, 6, MaxInt), 0);
     if Code <> 0 then
     begin
-      K := KeyMake(Code, Mods);
+      K := TKey.Create(Code, Mods);
       Result := True;
     end;
   end;

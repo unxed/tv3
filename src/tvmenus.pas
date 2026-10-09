@@ -186,7 +186,7 @@ begin
   Result^.Name := NewStr(Name);
   Result^.Command := 0;
   Result^.Disabled := not TView.CommandEnabled(0);
-  Result^.KeyCode := KeyMake(kbNoKey);
+  Result^.KeyCode := TKey.Create(kbNoKey);
   Result^.HelpCtx := AHelpCtx;
   Result^.SubMenu := SubMenu;
 end;
@@ -199,7 +199,7 @@ begin
   Result^.Name := NewStr(Name);
   Result^.Command := ACommand;
   Result^.Disabled := not TView.CommandEnabled(ACommand);
-  Result^.KeyCode := KeyMake(AKeyCode);
+  Result^.KeyCode := TKey.Create(AKeyCode);
   Result^.HelpCtx := AHelpCtx;
   if Param = '' then
     Result^.Param := nil
@@ -214,7 +214,7 @@ begin
   Result^.Name := nil;
   Result^.Command := 0;
   Result^.Disabled := True;
-  Result^.KeyCode := KeyMake(kbNoKey);
+  Result^.KeyCode := TKey.Create(kbNoKey);
   Result^.HelpCtx := hcNoContext;
   Result^.Param := nil;
 end;
@@ -867,7 +867,7 @@ begin
         if T <> nil then
           Exit(T);
       end
-      else if (not P^.Disabled) and (P^.KeyCode.Code <> kbNoKey) and KeyEq(P^.KeyCode, Key) then
+      else if (not P^.Disabled) and (P^.KeyCode.Code <> kbNoKey) and (P^.KeyCode = Key) then
         Exit(P);
     end;
     P := P^.Next;
@@ -1115,7 +1115,7 @@ begin
     else
       P := FindItem(C);
     if P = nil then
-      P := HotKey(KeyMake(Event.KeyDown.KeyCode));
+      P := HotKey(TKey.Create(Event.KeyDown.KeyCode));
     if Usable(P) then
       PostCommand(Self, Event, P^.Command)
     else if GetAltChar(Event.KeyDown.KeyCode) <> #0 then
@@ -1142,7 +1142,7 @@ begin
     Result^.Text := nil      { a hidden item: only its key works }
   else
     Result^.Text := NewStr(AText);
-  Result^.KeyCode := KeyMake(AKeyCode);
+  Result^.KeyCode := TKey.Create(AKeyCode);
   Result^.Command := ACommand;
 end;
 
@@ -1291,7 +1291,7 @@ begin
       begin
         Key := EventKey(Event);
         T := Items;
-        while Assigned(T) and not (KeyEq(Key, T^.KeyCode) and CommandEnabled(T^.Command)) do
+        while Assigned(T) and not ((Key = T^.KeyCode) and CommandEnabled(T^.Command)) do
           T := T^.Next;
         { the event becomes the command at once }
         if Assigned(T) then

@@ -29,11 +29,11 @@ begin
 
   { a menu item and a status line item come from the action }
   M := NewActionItem('file.save', NewActionItem('missing', nil));
-  Check((M <> nil) and (M^.Command = cmSave) and KeyEq(M^.KeyCode, KeyMake(kbF2)) and (M^.Next = nil), 'NewActionItem: the command and the key of the action; an unknown name adds nothing');
+  Check((M <> nil) and (M^.Command = cmSave) and (M^.KeyCode = TKey.Create(kbF2)) and (M^.Next = nil), 'NewActionItem: the command and the key of the action; an unknown name adds nothing');
   Check(M^.Param^ = 'F2', '... and the key text is shown');
   DisposeMenu(NewMenu(M));
   S := NewActionStatusKey('~F3~ Open', 'file.open', nil);
-  Check((S <> nil) and (S^.Command = cmOpen) and KeyEq(S^.KeyCode, KeyMake(kbF3)), 'NewActionStatusKey');
+  Check((S <> nil) and (S^.Command = cmOpen) and (S^.KeyCode = TKey.Create(kbF3)), 'NewActionStatusKey');
   Dispose(S);
 
   { a key becomes the command }

@@ -173,7 +173,7 @@ end;
 
 function EventKey(const Event: TEvent): TKey;
 begin
-  Result := KeyMake(Event.KeyDown.KeyCode, Event.KeyDown.ControlKeyState);
+  Result := TKey.Create(Event.KeyDown.KeyCode, Event.KeyDown.ControlKeyState);
 end;
 
 procedure MakeKeyEvent(out Event: TEvent; KeyCode, ControlKeyState: Word);

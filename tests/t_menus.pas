@@ -212,7 +212,7 @@ begin
   Check(M^.Items^.SubMenu^.Items^.Command = cmOpen, 'the first entry of a submenu');
   Item := M^.Items^.SubMenu^.Items;
   Check(Item^.Param^ = 'F3', 'the parameter text');
-  Check(KeyEq(Item^.KeyCode, KeyMake(kbF3)), 'the key is a normalized TKey');
+  Check((Item^.KeyCode = TKey.Create(kbF3)), 'the key is a normalized TKey');
   Check(not Item^.Disabled, 'an item of an enabled command is enabled');
   Check(Item^.Next^.Next^.Name = nil, 'NewLine: a separator has no name');
   Check(Item^.Next^.Next^.Next^.Param^ = 'Alt-X', 'the last entry');
@@ -403,8 +403,8 @@ begin
   MakeKeyEvent(Ev, kbF2, 0);
   Bar.HandleEvent(Ev);
   Check(Desk.LastPut.What = evNothing, 'the hot key of a disabled entry does nothing');
-  Check(Bar.HotKey(KeyMake(kbF2)) = nil, 'HotKey does not find a disabled entry');
-  Check(Bar.HotKey(KeyMake(kbF3)) <> nil, 'HotKey finds the entry of an enabled command');
+  Check(Bar.HotKey(TKey.Create(kbF2)) = nil, 'HotKey does not find a disabled entry');
+  Check(Bar.HotKey(TKey.Create(kbF3)) <> nil, 'HotKey finds the entry of an enabled command');
   Check(Bar.FindItem('x') = nil, 'FindItem looks at the bar entries only (File, Edit)');
   Check(Bar.FindItem('e') = Bar.Menu^.Items^.Next, 'FindItem finds an entry by its hot letter');
   TView.EnableCommand(cmSave);

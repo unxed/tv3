@@ -386,7 +386,7 @@ var
   NewMods, Orig, Code: Word;
   Largest: Integer;
 begin
-  K := KeyMake(Event.KeyDown.KeyCode, Event.KeyDown.ControlKeyState);
+  K := TKey.Create(Event.KeyDown.KeyCode, Event.KeyDown.ControlKeyState);
   NewMods := K.Mods and (kbShift or kbLeftCtrl or kbLeftAlt);
   if NewMods <> 0 then
   begin

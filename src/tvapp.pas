@@ -435,7 +435,7 @@ begin
     Exit(False);
   if Assigned(OnSwitcherKey) then
     Exit(OnSwitcherKey(Event, Backward));
-  K := KeyMake(Event.KeyDown.KeyCode, Event.KeyDown.ControlKeyState);
+  K := TKey.Create(Event.KeyDown.KeyCode, Event.KeyDown.ControlKeyState);
   Result := (K.Code = kbTab) and ((K.Mods and kbCtrlShift) <> 0);
   Backward := Result and ((K.Mods and kbShift) <> 0);
 end;

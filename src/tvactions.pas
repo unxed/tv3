@@ -136,7 +136,7 @@ begin
     Exit(-1);
   K := EventKey(Event);
   for I := 0 to Count - 1 do
-    if (Actions[I].Key <> kbNoKey) and KeyEq(KeyMake(Actions[I].Key), K) then
+    if (Actions[I].Key <> kbNoKey) and (TKey.Create(Actions[I].Key) = K) then
       Exit(I);
   Result := -1;
 end;
@@ -215,13 +215,13 @@ begin
     { the first action of a key reports it }
     Seen := False;
     for J := 0 to I - 1 do
-      if (Actions[J].Key <> kbNoKey) and KeyEq(KeyMake(Actions[J].Key), KeyMake(Actions[I].Key)) then
+      if (Actions[J].Key <> kbNoKey) and (TKey.Create(Actions[J].Key) = TKey.Create(Actions[I].Key)) then
         Seen := True;
     if Seen then
       Continue;
     Line := '';
     for J := I + 1 to Count - 1 do
-      if (Actions[J].Key <> kbNoKey) and KeyEq(KeyMake(Actions[J].Key), KeyMake(Actions[I].Key)) then
+      if (Actions[J].Key <> kbNoKey) and (TKey.Create(Actions[J].Key) = TKey.Create(Actions[I].Key)) then
       begin
         if Line = '' then
           Line := Actions[I].Name;
@@ -249,9 +249,9 @@ begin
   I := FindAction(SwitcherAction);
   if (I < 0) or (Actions[I].Key = kbNoKey) or (Event.What <> evKeyDown) then
     Exit;
-  A := KeyMake(Actions[I].Key);
-  K := KeyMake(Event.KeyDown.KeyCode, Event.KeyDown.ControlKeyState and not kbShift);
-  Result := KeyEq(K, A);
+  A := TKey.Create(Actions[I].Key);
+  K := TKey.Create(Event.KeyDown.KeyCode, Event.KeyDown.ControlKeyState and not kbShift);
+  Result := (K = A);
   Backward := Result and ((Event.KeyDown.ControlKeyState and kbShift) <> 0);
 end;
 
