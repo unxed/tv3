@@ -52,6 +52,10 @@ function TextDrawStr(Cells: PScreenCell; CellCount, Indent: Integer;
   Text: PByte; TextLen, TextIndent: Integer; Attr: PColorAttr): Integer;
 function TextDrawStrS(Cells: PScreenCell; CellCount, Indent: Integer;
   const S: ShortString; TextIndent: Integer; Attr: PColorAttr): Integer;
+{ TextDrawStr for text that is UTF-8 whatever TvUtf8.Utf8Enabled is (a component
+  that keeps its text in UTF-8 inside a program with a code page). }
+function TextDrawStrUtf8(Cells: PScreenCell; CellCount, Indent: Integer;
+  Text: PByte; TextLen, TextIndent: Integer; Attr: PColorAttr): Integer;
 
 { Fills Cells with a byte character, setting Attr when not nil. }
 procedure TextDrawChar(Cells: PScreenCell; CellCount: Integer; Ch: Byte; Attr: PColorAttr);
@@ -71,8 +75,9 @@ type
   PCellArray = ^TCellArray;
 
 { length and width, as in ttext.cpp mbstat/nextImpl: only valid multi-byte
-  characters get their own width; everything else is one column. }
-function TextNext(Text: PByte; Len: Integer; out CharLen, CharWidth: Integer): Boolean;
+  characters get their own width; everything else is one column. Utf8 False:
+  every byte is a character. }
+function NextImpl(Text: PByte; Len: Integer; Utf8: Boolean; out CharLen, CharWidth: Integer): Boolean;
 var
   CP: LongWord;
   Used, W: Integer;
@@ -82,7 +87,7 @@ begin
   if Len <= 0 then
     Exit(False);
   Result := True;
-  if Utf8Enabled and Utf8Decode(Text, Len, CP, Used) and (Used > 1) then
+  if Utf8 and Utf8Decode(Text, Len, CP, Used) and (Used > 1) then
   begin
     W := TvUtf8.CharWidth(CP);
     CharLen := Used;
@@ -98,6 +103,11 @@ begin
     CharLen := 1;
     CharWidth := 1;
   end;
+end;
+
+function TextNext(Text: PByte; Len: Integer; out CharLen, CharWidth: Integer): Boolean;
+begin
+  Result := NextImpl(Text, Len, Utf8Enabled, CharLen, CharWidth);
 end;
 
 function TextWidth(Text: PByte; Len: Integer): Integer;
@@ -145,7 +155,7 @@ begin
   Result := 1;
 end;
 
-procedure TextScroll(Text: PByte; Len, Count: Integer; IncludeIncomplete: Boolean;
+procedure ScrollImpl(Text: PByte; Len, Count: Integer; IncludeIncomplete, Utf8: Boolean;
   out Length, Width: Integer);
 var
   I, W, I2, W2, L, CW: Integer;
@@ -160,7 +170,7 @@ begin
   begin
     I2 := I;
     W2 := W;
-    if not TextNext(Text + I, Len - I, L, CW) then
+    if not NextImpl(Text + I, Len - I, Utf8, L, CW) then
       Break;
     Inc(I, L);
     Inc(W, CW);
@@ -180,6 +190,12 @@ begin
   Width := W;
 end;
 
+procedure TextScroll(Text: PByte; Len, Count: Integer; IncludeIncomplete: Boolean;
+  out Length, Width: Integer);
+begin
+  ScrollImpl(Text, Len, Count, IncludeIncomplete, Utf8Enabled, Length, Width);
+end;
+
 function IsZeroWidthJoiner(P: PByte; Len: Integer): Boolean;
 begin
   Result := (Len = 3) and (P[0] = $E2) and (P[1] = $80) and (P[2] = $8D);
@@ -187,7 +203,7 @@ end;
 
 { ttext.cpp drawOneImpl: returns the bytes consumed and the cells advanced }
 procedure DrawOneImpl(Cells: PCellArray; CellCount, I: Integer;
-  Text: PByte; TextLen, J: Integer; out Len, Width: Integer);
+  Text: PByte; TextLen, J: Integer; Utf8: Boolean; out Len, Width: Integer);
 var
   CP: LongWord;
   Used, W, K: Integer;
@@ -200,7 +216,7 @@ begin
   if J >= TextLen then
     Exit;
   Text := Text + J;
-  if Utf8Enabled and Utf8Decode(Text, TextLen - J, CP, Used) and (Used > 1) then
+  if Utf8 and Utf8Decode(Text, TextLen - J, CP, Used) and (Used > 1) then
   begin
     W := CharWidth(CP);
     if W < 0 then
@@ -256,12 +272,12 @@ begin
   end;
 end;
 
-function TextDrawOne(Cells: PScreenCell; CellCount: Integer; var I: Integer;
-  Text: PByte; TextLen: Integer; var J: Integer; Attr: PColorAttr): Boolean;
+function DrawOne(Cells: PScreenCell; CellCount: Integer; var I: Integer;
+  Text: PByte; TextLen: Integer; var J: Integer; Attr: PColorAttr; Utf8: Boolean): Boolean;
 var
   Len, Width: Integer;
 begin
-  DrawOneImpl(PCellArray(Cells), CellCount, I, Text, TextLen, J, Len, Width);
+  DrawOneImpl(PCellArray(Cells), CellCount, I, Text, TextLen, J, Utf8, Len, Width);
   if (Width > 0) and (Attr <> nil) then
     PCellArray(Cells)^[I].Attribute := Attr^;
   if (Width > 1) and (Attr <> nil) then
@@ -271,8 +287,14 @@ begin
   Result := Len <> 0;
 end;
 
-function TextDrawStr(Cells: PScreenCell; CellCount, Indent: Integer;
-  Text: PByte; TextLen, TextIndent: Integer; Attr: PColorAttr): Integer;
+function TextDrawOne(Cells: PScreenCell; CellCount: Integer; var I: Integer;
+  Text: PByte; TextLen: Integer; var J: Integer; Attr: PColorAttr): Boolean;
+begin
+  Result := DrawOne(Cells, CellCount, I, Text, TextLen, J, Attr, Utf8Enabled);
+end;
+
+function DrawStrImpl(Cells: PScreenCell; CellCount, Indent: Integer;
+  Text: PByte; TextLen, TextIndent: Integer; Attr: PColorAttr; Utf8: Boolean): Integer;
 var
   I, J, LeadWidth, Skipped: Integer;
 begin
@@ -280,7 +302,7 @@ begin
   J := 0;
   if TextIndent > 0 then
   begin
-    TextScroll(Text, TextLen, TextIndent, True, Skipped, LeadWidth);
+    ScrollImpl(Text, TextLen, TextIndent, True, Utf8, Skipped, LeadWidth);
     J := Skipped;
     if (LeadWidth > TextIndent) and (I < CellCount) then
     begin
@@ -290,8 +312,20 @@ begin
       Inc(I);
     end;
   end;
-  while TextDrawOne(Cells, CellCount, I, Text, TextLen, J, Attr) do ;
+  while DrawOne(Cells, CellCount, I, Text, TextLen, J, Attr, Utf8) do ;
   Result := I - Indent;
+end;
+
+function TextDrawStr(Cells: PScreenCell; CellCount, Indent: Integer;
+  Text: PByte; TextLen, TextIndent: Integer; Attr: PColorAttr): Integer;
+begin
+  Result := DrawStrImpl(Cells, CellCount, Indent, Text, TextLen, TextIndent, Attr, Utf8Enabled);
+end;
+
+function TextDrawStrUtf8(Cells: PScreenCell; CellCount, Indent: Integer;
+  Text: PByte; TextLen, TextIndent: Integer; Attr: PColorAttr): Integer;
+begin
+  Result := DrawStrImpl(Cells, CellCount, Indent, Text, TextLen, TextIndent, Attr, True);
 end;
 
 function TextDrawStrS(Cells: PScreenCell; CellCount, Indent: Integer;
