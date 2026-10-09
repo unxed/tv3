@@ -34,6 +34,7 @@ type
   end;
 
 var
+  OpM: TMenu;
   Desk: TTop;
 
 procedure TTop.GetEvent(var Event: TEvent);
@@ -140,36 +141,28 @@ begin
   Result := TRect.Create(A, B, C, D);
 end;
 
-function FileMenu: PMenu;
+function FileMenu: TMenu;
 begin
-  FileMenu := NewMenu(
-    NewItem('~O~pen', 'F3', kbF3, cmOpen, hcNoContext,
-    NewItem('~S~ave', 'F2', kbF2, cmSave, hcNoContext,
-    NewLine(
-    NewItem('E~x~it', 'Alt-X', kbAltX, cmQuit, hcNoContext, nil)))));
+  FileMenu := TMenu.Create(TMenuItem.Create('~O~pen', cmOpen, kbF3, hcNoContext, 'F3', TMenuItem.Create('~S~ave', cmSave, kbF2, hcNoContext, 'F2', TMenuItem.Create('', 0, kbNoKey, hcNoContext, '', TMenuItem.Create('E~x~it', cmQuit, kbAltX, hcNoContext, 'Alt-X', nil)))));
 end;
 
-function MainMenu: PMenu;
+function MainMenu: TMenu;
 begin
-  MainMenu := NewMenu(
-    NewSubMenu('~F~ile', hcNoContext, FileMenu,
-    NewSubMenu('~E~dit', hcNoContext, NewMenu(
-      NewItem('~U~ndo', '', kbNoKey, cmUndo, hcNoContext, nil)),
-    nil)));
+  MainMenu := TMenu.Create(TMenuItem.Create('~F~ile', kbNoKey, FileMenu, hcNoContext, TMenuItem.Create('~E~dit', kbNoKey, TMenu.Create(TMenuItem.Create('~U~ndo', cmUndo, kbNoKey, hcNoContext, '', nil)), hcNoContext, nil)));
 end;
 
 { the menus remember the entry chosen last: start every run from the first one }
-procedure ResetDefaults(M: PMenu);
+procedure ResetDefaults(M: TMenu);
 var
-  P: PMenuItem;
+  P: TMenuItem;
 begin
-  M^.Deflt := M^.Items;
-  P := M^.Items;
+  M.Deflt := M.Items;
+  P := M.Items;
   while P <> nil do
   begin
-    if (P^.Name <> nil) and (P^.Command = 0) then
-      ResetDefaults(P^.SubMenu);
-    P := P^.Next;
+    if (P.Name <> nil) and (P.Command = 0) then
+      ResetDefaults(P.SubMenu);
+    P := P.Next;
   end;
 end;
 
@@ -183,13 +176,13 @@ var
   Bar: TMenuBar;
   Box: TMenuBox;
   Popup: TMenuPopup;
-  M: PMenu;
+  M: TMenu;
   Ev: TEvent;
   Rc: TRect;
   Used0, UsedBase: PtrUInt;
   Res: Word;
-  Item: PMenuItem;
-  BM: PMenu;
+  Item: TMenuItem;
+  BM: TMenu;
 
 begin
   ScreenCreate(W, H);
@@ -204,25 +197,25 @@ begin
 
   { --- menu data ----------------------------------------------------------------- }
   M := MainMenu;
-  Check(M^.Items^.Name^ = '~F~ile', 'the first entry of a menu');
-  Check(M^.Items^.Next^.Name^ = '~E~dit', 'the entries are linked');
-  Check(M^.Items^.Next^.Next = nil, 'the list ends');
-  Check(M^.Deflt = M^.Items, 'NewMenu: the default is the first entry');
-  Check(M^.Items^.Command = 0, 'a submenu entry has command 0');
-  Check(M^.Items^.SubMenu^.Items^.Command = cmOpen, 'the first entry of a submenu');
-  Item := M^.Items^.SubMenu^.Items;
-  Check(Item^.Param^ = 'F3', 'the parameter text');
-  Check((Item^.KeyCode = TKey.Create(kbF3)), 'the key is a normalized TKey');
-  Check(not Item^.Disabled, 'an item of an enabled command is enabled');
-  Check(Item^.Next^.Next^.Name = nil, 'NewLine: a separator has no name');
-  Check(Item^.Next^.Next^.Next^.Param^ = 'Alt-X', 'the last entry');
-  Check(M^.Items^.Next^.SubMenu^.Items^.Param = nil, 'an empty parameter is nil');
-  DisposeMenu(M);
+  Check(M.Items.Name^ = '~F~ile', 'the first entry of a menu');
+  Check(M.Items.Next.Name^ = '~E~dit', 'the entries are linked');
+  Check(M.Items.Next.Next = nil, 'the list ends');
+  Check(M.Deflt = M.Items, 'NewMenu: the default is the first entry');
+  Check(M.Items.Command = 0, 'a submenu entry has command 0');
+  Check(M.Items.SubMenu.Items.Command = cmOpen, 'the first entry of a submenu');
+  Item := M.Items.SubMenu.Items;
+  Check(Item.Param^ = 'F3', 'the parameter text');
+  Check((Item.KeyCode = TKey.Create(kbF3)), 'the key is a normalized TKey');
+  Check(not Item.Disabled, 'an item of an enabled command is enabled');
+  Check(Item.Next.Next.Name = nil, 'NewLine: a separator has no name');
+  Check(Item.Next.Next.Next.Param^ = 'Alt-X', 'the last entry');
+  Check(M.Items.Next.SubMenu.Items.Param = nil, 'an empty parameter is nil');
+  M.Free;
   Check(GetFPCHeapStatus.CurrHeapUsed = Used0, 'DisposeMenu frees everything');
   TView.DisableCommand(cmSave);
   M := FileMenu;
-  Check(M^.Items^.Next^.Disabled and not M^.Items^.Disabled, 'an item of a disabled command is disabled');
-  DisposeMenu(M);
+  Check(M.Items.Next.Disabled and not M.Items.Disabled, 'an item of a disabled command is disabled');
+  M.Free;
   TView.EnableCommand(cmSave);
 
   { --- the menu bar ---------------------------------------------------------------- }
@@ -236,9 +229,9 @@ begin
   Check(Row(0, 30, 39) = '          ', 'the rest of the bar is blank');
   Check((Bar.Options and ofPreProcess) <> 0, 'the bar sees keys before the focused view');
   Check(Bar.GrowMode = gfGrowHiX, 'the bar grows with the width');
-  Rc := Bar.GetItemRect(Bar.Menu^.Items);
+  Rc := Bar.GetItemRect(Bar.Menu.Items);
   Check((Rc.A.X = 1) and (Rc.B.X = 7) and (Rc.A.Y = 0) and (Rc.B.Y = 1), 'item rectangle: File');
-  Rc := Bar.GetItemRect(Bar.Menu^.Items^.Next);
+  Rc := Bar.GetItemRect(Bar.Menu.Items.Next);
   Check((Rc.A.X = 7) and (Rc.B.X = 13), 'item rectangle: Edit');
 
   { --- a menu box ------------------------------------------------------------------ }
@@ -255,10 +248,10 @@ begin
   Check(Row(5, 0, 16) = ' │ Exit  Alt-X │ ', 'box: the last entry');
   Check(Row(6, 0, 16) = ' └─────────────┘ ', 'box: bottom line');
   Check(AttrAt(3, 2) = $04, 'box: hot letter color');
-  Rc := Box.GetItemRect(Box.Menu^.Items^.Next);
+  Rc := Box.GetItemRect(Box.Menu.Items.Next);
   Check((Rc.A.X = 2) and (Rc.B.X = 15) and (Rc.A.Y = 2) and (Rc.B.Y = 3), 'box: item rectangle');
   Box.Free;
-  DisposeMenu(BM);
+  BM.Free;
   Check(Desk.First = TView(Bar), 'the box is removed from the desk');
   { a box with submenus shows an arrow; disabled entries have their own color }
   TView.DisableCommand(cmSave);
@@ -267,7 +260,7 @@ begin
   Desk.Insert(Box);
   Check(AttrAt(4, 3) = $03, 'box: disabled entry color');
   Box.Free;
-  DisposeMenu(BM);
+  BM.Free;
   TView.EnableCommand(cmSave);
   Box := TMenuBox.Create(R(0, 1, W, H), Bar.Menu, nil);
   Desk.Insert(Box);
@@ -398,7 +391,7 @@ begin
   Ev.What := evBroadcast;
   Ev.Message.Command := cmCommandSetChanged;
   Bar.HandleEvent(Ev);
-  Check(Bar.Menu^.Items^.SubMenu^.Items^.Next^.Disabled, 'cmCommandSetChanged updates the entries');
+  Check(Bar.Menu.Items.SubMenu.Items.Next.Disabled, 'cmCommandSetChanged updates the entries');
   Desk.Reset;
   MakeKeyEvent(Ev, kbF2, 0);
   Bar.HandleEvent(Ev);
@@ -406,13 +399,13 @@ begin
   Check(Bar.HotKey(TKey.Create(kbF2)) = nil, 'HotKey does not find a disabled entry');
   Check(Bar.HotKey(TKey.Create(kbF3)) <> nil, 'HotKey finds the entry of an enabled command');
   Check(Bar.FindItem('x') = nil, 'FindItem looks at the bar entries only (File, Edit)');
-  Check(Bar.FindItem('e') = Bar.Menu^.Items^.Next, 'FindItem finds an entry by its hot letter');
+  Check(Bar.FindItem('e') = Bar.Menu.Items.Next, 'FindItem finds an entry by its hot letter');
   TView.EnableCommand(cmSave);
   ClearEvent(Ev);
   Ev.What := evBroadcast;
   Ev.Message.Command := cmCommandSetChanged;
   Bar.HandleEvent(Ev);
-  Check(not Bar.Menu^.Items^.SubMenu^.Items^.Next^.Disabled, 'and enables them again');
+  Check(not Bar.Menu.Items.SubMenu.Items.Next.Disabled, 'and enables them again');
   { a disabled command is not chosen by Enter }
   TView.DisableCommand(cmQuit);
   Desk.Reset;
@@ -444,15 +437,14 @@ begin
   { --- help context ---------------------------------------------------------------------------- }
   Bar.HelpCtx := 77;
   Check(Bar.GetHelpCtx = 77, 'the help context of the bar when nothing is chosen');
-  Bar.Current := Bar.Menu^.Items;
-  Bar.Menu^.Items^.HelpCtx := 12;
+  Bar.Current := Bar.Menu.Items;
+  Bar.Menu.Items.HelpCtx := 12;
   Check(Bar.GetHelpCtx = 12, 'the help context of the chosen entry');
   Bar.Current := nil;
 
   { --- popup menu ------------------------------------------------------------------------------- }
   Popup := TMenuPopup.Create(R(10, 3, W, H),
-    NewMenu(NewItem('~A~lpha', '', 0, cmOpen, hcNoContext,
-            NewItem('~B~eta', '', 0, cmSave, hcNoContext, nil))), nil);
+    TMenu.Create(TMenuItem.Create('~A~lpha', cmOpen, 0, hcNoContext, '', TMenuItem.Create('~B~eta', cmSave, 0, hcNoContext, '', nil))), nil);
   Check(not Popup.PutClickEventOnExit, 'a popup does not put the click back');
   Desk.Reset;
   Desk.Key(kbDown); Desk.Key(kbEnter);
@@ -472,6 +464,21 @@ begin
   Popup.HandleEvent(Ev);
   Check(Ev.What = evNothing, 'a popup swallows Alt keys');
   Popup.Free;
+
+  { the operators + of tvision: a submenu gets its items, submenus and items are chained }
+  OpM := TMenu.Create(
+    TSubMenu.Create('~F~ile', kbAltF) +
+      TMenuItem.Create('~O~pen', cmOpen, kbF3, hcNoContext, 'F3') +
+      NewLine +
+      TMenuItem.Create('E~x~it', cmQuit, kbAltX, hcNoContext, 'Alt-X') +
+    TSubMenu.Create('~E~dit', kbAltE) +
+      TMenuItem.Create('~U~ndo', cmUndo, kbAltBack));
+  Check((OpM.Items.Name^ = '~F~ile') and (OpM.Items.SubMenu.Items.Command = cmOpen) and
+    (OpM.Items.SubMenu.Deflt = OpM.Items.SubMenu.Items) and (OpM.Items.SubMenu.Items.Next.Name = nil) and
+    (OpM.Items.SubMenu.Items.Next.Next.Command = cmQuit), 'TSubMenu + TMenuItem fills the submenu');
+  Check((OpM.Items.Next.Name^ = '~E~dit') and (OpM.Items.Next.SubMenu.Items.Command = cmUndo) and
+    (OpM.Items.SubMenu.Items.Next.Next.Next = nil), 'TSubMenu + TSubMenu chains the submenus');
+  OpM.Free;
 
   Bar.Free;
   Desk.Free;

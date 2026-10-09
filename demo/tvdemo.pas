@@ -100,19 +100,12 @@ var
 begin
   R := GetExtent;
   R.B.Y := R.A.Y + 1;
-  MenuBar := TMenuBar.Create(R, NewMenu(
-    NewSubMenu('~F~ile', hcNoContext, NewMenu(
-      NewActionItem('file.new',
+  MenuBar := TMenuBar.Create(R, TMenu.Create(TMenuItem.Create('~F~ile', kbNoKey, TMenu.Create(NewActionItem('file.new',
       NewActionItem('file.close',
-      NewLine(
-      NewActionItem('file.exit', nil))))),
-    NewSubMenu('~W~indow', hcNoContext, NewMenu(
-      NewActionItem('window.tile',
+      TMenuItem.Create('', 0, kbNoKey, hcNoContext, '', NewActionItem('file.exit', nil))))), hcNoContext, TMenuItem.Create('~W~indow', kbNoKey, TMenu.Create(NewActionItem('window.tile',
       NewActionItem('window.cascade',
       NewActionItem('window.next',
-      NewActionItem('window.zoom', nil))))),
-    NewSubMenu('~T~ools', hcNoContext, NewMenu(
-      NewActionItem('tools.ascii', nil)), nil)))));
+      NewActionItem('window.zoom', nil))))), hcNoContext, TMenuItem.Create('~T~ools', kbNoKey, TMenu.Create(NewActionItem('tools.ascii', nil)), hcNoContext, nil)))));
 end;
 
 procedure TDemoApp.InitStatusLine;
@@ -122,16 +115,13 @@ begin
   R := GetExtent;
   R.A.Y := R.B.Y - 1;
   StatusLine := TStatusLine.Create(R,
-    NewStatusDef(0, $FFFF,
-      NewActionStatusKey('~F4~ New', 'file.new',
+    TStatusDef.Create(0, $FFFF, NewActionStatusKey('~F4~ New', 'file.new',
       NewActionStatusKey('~F5~ Zoom', 'window.zoom',
       NewActionStatusKey('~F6~ Next', 'window.next',
       NewActionStatusKey('~Alt-F3~ Close', 'file.close',
       NewActionStatusKey('~Alt-X~ Exit', 'file.exit',
-      NewStatusKey('', kbF10, cmMenu,
-      NewActionStatusKey('', 'window.tile',
-      NewActionStatusKey('', 'window.cascade', nil)))))))),
-    nil));
+      TStatusItem.Create('', kbF10, cmMenu, NewActionStatusKey('', 'window.tile',
+      NewActionStatusKey('', 'window.cascade', nil)))))))), nil));
 end;
 
 procedure TDemoApp.NewWindow;

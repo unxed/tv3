@@ -121,18 +121,15 @@ begin
   Result := TRect.Create(A, B, C, D);
 end;
 
-function Defs: PStatusDef;
+function Defs: TStatusDef;
 begin
-  Defs := NewStatusDef(0, 99,
-    NewStatusKey('~F1~ Help', kbF1, cmHelp,
-    NewStatusKey('~Alt-X~ Exit', kbAltX, cmQuit, nil)),
-    NewStatusDef(100, 199,
-      NewStatusKey('~F2~ Save', kbF2, cmSave, nil), nil));
+  Defs := TStatusDef.Create(0, 99, TStatusItem.Create('~F1~ Help', kbF1, cmHelp, TStatusItem.Create('~Alt-X~ Exit', kbAltX, cmQuit, nil)), TStatusDef.Create(100, 199, TStatusItem.Create('~F2~ Save', kbF2, cmSave, nil), nil));
 end;
 
 var
   Line: THintLine;
   Plain: TStatusLine;
+  OpDefs: TStatusDef;
   HV: THelpView;
   Ev: TEvent;
   Used0: PtrUInt;
@@ -149,7 +146,7 @@ begin
   Line := THintLine.Create(R(0, Y, W, H), Defs);
   Desk.Insert(Line);
   Check(Line.Items <> nil, 'the items for the help context 0');
-  Check(Line.Items^.Text^ = '~F1~ Help', 'the first item');
+  Check(Line.Items.Text^ = '~F1~ Help', 'the first item');
   Check((Line.Options and ofPreProcess) <> 0, 'the status line sees keys first');
   Check(Line.GrowMode = (gfGrowLoY or gfGrowHiX or gfGrowHiY), 'grow mode');
   Check(Row(Y, 0, 20) = ' F1 Help  Alt-X Exit ', 'the items are drawn');
@@ -225,7 +222,7 @@ begin
   Desk.Insert(HV);
   Line.Update;
   Check(Line.HelpCtx = 150, 'Update takes the help context of the top view');
-  Check(Line.Items^.Text^ = '~F2~ Save', 'and its items');
+  Check(Line.Items.Text^ = '~F2~ Save', 'and its items');
   Check(Row(Y, 0, 10) = ' F2 Save   ', 'the other items are drawn');
   Check(Row(Y, 21, 23) = '   ', 'and no hint');
   MakeKeyEvent(Ev, kbF2, 0);
@@ -233,7 +230,7 @@ begin
   Check((Ev.What = evCommand) and (Ev.Message.Command = cmSave), 'keys of the new items');
   HV.Free;
   Line.Update;
-  Check((Line.HelpCtx = 0) and (Line.Items^.Text^ = '~F1~ Help'), 'the items return with the help context');
+  Check((Line.HelpCtx = 0) and (Line.Items.Text^ = '~F1~ Help'), 'the items return with the help context');
 
   Line.Free;
   Check(GetFPCHeapStatus.CurrHeapUsed = Used0, 'the status line frees its definitions');
@@ -249,6 +246,18 @@ begin
     'a help context outside all definitions: no items');
   Check(Row(Y, 0, 10) = '           ', 'and nothing is drawn but blanks');
   HV.Free;
+  Plain.Free;
+
+  { the operators + of tvision: a definition gets its items, definitions are chained }
+  OpDefs := TStatusDef.Create(0, 999) +
+      TStatusItem.Create('~F3~ Open', kbF3, cmOpen) +
+      TStatusItem.Create('~Alt-X~ Exit', kbAltX, cmQuit) +
+    TStatusDef.Create(1000, $FFFF) +
+      TStatusItem.Create('~F1~ Help', kbF1, cmHelp);
+  Check((OpDefs.Items.Command = cmOpen) and (OpDefs.Items.Next.Command = cmQuit) and (OpDefs.Items.Next.Next = nil),
+    'TStatusDef + TStatusItem adds the items to the last definition');
+  Check((OpDefs.Next.Min = 1000) and (OpDefs.Next.Items.Command = cmHelp), 'TStatusDef + TStatusDef chains the definitions');
+  Plain := TStatusLine.Create(R(0, Y, W, Y + 1), OpDefs);
   Plain.Free;
   Desk.Free;
   Finish;

@@ -5,8 +5,8 @@
 
     RegisterAction('file.save', '~S~ave', cmSave, kbF2);
     ...
-    Menu := NewMenu(NewActionItem('file.open', NewActionItem('file.save', nil)));
-    Status := NewStatusDef(0, $FFFF, NewActionStatusKey('~F2~ Save', 'file.save', nil), nil);
+    Menu := TMenu.Create(NewActionItem('file.open', NewActionItem('file.save', nil)));
+    Status := TStatusDef.Create(0, $FFFF, NewActionStatusKey('~F2~ Save', 'file.save', nil), nil);
     if ActionKeyToCommand(Event) then ...      (a key with no menu item becomes the command)
 
   A key may be rebound (BindActionKey, a user's key file); the menu items and the dispatch made after that use the new key. }
@@ -45,9 +45,9 @@ procedure ResetActionKeys;
 { The key of an action as text ("Ctrl+S"). }
 function ActionKeyText(Index: Integer): AnsiString;
 { A menu item of the action (the caption, the key shown, the command), linked before Next. A name that is not declared gives Next. }
-function NewActionItem(const AName: ShortString; Next: PMenuItem): PMenuItem;
+function NewActionItem(const AName: ShortString; Next: TMenuItem): TMenuItem;
 { An item of the status line: the text is given, the key and the command come from the action. }
-function NewActionStatusKey(const AText, AName: ShortString; ANext: PStatusItem): PStatusItem;
+function NewActionStatusKey(const AText, AName: ShortString; ANext: TStatusItem): TStatusItem;
 { A key event whose key belongs to an action becomes the command of that action (evCommand, the event is changed); True if it did. }
 function ActionKeyToCommand(var Event: TEvent): Boolean;
 { The keys that are on two actions or more, one line per key ("Ctrl+S: file.save, edit.search"); an empty text when there are none. }
@@ -164,7 +164,7 @@ begin
   Result := KeyCodeToStr(Actions[Index].Key);
 end;
 
-function NewActionItem(const AName: ShortString; Next: PMenuItem): PMenuItem;
+function NewActionItem(const AName: ShortString; Next: TMenuItem): TMenuItem;
 var
   I: Integer;
 begin
@@ -172,17 +172,17 @@ begin
   if I < 0 then
     Exit(Next);
   with Actions[I] do
-    Result := NewItem(Caption, ActionKeyText(I), Key, Command, HelpCtx, Next);
+    Result := TMenuItem.Create(Caption, Command, Key, HelpCtx, ActionKeyText(I), Next);
 end;
 
-function NewActionStatusKey(const AText, AName: ShortString; ANext: PStatusItem): PStatusItem;
+function NewActionStatusKey(const AText, AName: ShortString; ANext: TStatusItem): TStatusItem;
 var
   I: Integer;
 begin
   I := FindAction(AName);
   if I < 0 then
     Exit(ANext);
-  Result := NewStatusKey(AText, Actions[I].Key, Actions[I].Command, ANext);
+  Result := TStatusItem.Create(AText, Actions[I].Key, Actions[I].Command, ANext);
 end;
 
 function ActionKeyToCommand(var Event: TEvent): Boolean;

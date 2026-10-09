@@ -18,9 +18,7 @@ var
 begin
   R := GetExtent;
   R.B.Y := R.A.Y + 1;
-  MenuBar := TMenuBar.Create(R, NewMenu(
-    NewSubMenu('~F~ile', hcNoContext, NewMenu(
-      NewItem('E~x~it', 'Alt-X', kbAltX, cmQuit, hcNoContext, nil)), nil)));
+  MenuBar := TMenuBar.Create(R, TMenu.Create(TMenuItem.Create('~F~ile', kbNoKey, TMenu.Create(TMenuItem.Create('E~x~it', cmQuit, kbAltX, hcNoContext, 'Alt-X', nil)), hcNoContext, nil)));
 end;
 
 procedure TTermApp.InitStatusLine;
@@ -29,9 +27,7 @@ var
 begin
   R := GetExtent;
   R.A.Y := R.B.Y - 1;
-  StatusLine := TStatusLine.Create(R, NewStatusDef(0, $FFFF,
-    NewStatusKey('~Alt-X~ Exit', kbAltX, cmQuit,
-    NewStatusKey('~Shift-PgUp~ History', kbNoKey, 0, nil)), nil));
+  StatusLine := TStatusLine.Create(R, TStatusDef.Create(0, $FFFF, TStatusItem.Create('~Alt-X~ Exit', kbAltX, cmQuit, TStatusItem.Create('~Shift-PgUp~ History', kbNoKey, 0, nil)), nil));
 end;
 
 { the keys that are not for the terminal }

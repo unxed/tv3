@@ -303,12 +303,12 @@ end;
 { the list of the windows is drawn by a menu box that takes no input }
 type
   TSwitcherBox = class(TMenuBox)
-    constructor Create(const Bounds: TRect; AMenu: PMenu);
+    constructor Create(const Bounds: TRect; AMenu: TMenu);
     destructor Destroy; override;
     procedure HandleEvent(var Event: TEvent); override;
   end;
 
-constructor TSwitcherBox.Create(const Bounds: TRect; AMenu: PMenu);
+constructor TSwitcherBox.Create(const Bounds: TRect; AMenu: TMenu);
 begin
   inherited Create(Bounds, AMenu, nil);
   Options := Options and not ofPreProcess;
@@ -317,7 +317,7 @@ end;
 
 destructor TSwitcherBox.Destroy;
 begin
-  DisposeMenu(Menu);
+  Menu.Free;
   Menu := nil;
   inherited Destroy;
 end;
@@ -375,9 +375,9 @@ const
   MaxShown = 12;
 var
   I, FirstIdx, Last_, W, H: Integer;
-  Items, Sel: PMenuItem;
+  Items, Sel: TMenuItem;
   T: ShortString;
-  Menu: PMenu;
+  Menu: TMenu;
   R: TRect;
   Box: TSwitcherBox;
   Prog: TGroup;
@@ -410,14 +410,14 @@ begin
       T := '(untitled)';
     while Pos('~', T) > 0 do
       System.Delete(T, Pos('~', T), 1);
-    Items := NewItem(T, '', kbNoKey, cmSwitcherItem, hcNoContext, Items);
+    Items := TMenuItem.Create(T, cmSwitcherItem, kbNoKey, hcNoContext, '', Items);
     if I = FSwitchSel then
       Sel := Items;
   end;
-  Menu := NewMenu(Items);
+  Menu := TMenu.Create(Items);
   R := TRect.Create(0, 0, Prog.Size.X, Prog.Size.Y);
   Box := TSwitcherBox.Create(R, Menu);
-  Menu^.Deflt := Sel;
+  Menu.Deflt := Sel;
   Box.Current := Sel;
   W := Box.Size.X;
   H := Box.Size.Y;
@@ -906,16 +906,16 @@ end;
 procedure TProgram.InitStatusLine;
 var
   R: TRect;
-  Keys: PStatusItem;
+  Keys: TStatusItem;
 begin
   R := GetExtent;
   R.A.Y := R.B.Y - 1;
-  Keys := NewStatusKey('', kbCtrlF5, cmResize, nil);
-  Keys := NewStatusKey('', kbF5, cmZoom, Keys);
-  Keys := NewStatusKey('', kbAltF3, cmClose, Keys);
-  Keys := NewStatusKey('', kbF10, cmMenu, Keys);
-  Keys := NewStatusKey(ExitText, kbAltX, cmQuit, Keys);
-  StatusLine := TStatusLine.Create(R, NewStatusDef(0, $FFFF, Keys, nil));
+  Keys := TStatusItem.Create('', kbCtrlF5, cmResize, nil);
+  Keys := TStatusItem.Create('', kbF5, cmZoom, Keys);
+  Keys := TStatusItem.Create('', kbAltF3, cmClose, Keys);
+  Keys := TStatusItem.Create('', kbF10, cmMenu, Keys);
+  Keys := TStatusItem.Create(ExitText, kbAltX, cmQuit, Keys);
+  StatusLine := TStatusLine.Create(R, TStatusDef.Create(0, $FFFF, Keys, nil));
 end;
 
 function TProgram.InsertWindow(P: TWindow): TWindow;

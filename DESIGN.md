@@ -48,8 +48,8 @@ the library (`source/tvision`, `source/platform`, `include/tvision` without `com
 | 5b | `TvViews` — constants, `TCommandSet`, palettes, `TView`, `TGroup`, the output engine and the visibility check | `views.h`, `tview.cpp`, `tgroup.cpp`, `tvwrite.cpp`, `tvexposd.cpp`, `tvcursor.cpp`, etc. | done (without streams and timers) |
 | 5c | `TvWindow` — `TFrame`, `TScrollBar`, `TScroller`, `TWindow` | `views.h`, `tframe.cpp`, `framelin.cpp`, `tscrlbar.cpp`, `tscrolle.cpp`, `twindow.cpp`, `tvtext1.cpp` (frame tables) | done (without streams); `CtrlToArrow` is in `TvKeys` |
 | 5d | `TvUtil` — hot keys and strings with `~`: `HotKeyStr`, `CStrLen`, `GetAltCode/Char/CharStr`, `GetCtrlCode/Char`, `EqualsIgnoreCase`, `NewStr` | `util.h`, `tvtext2.cpp`, `tinputli.cpp`, `drivers2.cpp`, `ttext.cpp` | done |
-| 6a | `TvMenus` — menus: `TMenuView`, `TMenuBar`, `TMenuBox`, `TMenuPopup`, `NewMenu/NewSubMenu/NewItem/NewLine` | `menus.h`, `tmnuview.cpp`, `tmenubar.cpp`, `tmenubox.cpp`, `tmenupop.cpp` | done (without streams) |
-| 6b | `TvMenus` — status line: `TStatusLine`, `TStatusDef`, `TStatusItem`, `NewStatusDef/NewStatusKey` | `menus.h`, `tstatusl.cpp` | done (without streams) |
+| 6a | `TvMenus` — menus: `TMenuView`, `TMenuBar`, `TMenuBox`, `TMenuPopup`, `TMenu`, `TMenuItem`, `TSubMenu`, `NewLine`, `operator +` | `menus.h`, `tmnuview.cpp`, `tmenubar.cpp`, `tmenubox.cpp`, `tmenupop.cpp` | done (without streams) |
+| 6b | `TvMenus` — status line: `TStatusLine`, `TStatusDef`, `TStatusItem`, `operator +` | `menus.h`, `tstatusl.cpp` | done (without streams) |
 | 7a | `TvSys` — backend hooks: event polling, clock, video mode switching, screen mode | own (in the original `THardwareInfo`, `TEventQueue`) | done |
 | 7b | `TvTimer` — the timer queue `TTimerQueue` | `system.h`, `ttimerqu.cpp` | done |
 | 7c | `TvApp` — `TBackground`, `TDeskTop` (Tile, Cascade), `TProgram`, `TApplication` | `app.h`, `tprogram.cpp`, `tapplica.cpp`, `tdesktop.cpp`, `tbkgrnd.cpp` | done (without streams, `LowMemory`; dialog — any view) |
@@ -187,11 +187,11 @@ collections and streams, the editor — to the extent that DN uses them.
   This is a draft of what will later become `TProgram.GetEvent`.
 - **Not yet ported in `TvWindow`:** streams; `TWindow.Palette` and `Flags` have the same
   values as in the original.
-- **Menus are built with the Pascal TV functions** (`NewMenu`, `NewSubMenu`, `NewItem`, `NewLine`), and not with the
-  overloaded `operator +` from C++. The item key is a key code (`Word`), a normalized
-  `TKey` is stored inside; comparison is `=`. An item and a menu are records, the name is a pointer to
-  `ShortString` (`nil` is a separator). `DisposeMenu` frees a menu with its submenus; `TMenuBar`
-  and `TMenuPopup` free their menu in `Done`, `TMenuBox` does not (it belongs to the parent).
+- **Menus** are the classes of tvision: `TMenu`, `TMenuItem`, `TSubMenu` with their constructors, `NewLine` and the
+  `operator +` that chains them. The key of an item is a `TKey` (a key code converts to it). The name is a pointer to
+  `ShortString` (`nil` is a separator; an empty name given to a constructor is `nil`). `TMenu.Free` frees a menu
+  with its items and submenus; `TMenuBar` and `TMenuPopup` free their menu in `Destroy`, `TMenuBox` does not (it
+  belongs to the parent).
 - **`EqualsIgnoreCase`** lowercases using a small built-in table (Latin-1, Latin
   Extended-A, Greek, Cyrillic), and not the platform tables; bytes that are not UTF-8
   are treated as code page characters (as in the original). Other alphabets are not distinguished
@@ -203,8 +203,8 @@ collections and streams, the editor — to the extent that DN uses them.
   Esc, so that the menu always closes.
 - **Leak check:** `t_menus.pas` compares `GetFPCHeapStatus.CurrHeapUsed` before and after
   creating and deleting a menu.
-- **The status line** is built with `NewStatusDef`/`NewStatusKey` (as in Pascal TV) and frees its
-  definitions in `Done`. `Hint` returns a `ShortString`; the hint separator is the CP437 byte
+- **The status line** is built with `TStatusDef` and `TStatusItem` (their constructors and `operator +`, as in
+  tvision) and frees its definitions in `Destroy`. `Hint` returns a `ShortString`; the hint separator is the CP437 byte
   $B3 and a space. `Update` takes the help context from `TopView` — it will be called by
   `TProgram.Idle` (unit `TvApp`).
 - **The backend is a set of `TvSys` hooks** (`OnPollEvent`, `GetClockMs`, `OnSetVideoMode`,
@@ -217,7 +217,7 @@ collections and streams, the editor — to the extent that DN uses them.
   `Application`, `StatusLine`, `MenuBar`, `DeskTop`, `AppPalette`, `EventTimeoutMs` and `Pending` are class
   variables of `TProgram`, as in the original. The application palettes (`cpAppColor`, etc.) are generated
   from `app.h` into `tvapppal.inc` (135 values each, the count is verified). For hidden status line
-  items (a key without text) `NewStatusKey` with empty text stores `nil`.
+  items (a key without text) `TStatusItem.Create` with an empty text stores `nil`.
 - **Timers** send the program `cmTimerExpired` with the timer identifier in `InfoPtr`;
   expiry is checked in `Idle`, and the wait for events is shortened to the nearest timer.
 - **The tests use `TvMem`:** `MemKey`, `MemMouse`, `MemText`, `MemAttr`, `MemIsShadow`.

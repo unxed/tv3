@@ -54,9 +54,7 @@ var
 begin
   R := GetExtent;
   R.B.Y := R.A.Y + 1;
-  MenuBar := TMenuBar.Create(R, NewMenu(
-    NewSubMenu('~F~ile', hcNoContext, NewMenu(
-      NewItem('E~x~it', 'Alt-X', kbAltX, cmQuit, hcNoContext, nil)), nil)));
+  MenuBar := TMenuBar.Create(R, TMenu.Create(TMenuItem.Create('~F~ile', kbNoKey, TMenu.Create(TMenuItem.Create('E~x~it', cmQuit, kbAltX, hcNoContext, 'Alt-X', nil)), hcNoContext, nil)));
 end;
 
 procedure TTestApp.Idle;

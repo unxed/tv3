@@ -3,19 +3,15 @@
   Translated from magiblot/tvision @ b4831e2:
     include/tvision/menus.h
     source/tvision/tmnuview.cpp (TMenuItem, TMenu, TMenuView), tmenubar.cpp,
-    tmenubox.cpp, tmenupop.cpp, menu.cpp (operator+, replaced by the Pascal functions)
+    tmenubox.cpp, tmenupop.cpp, menu.cpp (TSubMenu, operator+)
   Borland disclaimer and MIT notice: COPYRIGHT.magiblot.
 
-  Differences from the C++ original (see tv/DESIGN.md):
-    - menus are built with the functions of the Pascal Turbo Vision: NewMenu,
-      NewSubMenu, NewItem, NewLine; the key of an item is a key code (Word), kept
-      as a normalized TKey; DisposeMenu frees a menu with its submenus;
-    - items and menus are records, names are pointers to ShortStrings (nil name =
-      separator line);
-    - the menu bar and popup menu free their menu in Done, the menu box does not;
-    - the status line is built with NewStatusDef and NewStatusKey (Pascal Turbo
-      Vision) and frees its definitions in Done; its Hint method returns a
-      ShortString;
+  Differences from the C++ original (see tv/docs/API-NAMES.md):
+    - names are pointers to ShortStrings (nil name = separator line; an empty name
+      given to a constructor is the null name of tvision); the union of TMenuItem
+      (param, subMenu) is two fields;
+    - the operators + are operators of the unit;
+    - the Hint method of the status line returns a ShortString;
     - streams are not translated yet. }
 unit TvMenus;
 
@@ -27,24 +23,38 @@ uses
   TvGeom, TvColors, TvCell, TvKeys, TvEvents, TvDrawBuf, TvScreen, TvViews, TvUtil, TvGlyphs, TvXlat, TvSys;
 
 type
-  PMenu = ^TMenu;
-  PMenuItem = ^TMenuItem;
+  TMenu = class;
 
-  TMenu = record
-    Items: PMenuItem;        { the entries, linked by Next }
-    Deflt: PMenuItem;        { the entry highlighted when the menu opens }
-  end;
-
-  TMenuItem = record
-    Next: PMenuItem;
+  TMenuItem = class
+    Next: TMenuItem;
     Name: PStr;          { nil for a separator line }
     Command: Word;       { 0 for an item with a submenu }
     Disabled: Boolean;
     KeyCode: TKey;
     HelpCtx: Word;
-    case Byte of
-      0: (SubMenu: PMenu);   { an entry with Command = 0 }
-      1: (Param: PStr);      { an entry with a command: the key name shown at the right, or nil }
+    { the union of tvision: Param for an entry with a command (the key name shown at the right, or nil),
+      SubMenu for an entry with Command = 0 }
+    Param: PStr;
+    SubMenu: TMenu;
+    constructor Create(const AName: ShortString; ACommand: Word; AKey: TKey; AHelpCtx: Word = hcNoContext;
+      const P: ShortString = ''; ANext: TMenuItem = nil); overload;
+    constructor Create(const AName: ShortString; AKey: TKey; ASubMenu: TMenu; AHelpCtx: Word = hcNoContext;
+      ANext: TMenuItem = nil); overload;
+    destructor Destroy; override;
+    procedure Append(ANext: TMenuItem);
+  end;
+
+  TSubMenu = class(TMenuItem)
+    constructor Create(const Nm: ShortString; AKey: TKey; AHelpCtx: Word = hcNoContext);
+  end;
+
+  TMenu = class
+    Items: TMenuItem;        { the entries, linked by Next }
+    Deflt: TMenuItem;        { the entry highlighted when the menu opens }
+    constructor Create; overload;
+    constructor Create(ItemList: TMenuItem); overload;
+    constructor Create(ItemList, TheDefault: TMenuItem); overload;
+    destructor Destroy; override;
   end;
 
   TMenuView = class;
@@ -52,27 +62,27 @@ type
   TMenuBox = class;
   TMenuPopup = class;
   TStatusLine = class;
-  PStatusItem = ^TStatusItem;
-  PStatusDef = ^TStatusDef;
+  TStatusItem = class;
+  TStatusDef = class;
 
   { Palette: 1 = normal text, 2 = disabled text, 3 = hot key of normal text,
     4 = selected, 5 = disabled selected, 6 = hot key of selected }
   TMenuView = class(TView)
     ParentMenu: TMenuView;
-    Menu: PMenu;
-    Current: PMenuItem;
+    Menu: TMenu;
+    Current: TMenuItem;
     PutClickEventOnExit: Boolean;
     { set by a drop-down that Esc closed: the menu bar stays active (UxMenuEsc) }
     SubClosedByEsc: Boolean;
-    constructor Create(const Bounds: TRect; AMenu: PMenu; AParent: TMenuView);
+    constructor Create(const Bounds: TRect; AMenu: TMenu; AParent: TMenuView);
     function Execute: Word; override;
-    function FindItem(const Shortcut: ShortString): PMenuItem;
-    function GetItemRect(Item: PMenuItem): TRect; virtual;
+    function FindItem(const Shortcut: ShortString): TMenuItem;
+    function GetItemRect(Item: TMenuItem): TRect; virtual;
     function GetHelpCtx: Word; override;
     function GetPalette: TPalette; override;
     procedure HandleEvent(var Event: TEvent); override;
-    function HotKey(Key: TKey): PMenuItem;
-    function NewSubView(const Bounds: TRect; AMenu: PMenu;
+    function HotKey(Key: TKey): TMenuItem;
+    function NewSubView(const Bounds: TRect; AMenu: TMenu;
       AParentMenu: TMenuView): TMenuView; virtual;
   private
     procedure NextItem;
@@ -83,54 +93,57 @@ type
     function MouseInMenus(var E: TEvent): Boolean;
     procedure TrackMouse(var E: TEvent; var MouseActive: Boolean);
     function TopMenu: TMenuView;
-    function UpdateMenu(AMenu: PMenu): Boolean;
+    function UpdateMenu(AMenu: TMenu): Boolean;
     procedure DoASelect(var Event: TEvent);
-    function FindHotKey(P: PMenuItem; Key: TKey): PMenuItem;
-    function FindAltShortcut(const Event: TEvent): PMenuItem;
+    function FindHotKey(P: TMenuItem; Key: TKey): TMenuItem;
+    function FindAltShortcut(const Event: TEvent): TMenuItem;
   end;
 
   TMenuBar = class(TMenuView)
-    constructor Create(const Bounds: TRect; AMenu: PMenu);
+    constructor Create(const Bounds: TRect; AMenu: TMenu);
     destructor Destroy; override;
     procedure Draw; override;
-    function GetItemRect(Item: PMenuItem): TRect; override;
+    function GetItemRect(Item: TMenuItem): TRect; override;
   end;
 
   TMenuBox = class(TMenuView)
-    constructor Create(const Bounds: TRect; AMenu: PMenu; AParentMenu: TMenuView);
+    constructor Create(const Bounds: TRect; AMenu: TMenu; AParentMenu: TMenuView);
     procedure Draw; override;
-    function GetItemRect(Item: PMenuItem): TRect; override;
+    function GetItemRect(Item: TMenuItem): TRect; override;
   private
     procedure FrameLine(var B: TDrawBuffer; N: Integer; const CNormal, Color: TColorAttr);
   end;
 
   TMenuPopup = class(TMenuBox)
-    constructor Create(const Bounds: TRect; AMenu: PMenu; AParentMenu: TMenuView);
+    constructor Create(const Bounds: TRect; AMenu: TMenu; AParentMenu: TMenuView);
     destructor Destroy; override;
     function Execute: Word; override;
     procedure HandleEvent(var Event: TEvent); override;
   end;
 
-  TStatusItem = record
-    Next: PStatusItem;
-    Text: PStr;
+  TStatusItem = class
+    Next: TStatusItem;
+    Text: PStr;          { nil: a hidden item, only its key works }
     KeyCode: TKey;
     Command: Word;
+    constructor Create(const AText: ShortString; AKey: TKey; Cmd: Word; ANext: TStatusItem = nil);
+    destructor Destroy; override;
   end;
 
   { the items shown for the help contexts Min..Max }
-  TStatusDef = record
-    Next: PStatusDef;
+  TStatusDef = class
+    Next: TStatusDef;
     Min, Max: Word;
-    Items: PStatusItem;
+    Items: TStatusItem;
+    constructor Create(AMin, AMax: Word; SomeItems: TStatusItem = nil; ANext: TStatusDef = nil);
   end;
 
   { Palette: 1 = normal text, 2 = disabled text, 3 = hot key of normal text,
     4 = selected, 5 = disabled selected, 6 = hot key of selected }
   TStatusLine = class(TView)
-    Items: PStatusItem;
-    Defs: PStatusDef;
-    constructor Create(const Bounds: TRect; ADefs: PStatusDef);
+    Items: TStatusItem;
+    Defs: TStatusDef;
+    constructor Create(const Bounds: TRect; ADefs: TStatusDef);
     destructor Destroy; override;
     procedure Draw; override;
     function GetPalette: TPalette; override;
@@ -138,23 +151,19 @@ type
     function Hint(AHelpCtx: Word): ShortString; virtual;
     procedure Update; override;
   private
-    procedure DrawSelect(Selected: PStatusItem);
+    procedure DrawSelect(Selected: TStatusItem);
     procedure FindItems;
-    function ItemMouseIsIn(Mouse: TPoint): PStatusItem;
+    function ItemMouseIsIn(Mouse: TPoint): TStatusItem;
   end;
 
-function NewMenu(Items: PMenuItem): PMenu;
-function NewSubMenu(const Name: ShortString; AHelpCtx: Word; SubMenu: PMenu;
-  Next: PMenuItem): PMenuItem;
-function NewItem(const Name, Param: ShortString; AKeyCode, ACommand, AHelpCtx: Word;
-  Next: PMenuItem): PMenuItem;
-function NewLine(Next: PMenuItem): PMenuItem;
-{ Frees a menu, its items and submenus. }
-procedure DisposeMenu(Menu: PMenu);
+function NewLine: TMenuItem;
 
-function NewStatusKey(const AText: ShortString; AKeyCode, ACommand: Word;
-  ANext: PStatusItem): PStatusItem;
-function NewStatusDef(AMin, AMax: Word; AItems: PStatusItem; ANext: PStatusDef): PStatusDef;
+{ the operators + of tvision that chain the items of a menu and of the status line }
+operator +(S: TSubMenu; I: TMenuItem): TSubMenu;
+operator +(S1, S2: TSubMenu): TSubMenu;
+operator +(I1, I2: TMenuItem): TMenuItem;
+operator +(S1: TStatusDef; S2: TStatusItem): TStatusDef;
+operator +(S1, S2: TStatusDef): TStatusDef;
 
 var
   { UX guidelines of vtui, menus: Esc closes an open drop-down but keeps the menu bar active, a second Esc leaves the bar (in Turbo Vision one Esc leaves both).
@@ -171,76 +180,174 @@ implementation
 
 { --- menu data --------------------------------------------------------------- }
 
-function NewMenu(Items: PMenuItem): PMenu;
+constructor TMenuItem.Create(const AName: ShortString; ACommand: Word; AKey: TKey; AHelpCtx: Word;
+  const P: ShortString; ANext: TMenuItem);
 begin
-  New(Result);
-  Result^.Items := Items;
-  Result^.Deflt := Items;
-end;
-
-function NewSubMenu(const Name: ShortString; AHelpCtx: Word; SubMenu: PMenu;
-  Next: PMenuItem): PMenuItem;
-begin
-  New(Result);
-  Result^.Next := Next;
-  Result^.Name := NewStr(Name);
-  Result^.Command := 0;
-  Result^.Disabled := not TView.CommandEnabled(0);
-  Result^.KeyCode := TKey.Create(kbNoKey);
-  Result^.HelpCtx := AHelpCtx;
-  Result^.SubMenu := SubMenu;
-end;
-
-function NewItem(const Name, Param: ShortString; AKeyCode, ACommand, AHelpCtx: Word;
-  Next: PMenuItem): PMenuItem;
-begin
-  New(Result);
-  Result^.Next := Next;
-  Result^.Name := NewStr(Name);
-  Result^.Command := ACommand;
-  Result^.Disabled := not TView.CommandEnabled(ACommand);
-  Result^.KeyCode := TKey.Create(AKeyCode);
-  Result^.HelpCtx := AHelpCtx;
-  if Param = '' then
-    Result^.Param := nil
+  inherited Create;
+  if AName = '' then
+    Name := nil              { the null name of tvision: a separator line }
   else
-    Result^.Param := NewStr(Param);
+    Name := NewStr(AName);
+  Command := ACommand;
+  Disabled := not TView.CommandEnabled(Command);
+  KeyCode := AKey;
+  HelpCtx := AHelpCtx;
+  if P = '' then
+    Param := nil
+  else
+    Param := NewStr(P);
+  Next := ANext;
 end;
 
-function NewLine(Next: PMenuItem): PMenuItem;
+constructor TMenuItem.Create(const AName: ShortString; AKey: TKey; ASubMenu: TMenu; AHelpCtx: Word;
+  ANext: TMenuItem);
 begin
-  New(Result);
-  Result^.Next := Next;
-  Result^.Name := nil;
-  Result^.Command := 0;
-  Result^.Disabled := True;
-  Result^.KeyCode := TKey.Create(kbNoKey);
-  Result^.HelpCtx := hcNoContext;
-  Result^.Param := nil;
+  inherited Create;
+  if AName = '' then
+    Name := nil              { the null name of tvision: a separator line }
+  else
+    Name := NewStr(AName);
+  Command := 0;
+  Disabled := not TView.CommandEnabled(Command);
+  KeyCode := AKey;
+  HelpCtx := AHelpCtx;
+  SubMenu := ASubMenu;
+  Next := ANext;
 end;
 
-procedure DisposeMenu(Menu: PMenu);
+destructor TMenuItem.Destroy;
+begin
+  DisposeStr(Name);
+  if Command = 0 then
+    SubMenu.Free
+  else
+    DisposeStr(Param);
+  inherited Destroy;
+end;
+
+procedure TMenuItem.Append(ANext: TMenuItem);
+begin
+  Next := ANext;
+end;
+
+function NewLine: TMenuItem;
+begin
+  Result := TMenuItem.Create('', 0, TKey.Create(0), hcNoContext, '', nil);
+end;
+
+constructor TSubMenu.Create(const Nm: ShortString; AKey: TKey; AHelpCtx: Word);
+begin
+  inherited Create(Nm, AKey, TMenu.Create, AHelpCtx);
+end;
+
+constructor TMenu.Create;
+begin
+  inherited Create;
+  Items := nil;
+  Deflt := nil;
+end;
+
+constructor TMenu.Create(ItemList: TMenuItem);
+begin
+  inherited Create;
+  Items := ItemList;
+  Deflt := ItemList;
+end;
+
+constructor TMenu.Create(ItemList, TheDefault: TMenuItem);
+begin
+  inherited Create;
+  Items := ItemList;
+  Deflt := TheDefault;
+end;
+
+destructor TMenu.Destroy;
 var
-  P, T: PMenuItem;
+  Temp: TMenuItem;
 begin
-  if Menu = nil then
-    Exit;
-  P := Menu^.Items;
-  while P <> nil do
+  while Items <> nil do
   begin
-    T := P;
-    P := P^.Next;
-    if T^.Name <> nil then
-    begin
-      DisposeStr(T^.Name);
-      if T^.Command = 0 then
-        DisposeMenu(T^.SubMenu)
-      else
-        DisposeStr(T^.Param);
-    end;
-    Dispose(T);
+    Temp := Items;
+    Items := Items.Next;
+    Temp.Free;
   end;
-  Dispose(Menu);
+  inherited Destroy;
+end;
+
+operator +(S: TSubMenu; I: TMenuItem): TSubMenu;
+var
+  Sub: TSubMenu;
+  Cur: TMenuItem;
+begin
+  Sub := S;
+  while Sub.Next <> nil do
+    Sub := TSubMenu(Sub.Next);
+  if Sub.SubMenu.Items = nil then
+  begin
+    Sub.SubMenu.Items := I;
+    Sub.SubMenu.Deflt := I;
+  end
+  else
+  begin
+    Cur := Sub.SubMenu.Items;
+    while Cur.Next <> nil do
+      Cur := Cur.Next;
+    Cur.Next := I;
+  end;
+  Result := S;
+end;
+
+operator +(S1, S2: TSubMenu): TSubMenu;
+var
+  Cur: TMenuItem;
+begin
+  Cur := S1;
+  while Cur.Next <> nil do
+    Cur := Cur.Next;
+  Cur.Next := S2;
+  Result := S1;
+end;
+
+operator +(I1, I2: TMenuItem): TMenuItem;
+var
+  Cur: TMenuItem;
+begin
+  Cur := I1;
+  while Cur.Next <> nil do
+    Cur := Cur.Next;
+  Cur.Next := I2;
+  Result := I1;
+end;
+
+operator +(S1: TStatusDef; S2: TStatusItem): TStatusDef;
+var
+  Def: TStatusDef;
+  Cur: TStatusItem;
+begin
+  Def := S1;
+  while Def.Next <> nil do
+    Def := Def.Next;
+  if Def.Items = nil then
+    Def.Items := S2
+  else
+  begin
+    Cur := Def.Items;
+    while Cur.Next <> nil do
+      Cur := Cur.Next;
+    Cur.Next := S2;
+  end;
+  Result := S1;
+end;
+
+operator +(S1, S2: TStatusDef): TStatusDef;
+var
+  Cur: TStatusDef;
+begin
+  Cur := S1;
+  while Cur.Next <> nil do
+    Cur := Cur.Next;
+  Cur.Next := S2;
+  Result := S1;
 end;
 
 { --- TMenuView --------------------------------------------------------------- }
@@ -288,15 +395,15 @@ begin
   B.MoveChar(X + 1 + CStrLen(S), Ord(' '), Color[0], 1);
 end;
 
-function IsLine(P: PMenuItem): Boolean; inline;
+function IsLine(P: TMenuItem): Boolean; inline;
 begin
-  Result := P^.Name = nil;
+  Result := P.Name = nil;
 end;
 
 { an entry whose command can be given now }
-function Usable(P: PMenuItem): Boolean;
+function Usable(P: TMenuItem): Boolean;
 begin
-  Result := Assigned(P) and TView.CommandEnabled(P^.Command);
+  Result := Assigned(P) and TView.CommandEnabled(P.Command);
 end;
 
 procedure SetCommand(var Event: TEvent; Command: Word);
@@ -314,7 +421,7 @@ begin
   V.ClearEvent(Event);
 end;
 
-constructor TMenuView.Create(const Bounds: TRect; AMenu: PMenu; AParent: TMenuView);
+constructor TMenuView.Create(const Bounds: TRect; AMenu: TMenu; AParent: TMenuView);
 begin
   inherited Create(Bounds);
   ParentMenu := AParent;
@@ -330,59 +437,59 @@ var
 begin
   { the entry under the mouse, or nil }
   Mouse := MakeLocal(E.Mouse.Where);
-  Current := Menu^.Items;
+  Current := Menu.Items;
   while Assigned(Current) and not GetItemRect(Current).Contains(Mouse) do
-    Current := Current^.Next;
+    Current := Current.Next;
   if Assigned(Current) then
     MouseActive := True;
 end;
 
 procedure TMenuView.NextItem;
 begin
-  Current := Current^.Next;
+  Current := Current.Next;
   if Current = nil then
-    Current := Menu^.Items;
+    Current := Menu.Items;
 end;
 
 procedure TMenuView.PrevItem;
 var
-  Stop, P: PMenuItem;
+  Stop, P: TMenuItem;
 begin
   { the entry before the current one; before the first comes the last }
-  if Current = Menu^.Items then
+  if Current = Menu.Items then
     Stop := nil
   else
     Stop := Current;
-  P := Menu^.Items;
-  while P^.Next <> Stop do
-    P := P^.Next;
+  P := Menu.Items;
+  while P.Next <> Stop do
+    P := P.Next;
   Current := P;
 end;
 
 { the current item is the last (Forward) or the first one that can be moved to }
 function TMenuView.AtEnd(Forward: Boolean): Boolean;
 var
-  P: PMenuItem;
+  P: TMenuItem;
 begin
   Result := False;
   if (Current = nil) or (Menu = nil) then
     Exit;
   if Forward then
   begin
-    P := Current^.Next;
-    while (P <> nil) and (P^.Name = nil) do
-      P := P^.Next;
+    P := Current.Next;
+    while (P <> nil) and (P.Name = nil) do
+      P := P.Next;
     Result := P = nil;
   end
   else
   begin
     Result := True;
-    P := Menu^.Items;
+    P := Menu.Items;
     while (P <> nil) and (P <> Current) do
     begin
-      if P^.Name <> nil then
+      if P.Name <> nil then
         Exit(False);
-      P := P^.Next;
+      P := P.Next;
     end;
   end;
 end;
@@ -391,10 +498,10 @@ procedure TMenuView.TrackKey(FindNext: Boolean);
 begin
   if Current = nil then
   begin
-    Current := Menu^.Items;
+    Current := Menu.Items;
     if not FindNext then
       PrevItem;
-    if Current^.Name <> nil then
+    if Current.Name <> nil then
       Exit;
   end;
   repeat
@@ -402,7 +509,7 @@ begin
       NextItem
     else
       PrevItem;
-  until Current^.Name <> nil;
+  until Current.Name <> nil;
 end;
 
 function TMenuView.MouseInOwner(var E: TEvent): Boolean;
@@ -449,7 +556,7 @@ var
   E: TEvent;
   Action: TMenuAction;
   AutoSelect, FirstEvent, MouseActive, IsBar, SaveRepeatInfo: Boolean;
-  ItemShown, LastTargetItem, P: PMenuItem;
+  ItemShown, LastTargetItem, P: TMenuItem;
   Target: TMenuView;
   R: TRect;
   Res: Word;
@@ -499,7 +606,7 @@ var
       if Usable(P) then
       begin
         Action := doReturn;
-        Res := P^.Command;
+        Res := P.Command;
       end;
     end
     else if Target <> Self then
@@ -541,10 +648,10 @@ var
   begin
     TrackMouse(E, MouseActive);
     if MouseInOwner(E) then
-      Current := Menu^.Deflt
+      Current := Menu.Deflt
     else if Current <> nil then
     begin
-      if Current^.Name <> nil then
+      if Current.Name <> nil then
         if Current <> LastTargetItem then
           Action := doSelect
         else if IsBar then
@@ -558,9 +665,9 @@ var
     else if not IsBar then
     begin
       { released over a margin or a separator }
-      Current := Menu^.Deflt;
+      Current := Menu.Deflt;
       if Current = nil then
-        Current := Menu^.Items;
+        Current := Menu.Items;
     end;
   end;
 
@@ -636,11 +743,11 @@ var
     R.B := Owner.Size;
     if IsBar then
       Dec(R.A.X);
-    Target := TopMenu.NewSubView(R, Current^.SubMenu, Self);
+    Target := TopMenu.NewSubView(R, Current.SubMenu, Self);
     Res := Owner.ExecView(Target);
     Target.Free;
     LastTargetItem := Current;
-    Menu^.Deflt := Current;
+    Menu.Deflt := Current;
     if SubClosedByEsc then
     begin
       SubClosedByEsc := False;
@@ -657,7 +764,7 @@ begin
   LastTargetItem := nil;
   SubClosedByEsc := False;
   Res := 0;
-  Current := Menu^.Deflt;
+  Current := Menu.Deflt;
   SaveRepeatInfo := KeyRepeatInfo;
   if UxMenuHeldStop then
     KeyRepeatInfo := True;
@@ -691,12 +798,12 @@ begin
       end;
 
       if ((Action = doSelect) or ((Action = doNothing) and AutoSelect)) and
-        (Current <> nil) and (Current^.Name <> nil) then
+        (Current <> nil) and (Current.Name <> nil) then
       begin
-        if (Current^.Command = 0) and not Current^.Disabled then
+        if (Current.Command = 0) and not Current.Disabled then
           OpenSubMenu
         else if Action = doSelect then
-          Res := Current^.Command;
+          Res := Current.Command;
       end;
 
       if Res <> 0 then
@@ -718,31 +825,31 @@ begin
     PutEvent(E);
   if Assigned(Current) then
   begin
-    Menu^.Deflt := Current;
+    Menu.Deflt := Current;
     Current := nil;
     DrawView;
   end;
   Result := Res;
 end;
 
-function TMenuView.FindItem(const Shortcut: ShortString): PMenuItem;
+function TMenuView.FindItem(const Shortcut: ShortString): TMenuItem;
 var
   Hot: ShortString;
 begin
-  Result := Menu^.Items;
+  Result := Menu.Items;
   while Result <> nil do
   begin
-    if (Result^.Name <> nil) and not Result^.Disabled then
+    if (Result.Name <> nil) and not Result.Disabled then
     begin
-      Hot := HotKeyStr(Result^.Name^);
+      Hot := HotKeyStr(Result.Name^);
       if (Hot <> '') and EqualsIgnoreCase(Shortcut, Hot) then
         Exit;
     end;
-    Result := Result^.Next;
+    Result := Result.Next;
   end;
 end;
 
-function TMenuView.FindAltShortcut(const Event: TEvent): PMenuItem;
+function TMenuView.FindAltShortcut(const Event: TEvent): TMenuItem;
 var
   C: Char;
 begin
@@ -758,7 +865,7 @@ begin
   end;
 end;
 
-function TMenuView.GetItemRect(Item: PMenuItem): TRect;
+function TMenuView.GetItemRect(Item: TMenuItem): TRect;
 begin
   Result := TRect.Create(0, 0, 0, 0);
 end;
@@ -768,11 +875,11 @@ var
   C: TMenuView;
 begin
   C := Self;
-  while (C <> nil) and ((C.Current = nil) or (C.Current^.HelpCtx = hcNoContext) or
-    (C.Current^.Name = nil)) do
+  while (C <> nil) and ((C.Current = nil) or (C.Current.HelpCtx = hcNoContext) or
+    (C.Current.Name = nil)) do
     C := C.ParentMenu;
   if C <> nil then
-    Result := C.Current^.HelpCtx
+    Result := C.Current.HelpCtx
   else
     Result := HelpCtx;
 end;
@@ -782,30 +889,30 @@ begin
   Result := TPalette.Create(MenuViewPalette, Length(MenuViewPalette));
 end;
 
-function TMenuView.UpdateMenu(AMenu: PMenu): Boolean;
+function TMenuView.UpdateMenu(AMenu: TMenu): Boolean;
 var
-  P: PMenuItem;
+  P: TMenuItem;
   Enabled: Boolean;
 begin
   Result := False;
   if AMenu = nil then
     Exit;
-  P := AMenu^.Items;
+  P := AMenu.Items;
   while Assigned(P) do
   begin
     if not IsLine(P) then
-      if P^.Command <> 0 then
+      if P.Command <> 0 then
       begin
-        Enabled := CommandEnabled(P^.Command);
-        if P^.Disabled = Enabled then
+        Enabled := CommandEnabled(P.Command);
+        if P.Disabled = Enabled then
         begin
-          P^.Disabled := not Enabled;
+          P.Disabled := not Enabled;
           Result := True;
         end;
       end
-      else if UpdateMenu(P^.SubMenu) then
+      else if UpdateMenu(P.SubMenu) then
         Result := True;
-    P := P^.Next;
+    P := P.Next;
   end;
 end;
 
@@ -828,7 +935,7 @@ end;
 
 procedure TMenuView.HandleEvent(var Event: TEvent);
 var
-  P: PMenuItem;
+  P: TMenuItem;
 begin
   if Menu = nil then
     Exit;
@@ -845,7 +952,7 @@ begin
       begin
         P := HotKey(EventKey(Event));
         if Usable(P) then
-          PostCommand(Self, Event, P^.Command);
+          PostCommand(Self, Event, P.Command);
       end;
     evBroadcast:
       if (Event.Message.Command = cmCommandSetChanged) and UpdateMenu(Menu) then
@@ -853,34 +960,34 @@ begin
   end;
 end;
 
-function TMenuView.FindHotKey(P: PMenuItem; Key: TKey): PMenuItem;
+function TMenuView.FindHotKey(P: TMenuItem; Key: TKey): TMenuItem;
 var
-  T: PMenuItem;
+  T: TMenuItem;
 begin
   while P <> nil do
   begin
-    if P^.Name <> nil then
+    if P.Name <> nil then
     begin
-      if P^.Command = 0 then
+      if P.Command = 0 then
       begin
-        T := FindHotKey(P^.SubMenu^.Items, Key);
+        T := FindHotKey(P.SubMenu.Items, Key);
         if T <> nil then
           Exit(T);
       end
-      else if (not P^.Disabled) and (P^.KeyCode.Code <> kbNoKey) and (P^.KeyCode = Key) then
+      else if (not P.Disabled) and (P.KeyCode.Code <> kbNoKey) and (P.KeyCode = Key) then
         Exit(P);
     end;
-    P := P^.Next;
+    P := P.Next;
   end;
   Result := nil;
 end;
 
-function TMenuView.HotKey(Key: TKey): PMenuItem;
+function TMenuView.HotKey(Key: TKey): TMenuItem;
 begin
-  Result := FindHotKey(Menu^.Items, Key);
+  Result := FindHotKey(Menu.Items, Key);
 end;
 
-function TMenuView.NewSubView(const Bounds: TRect; AMenu: PMenu;
+function TMenuView.NewSubView(const Bounds: TRect; AMenu: TMenu;
   AParentMenu: TMenuView): TMenuView;
 var
   B: TMenuBox;
@@ -891,7 +998,7 @@ end;
 
 { --- TMenuBar ---------------------------------------------------------------- }
 
-constructor TMenuBar.Create(const Bounds: TRect; AMenu: PMenu);
+constructor TMenuBar.Create(const Bounds: TRect; AMenu: TMenu);
 begin
   inherited Create(Bounds, AMenu, nil);
   GrowMode := gfGrowHiX;
@@ -900,7 +1007,7 @@ end;
 
 destructor TMenuBar.Destroy;
 begin
-  DisposeMenu(Menu);
+  Menu.Free;
   Menu := nil;
   inherited Destroy;
 end;
@@ -909,7 +1016,7 @@ procedure TMenuBar.Draw;
 var
   B: TDrawBuffer;
   C: TMenuColors;
-  P: PMenuItem;
+  P: TMenuItem;
   X, W: Integer;
 begin
   C := GetMenuColors(Self);
@@ -918,19 +1025,19 @@ begin
     B.MoveChar(0, Ord(' '), C.Normal[0], Size.X);
     P := nil;
     if Menu <> nil then
-      P := Menu^.Items;
+      P := Menu.Items;
     X := 1;
     while Assigned(P) do
     begin
       if not IsLine(P) then
       begin
-        W := CStrLen(P^.Name^) + 2;
+        W := CStrLen(P.Name^) + 2;
         { an entry that does not fit is not drawn }
         if X + W - 2 < Size.X then
-          PutLabel(B, X, P^.Name^, ItemColor(C, not P^.Disabled, P = Current));
+          PutLabel(B, X, P.Name^, ItemColor(C, not P.Disabled, P = Current));
         Inc(X, W);
       end;
-      P := P^.Next;
+      P := P.Next;
     end;
     WriteBuf(0, 0, Size.X, 1, B);
   finally
@@ -938,21 +1045,21 @@ begin
   end;
 end;
 
-function TMenuBar.GetItemRect(Item: PMenuItem): TRect;
+function TMenuBar.GetItemRect(Item: TMenuItem): TRect;
 var
-  P: PMenuItem;
+  P: TMenuItem;
 begin
   { the entries follow each other from column 1, each with a blank on both sides }
   Result := TRect.Create(1, 0, 1, 1);
-  P := Menu^.Items;
+  P := Menu.Items;
   while Assigned(P) do
   begin
     Result.A.X := Result.B.X;
     if not IsLine(P) then
-      Result.B.X := Result.A.X + CStrLen(P^.Name^) + 2;
+      Result.B.X := Result.A.X + CStrLen(P.Name^) + 2;
     if P = Item then
       Break;
-    P := P^.Next;
+    P := P.Next;
   end;
 end;
 
@@ -965,13 +1072,13 @@ const
     32, glLightV, 32, glLightV, 32, 32, glLightVR, glLightH, glLightVL, 32);
 
 { the columns an entry needs: frame, margins, name, and the arrow or the key name }
-function EntryWidth(P: PMenuItem): Integer;
+function EntryWidth(P: TMenuItem): Integer;
 begin
-  Result := CStrLen(P^.Name^) + 6;
-  if P^.Command = 0 then
+  Result := CStrLen(P.Name^) + 6;
+  if P.Command = 0 then
     Inc(Result, 3)
-  else if P^.Param <> nil then
-    Inc(Result, CStrLen(P^.Param^) + 2);
+  else if P.Param <> nil then
+    Inc(Result, CStrLen(P.Param^) + 2);
 end;
 
 { Lo..Hi becomes Len long, from Lo if there is room, else ending at Hi }
@@ -983,29 +1090,29 @@ begin
     Lo := Hi - Len;
 end;
 
-function MenuBoxRect(const Bounds: TRect; AMenu: PMenu): TRect;
+function MenuBoxRect(const Bounds: TRect; AMenu: TMenu): TRect;
 var
-  P: PMenuItem;
+  P: TMenuItem;
   Width, Height: Integer;
 begin
   Width := 10;
   Height := 2;      { the top and bottom lines }
   P := nil;
   if AMenu <> nil then
-    P := AMenu^.Items;
+    P := AMenu.Items;
   while Assigned(P) do
   begin
     Inc(Height);
     if not IsLine(P) and (EntryWidth(P) > Width) then
       Width := EntryWidth(P);
-    P := P^.Next;
+    P := P.Next;
   end;
   Result := Bounds;
   FitSpan(Result.A.X, Result.B.X, Width);
   FitSpan(Result.A.Y, Result.B.Y, Height);
 end;
 
-constructor TMenuBox.Create(const Bounds: TRect; AMenu: PMenu; AParentMenu: TMenuView);
+constructor TMenuBox.Create(const Bounds: TRect; AMenu: TMenu; AParentMenu: TMenuView);
 begin
   inherited Create(MenuBoxRect(Bounds, AMenu), AMenu, AParentMenu);
   State := State or sfShadow;
@@ -1026,7 +1133,7 @@ var
   B: TDrawBuffer;
   C: TMenuColors;
   Color: TAttrPair;
-  P: PMenuItem;
+  P: TMenuItem;
   Y: Integer;
 begin
   C := GetMenuColors(Self);
@@ -1037,7 +1144,7 @@ begin
     Y := 0;
     P := nil;
     if Menu <> nil then
-      P := Menu^.Items;
+      P := Menu.Items;
     while Assigned(P) do
     begin
       Inc(Y);
@@ -1045,16 +1152,16 @@ begin
         FrameLine(B, 15, C.Normal[0], C.Normal[0])
       else
       begin
-        Color := ItemColor(C, not P^.Disabled, P = Current);
+        Color := ItemColor(C, not P.Disabled, P = Current);
         FrameLine(B, 10, C.Normal[0], Color[0]);
-        B.MoveCStrS(3, P^.Name^, Color);
-        if P^.Command = 0 then
+        B.MoveCStrS(3, P.Name^, Color);
+        if P.Command = 0 then
           B.PutGlyph(Size.X - 4, glTriRight)
-        else if P^.Param <> nil then
-          B.MoveCStrS(Size.X - 3 - CStrLen(P^.Param^), P^.Param^, Color);
+        else if P.Param <> nil then
+          B.MoveCStrS(Size.X - 3 - CStrLen(P.Param^), P.Param^, Color);
       end;
       WriteBuf(0, Y, Size.X, 1, B);
-      P := P^.Next;
+      P := P.Next;
     end;
     FrameLine(B, 5, C.Normal[0], C.Normal[0]);
     WriteBuf(0, Y + 1, Size.X, 1, B);
@@ -1063,17 +1170,17 @@ begin
   end;
 end;
 
-function TMenuBox.GetItemRect(Item: PMenuItem): TRect;
+function TMenuBox.GetItemRect(Item: TMenuItem): TRect;
 var
-  P: PMenuItem;
+  P: TMenuItem;
   Row: Integer;
 begin
   { one row per entry, below the top frame line }
-  P := Menu^.Items;
+  P := Menu.Items;
   Row := 1;
   while Assigned(P) and (P <> Item) do
   begin
-    P := P^.Next;
+    P := P.Next;
     Inc(Row);
   end;
   Result := TRect.Create(2, Row, Size.X - 2, Row + 1);
@@ -1081,7 +1188,7 @@ end;
 
 { --- TMenuPopup -------------------------------------------------------------- }
 
-constructor TMenuPopup.Create(const Bounds: TRect; AMenu: PMenu; AParentMenu: TMenuView);
+constructor TMenuPopup.Create(const Bounds: TRect; AMenu: TMenu; AParentMenu: TMenuView);
 begin
   inherited Create(Bounds, AMenu, AParentMenu);
   PutClickEventOnExit := False;
@@ -1089,7 +1196,7 @@ end;
 
 destructor TMenuPopup.Destroy;
 begin
-  DisposeMenu(Menu);
+  Menu.Free;
   Menu := nil;
   inherited Destroy;
 end;
@@ -1097,13 +1204,13 @@ end;
 function TMenuPopup.Execute: Word;
 begin
   { the default entry is not highlighted: it would look ugly }
-  Menu^.Deflt := nil;
+  Menu.Deflt := nil;
   Result := inherited Execute;
 end;
 
 procedure TMenuPopup.HandleEvent(var Event: TEvent);
 var
-  P: PMenuItem;
+  P: TMenuItem;
   C: Char;
 begin
   if Event.What = evKeyDown then
@@ -1117,7 +1224,7 @@ begin
     if P = nil then
       P := HotKey(TKey.Create(Event.KeyDown.KeyCode));
     if Usable(P) then
-      PostCommand(Self, Event, P^.Command)
+      PostCommand(Self, Event, P.Command)
     else if GetAltChar(Event.KeyDown.KeyCode) <> #0 then
       { the menu bar must not see Alt keys while the popup is open }
       ClearEvent(Event);
@@ -1133,29 +1240,36 @@ begin
   Result := GlyphStr(glLightV) + ' ';
 end;
 
-function NewStatusKey(const AText: ShortString; AKeyCode, ACommand: Word;
-  ANext: PStatusItem): PStatusItem;
+{ --- TStatusItem, TStatusDef ------------------------------------------------------ }
+
+constructor TStatusItem.Create(const AText: ShortString; AKey: TKey; Cmd: Word; ANext: TStatusItem);
 begin
-  New(Result);
-  Result^.Next := ANext;
+  inherited Create;
+  Next := ANext;
   if AText = '' then
-    Result^.Text := nil      { a hidden item: only its key works }
+    Text := nil              { the null text of tvision: a hidden item, only its key works }
   else
-    Result^.Text := NewStr(AText);
-  Result^.KeyCode := TKey.Create(AKeyCode);
-  Result^.Command := ACommand;
+    Text := NewStr(AText);
+  KeyCode := AKey;
+  Command := Cmd;
 end;
 
-function NewStatusDef(AMin, AMax: Word; AItems: PStatusItem; ANext: PStatusDef): PStatusDef;
+destructor TStatusItem.Destroy;
 begin
-  New(Result);
-  Result^.Next := ANext;
-  Result^.Min := AMin;
-  Result^.Max := AMax;
-  Result^.Items := AItems;
+  DisposeStr(Text);
+  inherited Destroy;
 end;
 
-constructor TStatusLine.Create(const Bounds: TRect; ADefs: PStatusDef);
+constructor TStatusDef.Create(AMin, AMax: Word; SomeItems: TStatusItem; ANext: TStatusDef);
+begin
+  inherited Create;
+  Next := ANext;
+  Min := AMin;
+  Max := AMax;
+  Items := SomeItems;
+end;
+
+constructor TStatusLine.Create(const Bounds: TRect; ADefs: TStatusDef);
 begin
   inherited Create(Bounds);
   Defs := ADefs;
@@ -1167,22 +1281,21 @@ end;
 
 destructor TStatusLine.Destroy;
 var
-  T: PStatusDef;
-  I, TI: PStatusItem;
+  T: TStatusDef;
+  I, TI: TStatusItem;
 begin
   while Defs <> nil do
   begin
     T := Defs;
-    Defs := Defs^.Next;
-    I := T^.Items;
+    Defs := Defs.Next;
+    I := T.Items;
     while I <> nil do
     begin
       TI := I;
-      I := I^.Next;
-      DisposeStr(TI^.Text);
-      Dispose(TI);
+      I := I.Next;
+      TI.Free;
     end;
-    Dispose(T);
+    T.Free;
   end;
   Items := nil;
   inherited Destroy;
@@ -1193,11 +1306,11 @@ begin
   DrawSelect(nil);
 end;
 
-procedure TStatusLine.DrawSelect(Selected: PStatusItem);
+procedure TStatusLine.DrawSelect(Selected: TStatusItem);
 var
   B: TDrawBuffer;
   C: TMenuColors;
-  T: PStatusItem;
+  T: TStatusItem;
   X, W: Integer;
   HintText: ShortString;
 begin
@@ -1209,14 +1322,14 @@ begin
     T := Items;
     while Assigned(T) do
     begin
-      if T^.Text <> nil then
+      if T.Text <> nil then
       begin
-        W := CStrLen(T^.Text^) + 2;
+        W := CStrLen(T.Text^) + 2;
         if X + W - 2 < Size.X then
-          PutLabel(B, X, T^.Text^, ItemColor(C, CommandEnabled(T^.Command), T = Selected));
+          PutLabel(B, X, T.Text^, ItemColor(C, CommandEnabled(T.Command), T = Selected));
         Inc(X, W);
       end;
-      T := T^.Next;
+      T := T.Next;
     end;
     { the hint of the help context, after a separator }
     if X < Size.X - 2 then
@@ -1236,18 +1349,18 @@ end;
 
 procedure TStatusLine.FindItems;
 var
-  D: PStatusDef;
+  D: TStatusDef;
 begin
   Items := nil;
   D := Defs;
   while D <> nil do
   begin
-    if (HelpCtx >= D^.Min) and (HelpCtx <= D^.Max) then
+    if (HelpCtx >= D.Min) and (HelpCtx <= D.Max) then
     begin
-      Items := D^.Items;
+      Items := D.Items;
       Exit;
     end;
-    D := D^.Next;
+    D := D.Next;
   end;
 end;
 
@@ -1256,10 +1369,10 @@ begin
   Result := TPalette.Create(MenuViewPalette, Length(MenuViewPalette));
 end;
 
-function TStatusLine.ItemMouseIsIn(Mouse: TPoint): PStatusItem;
+function TStatusLine.ItemMouseIsIn(Mouse: TPoint): TStatusItem;
 var
   I, K: Integer;
-  T: PStatusItem;
+  T: TStatusItem;
 begin
   Result := nil;
   if Mouse.Y <> 0 then
@@ -1268,20 +1381,20 @@ begin
   T := Items;
   while T <> nil do
   begin
-    if T^.Text <> nil then
+    if T.Text <> nil then
     begin
-      K := I + CStrLen(T^.Text^) + 2;
+      K := I + CStrLen(T.Text^) + 2;
       if (Mouse.X >= I) and (Mouse.X < K) then
         Exit(T);
       I := K;
     end;
-    T := T^.Next;
+    T := T.Next;
   end;
 end;
 
 procedure TStatusLine.HandleEvent(var Event: TEvent);
 var
-  T, Under: PStatusItem;
+  T, Under: TStatusItem;
   Key: TKey;
 begin
   inherited HandleEvent(Event);
@@ -1291,11 +1404,11 @@ begin
       begin
         Key := EventKey(Event);
         T := Items;
-        while Assigned(T) and not ((Key = T^.KeyCode) and CommandEnabled(T^.Command)) do
-          T := T^.Next;
+        while Assigned(T) and not ((Key = T.KeyCode) and CommandEnabled(T.Command)) do
+          T := T.Next;
         { the event becomes the command at once }
         if Assigned(T) then
-          SetCommand(Event, T^.Command);
+          SetCommand(Event, T.Command);
       end;
     evMouseDown:
       begin
@@ -1309,9 +1422,9 @@ begin
             T := Under;
           end;
         until not MouseEvent(Event, evMouseMove);
-        if Assigned(T) and CommandEnabled(T^.Command) then
+        if Assigned(T) and CommandEnabled(T.Command) then
         begin
-          SetCommand(Event, T^.Command);
+          SetCommand(Event, T.Command);
           PutEvent(Event);
         end;
         ClearEvent(Event);

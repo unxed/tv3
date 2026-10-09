@@ -10,8 +10,8 @@ const
 
 var
   I: Integer;
-  M: PMenuItem;
-  S: PStatusItem;
+  M: TMenuItem;
+  S: TStatusItem;
   E: TEvent;
 
 begin
@@ -29,12 +29,12 @@ begin
 
   { a menu item and a status line item come from the action }
   M := NewActionItem('file.save', NewActionItem('missing', nil));
-  Check((M <> nil) and (M^.Command = cmSave) and (M^.KeyCode = TKey.Create(kbF2)) and (M^.Next = nil), 'NewActionItem: the command and the key of the action; an unknown name adds nothing');
-  Check(M^.Param^ = 'F2', '... and the key text is shown');
-  DisposeMenu(NewMenu(M));
+  Check((M <> nil) and (M.Command = cmSave) and (M.KeyCode = TKey.Create(kbF2)) and (M.Next = nil), 'NewActionItem: the command and the key of the action; an unknown name adds nothing');
+  Check(M.Param^ = 'F2', '... and the key text is shown');
+  TMenu.Create(M).Free;
   S := NewActionStatusKey('~F3~ Open', 'file.open', nil);
-  Check((S <> nil) and (S^.Command = cmOpen) and (S^.KeyCode = TKey.Create(kbF3)), 'NewActionStatusKey');
-  Dispose(S);
+  Check((S <> nil) and (S.Command = cmOpen) and (S.KeyCode = TKey.Create(kbF3)), 'NewActionStatusKey');
+  S.Free;
 
   { a key becomes the command }
   MakeKeyEvent(E, kbF3, 0);
