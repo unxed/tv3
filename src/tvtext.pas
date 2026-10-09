@@ -2,7 +2,7 @@
   in screen cells.
 
   Translated from magiblot/tvision @ b4831e2:
-    include/tvision/ttext.h, source/platform/ttext.cpp (TText)
+    include/tvision/ttext.h, source/platform/ttext.cpp (TText, with equalsIgnoreCase)
   Borland disclaimer and MIT notice: COPYRIGHT.magiblot.
 
   Text is Len bytes at a PByte. Invalid UTF-8 bytes count as one character of
@@ -10,8 +10,11 @@
   A cell holds one printable character (width 1 or 2) and the zero-width
   characters appended to it. A double-width character takes a cell and a trail
   cell after it (when there is room for the trail).
-  Not translated yet: equalsIgnoreCase (needs case tables), the UTF-32 variants,
-  drawStrEx with a callback (Attr: PColorAttr, nil = keep the attributes). }
+  EqualsIgnoreCase lowercases code points with a small built-in table (Latin-1,
+  Latin Extended-A, Greek, Cyrillic) instead of the platform's tables; invalid
+  UTF-8 bytes are taken as code page bytes, like the original does.
+  Not translated yet: the UTF-32 variants, drawStrEx with a callback (Attr:
+  PColorAttr, nil = keep the attributes). }
 unit TvText;
 
 {$I tvdefs.inc}
@@ -66,6 +69,9 @@ type
     { Code page conversion of the first character of Text: the byte for ASCII, else the
       byte of the current code page (0 if there is none). }
     class function ToCodePage(Text: PByte; Len: Integer): Byte; static;
+
+    { Compares two UTF-8 strings ignoring case. }
+    class function EqualsIgnoreCase(const A, B: ShortString): Boolean; static;
   end;
 
 implementation
@@ -365,6 +371,47 @@ begin
     Result := CpFromUnicode(CP)
   else
     Result := 0;
+end;
+
+function Lower(C: LongWord): LongWord;
+begin
+  Result := C;
+  case C of
+    Ord('A')..Ord('Z'): Result := C + 32;
+    $C0..$DE: if C <> $D7 then Result := C + 32;
+    $100..$137, $14A..$177: if (C and 1) = 0 then Result := C + 1;
+    $139..$148, $179..$17E: if (C and 1) = 1 then Result := C + 1;
+    $178: Result := $FF;
+    $391..$3A9: if C <> $3A2 then Result := C + 32;
+    $400..$40F: Result := C + 80;
+    $410..$42F: Result := C + 32;
+  end;
+end;
+
+{ one character: UTF-8 when valid, otherwise a code page byte }
+function NextChar(const S: ShortString; var I: Integer): LongWord;
+var
+  Used: Integer;
+begin
+  if Utf8Enabled and Utf8Decode(@S[I], Length(S) - I + 1, Result, Used) then
+    Inc(I, Used)
+  else
+  begin
+    Result := CpToUnicode(Byte(S[I]));
+    Inc(I);
+  end;
+end;
+
+class function TText.EqualsIgnoreCase(const A, B: ShortString): Boolean;
+var
+  I, J: Integer;
+begin
+  I := 1;
+  J := 1;
+  while (I <= Length(A)) and (J <= Length(B)) do
+    if Lower(NextChar(A, I)) <> Lower(NextChar(B, J)) then
+      Exit(False);
+  Result := (I > Length(A)) and (J > Length(B));
 end;
 
 end.

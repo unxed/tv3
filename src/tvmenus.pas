@@ -20,7 +20,7 @@ unit TvMenus;
 interface
 
 uses
-  TvGeom, TvColors, TvCell, TvKeys, TvEvents, TvDrawBuf, TvScreen, TvObjs, TvViews, TvUtil, TvGlyphs, TvXlat, TvSys;
+  TvGeom, TvColors, TvCell, TvKeys, TvEvents, TvDrawBuf, TvScreen, TvObjs, TvViews, TvUtil, TvText, TvGlyphs, TvXlat, TvSys;
 
 type
   TMenu = class;
@@ -879,7 +879,7 @@ begin
     if (Result.Name <> nil) and not Result.Disabled then
     begin
       Hot := HotKeyStr(Result.Name^);
-      if (Hot <> '') and EqualsIgnoreCase(Shortcut, Hot) then
+      if (Hot <> '') and TText.EqualsIgnoreCase(Shortcut, Hot) then
         Exit;
     end;
     Result := Result.Next;
