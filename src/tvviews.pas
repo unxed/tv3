@@ -10,7 +10,6 @@
   Differences from the C++ original (see tv/DESIGN.md):
     - Pascal names: Done (which also detaches the view from its group, like the
       Pascal Turbo Vision), Delete instead of remove;
-    - TCommandSet is `set of Byte` (commands above 255 are always enabled);
     - a TPalette is an array of TColorAttr whose element 0 is the number of
       entries as a BIOS attribute; a nil palette is an empty one;
     - the screen is TvScreen, the output engine only knows TScreenCell buffers;
@@ -84,7 +83,28 @@ type
   TView = class;
   TGroup = class;
 
-  TCommandSet = set of Byte;
+  { the operators: + and - for += and -=, and, or for &, | (and &=, |=), = and <> }
+  TCommandSet = record
+  private
+    Cmds: array[0..31] of Byte;
+    class function Loc(Cmd: Integer): LongWord; static; inline;
+    class function Mask(Cmd: Integer): Integer; static; inline;
+  public
+    function Has(Cmd: Integer): Boolean;
+    procedure DisableCmd(Cmd: Integer); overload;
+    procedure EnableCmd(Cmd: Integer); overload;
+    procedure DisableCmd(const TC: TCommandSet); overload;
+    procedure EnableCmd(const TC: TCommandSet); overload;
+    function IsEmpty: Boolean;
+    class operator +(const TC: TCommandSet; Cmd: Integer): TCommandSet;
+    class operator -(const TC: TCommandSet; Cmd: Integer): TCommandSet;
+    class operator +(const TC1, TC2: TCommandSet): TCommandSet;
+    class operator -(const TC1, TC2: TCommandSet): TCommandSet;
+    class operator and(const TC1, TC2: TCommandSet): TCommandSet;
+    class operator or(const TC1, TC2: TCommandSet): TCommandSet;
+    class operator =(const TC1, TC2: TCommandSet): Boolean;
+    class operator <>(const TC1, TC2: TCommandSet): Boolean;
+  end;
 
   { Element 0 holds the number of entries (a BIOS attribute); entries 1..N map a
     color index of a view to a color index of its owner (or, in the palette of the
@@ -337,51 +357,167 @@ implementation
 { Commands, palettes, message                                               }
 { ------------------------------------------------------------------------- }
 
+{ --- TCommandSet ---------------------------------------------------------------- }
+
+const
+  CmdMasks: array[0..7] of Integer = ($0001, $0002, $0004, $0008, $0010, $0020, $0040, $0080);
+
+class function TCommandSet.Loc(Cmd: Integer): LongWord;
+begin
+  Result := LongWord(Cmd) div 8;
+end;
+
+class function TCommandSet.Mask(Cmd: Integer): Integer;
+begin
+  Result := CmdMasks[Cmd and $07];
+end;
+
+function TCommandSet.Has(Cmd: Integer): Boolean;
+begin
+  if Loc(Cmd) < 32 then
+    Result := (Cmds[Loc(Cmd)] and Mask(Cmd)) <> 0
+  else
+    Result := False;
+end;
+
+procedure TCommandSet.DisableCmd(Cmd: Integer);
+begin
+  if Loc(Cmd) < 32 then
+    Cmds[Loc(Cmd)] := Cmds[Loc(Cmd)] and not Mask(Cmd);
+end;
+
+procedure TCommandSet.EnableCmd(const TC: TCommandSet);
+var
+  I: Integer;
+begin
+  for I := 0 to 31 do
+    Cmds[I] := Cmds[I] or TC.Cmds[I];
+end;
+
+procedure TCommandSet.DisableCmd(const TC: TCommandSet);
+var
+  I: Integer;
+begin
+  for I := 0 to 31 do
+    Cmds[I] := Cmds[I] and not TC.Cmds[I];
+end;
+
+procedure TCommandSet.EnableCmd(Cmd: Integer);
+begin
+  if Loc(Cmd) < 32 then
+    Cmds[Loc(Cmd)] := Cmds[Loc(Cmd)] or Mask(Cmd);
+end;
+
+function TCommandSet.IsEmpty: Boolean;
+var
+  I: Integer;
+begin
+  for I := 0 to 31 do
+    if Cmds[I] <> 0 then
+      Exit(False);
+  Result := True;
+end;
+
+class operator TCommandSet.+(const TC: TCommandSet; Cmd: Integer): TCommandSet;
+begin
+  Result := TC;
+  Result.EnableCmd(Cmd);
+end;
+
+class operator TCommandSet.-(const TC: TCommandSet; Cmd: Integer): TCommandSet;
+begin
+  Result := TC;
+  Result.DisableCmd(Cmd);
+end;
+
+class operator TCommandSet.+(const TC1, TC2: TCommandSet): TCommandSet;
+begin
+  Result := TC1;
+  Result.EnableCmd(TC2);
+end;
+
+class operator TCommandSet.-(const TC1, TC2: TCommandSet): TCommandSet;
+begin
+  Result := TC1;
+  Result.DisableCmd(TC2);
+end;
+
+class operator TCommandSet.and(const TC1, TC2: TCommandSet): TCommandSet;
+var
+  I: Integer;
+begin
+  Result := TC1;
+  for I := 0 to 31 do
+    Result.Cmds[I] := Result.Cmds[I] and TC2.Cmds[I];
+end;
+
+class operator TCommandSet.or(const TC1, TC2: TCommandSet): TCommandSet;
+var
+  I: Integer;
+begin
+  Result := TC1;
+  for I := 0 to 31 do
+    Result.Cmds[I] := Result.Cmds[I] or TC2.Cmds[I];
+end;
+
+class operator TCommandSet.=(const TC1, TC2: TCommandSet): Boolean;
+var
+  I: Integer;
+begin
+  for I := 0 to 31 do
+    if TC1.Cmds[I] <> TC2.Cmds[I] then
+      Exit(False);
+  Result := True;
+end;
+
+class operator TCommandSet.<>(const TC1, TC2: TCommandSet): Boolean;
+begin
+  Result := not (TC1 = TC2);
+end;
+
+{ --- the commands of TView ------------------------------------------------------- }
+
 procedure InitCommands;
 var
   I: Integer;
 begin
-  TView.CurCommandSet := [];
+  TView.CurCommandSet := Default(TCommandSet);
   for I := 0 to 255 do
-    Include(TView.CurCommandSet, I);
-  Exclude(TView.CurCommandSet, cmZoom);
-  Exclude(TView.CurCommandSet, cmClose);
-  Exclude(TView.CurCommandSet, cmResize);
-  Exclude(TView.CurCommandSet, cmNext);
-  Exclude(TView.CurCommandSet, cmPrev);
+    TView.CurCommandSet.EnableCmd(I);
+  TView.CurCommandSet.DisableCmd(cmZoom);
+  TView.CurCommandSet.DisableCmd(cmClose);
+  TView.CurCommandSet.DisableCmd(cmResize);
+  TView.CurCommandSet.DisableCmd(cmNext);
+  TView.CurCommandSet.DisableCmd(cmPrev);
 end;
 
 class function TView.CommandEnabled(Command: Word): Boolean;
 begin
-  Result := (Command > 255) or (Byte(Command) in CurCommandSet);
+  Result := (Command > 255) or CurCommandSet.Has(Command);
 end;
 
 class procedure TView.DisableCommands(const Commands: TCommandSet);
 begin
-  CommandSetChanged := CommandSetChanged or ((CurCommandSet * Commands) <> []);
-  CurCommandSet := CurCommandSet - Commands;
+  CommandSetChanged := CommandSetChanged or not (CurCommandSet and Commands).IsEmpty;
+  CurCommandSet.DisableCmd(Commands);
 end;
 
 class procedure TView.EnableCommands(const Commands: TCommandSet);
 begin
-  CommandSetChanged := CommandSetChanged or ((CurCommandSet * Commands) <> Commands);
-  CurCommandSet := CurCommandSet + Commands;
+  CommandSetChanged := CommandSetChanged or ((CurCommandSet and Commands) <> Commands);
+  CurCommandSet.EnableCmd(Commands);
 end;
 
 class procedure TView.DisableCommand(Command: Word);
 begin
-  if Command > 255 then
-    Exit;
-  CommandSetChanged := CommandSetChanged or (Byte(Command) in CurCommandSet);
-  Exclude(CurCommandSet, Byte(Command));
+  CommandSetChanged := CommandSetChanged or CurCommandSet.Has(Command);
+  CurCommandSet.DisableCmd(Command);
 end;
 
 class procedure TView.EnableCommand(Command: Word);
 begin
-  if Command > 255 then
-    Exit;
-  CommandSetChanged := CommandSetChanged or not (Byte(Command) in CurCommandSet);
-  Include(CurCommandSet, Byte(Command));
+  CommandSetChanged := CommandSetChanged or not CurCommandSet.Has(Command);
+  CurCommandSet.EnableCmd(Command);
 end;
 
 class procedure TView.GetCommands(out Commands: TCommandSet);
@@ -1009,7 +1145,7 @@ begin
   if Assigned(CommandHiddenHook) and CommandHiddenHook(Command) then
     Result := False
   else
-    Result := (Command > 255) or (Byte(Command) in CurCommandSet);
+    Result := (Command > 255) or CurCommandSet.Has(Command);
 end;
 
 procedure TView.DragView(var Event: TEvent; Mode: Byte; var Limits: TRect;

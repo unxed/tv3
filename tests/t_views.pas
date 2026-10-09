@@ -3,6 +3,15 @@ program t_views;
 uses TvGeom, TvColors, TvCell, TvEvents, TvKeys, TvDrawBuf, TvScreen, TvObjs, TvViews;
 {$I testlib.inc}
 
+function CommandsOf(const A: array of Integer): TCommandSet;
+var
+  I: Integer;
+begin
+  Result := Default(TCommandSet);
+  for I := 0 to High(A) do
+    Result := Result + A[I];
+end;
+
 const
   W = 40;
   H = 12;
@@ -387,16 +396,22 @@ begin
   TView.CommandSetChanged := False;
   TView.EnableCommand(cmZoom);
   Check(not TView.CommandSetChanged, 'enabling an enabled command changes nothing');
-  Cmds := [cmZoom, cmQuit];
+  Cmds := CommandsOf([cmZoom, cmQuit]);
   TView.DisableCommands(Cmds);
   Check(not TView.CommandEnabled(cmZoom) and not TView.CommandEnabled(cmQuit), 'DisableCommands');
   TView.GetCommands(Cmds);
-  TView.EnableCommands([cmQuit, cmClose]);
+  TView.EnableCommands(CommandsOf([cmQuit, cmClose]));
   Check(TView.CommandEnabled(cmQuit) and TView.CommandEnabled(cmClose), 'EnableCommands');
   TView.SetCommands(Cmds);
   Check(not TView.CommandEnabled(cmClose) and not TView.CommandEnabled(cmQuit), 'SetCommands restores a saved set');
-  TView.SetCmdState([cmQuit], True);
+  TView.SetCmdState(CommandsOf([cmQuit]), True);
   Check(TView.CommandEnabled(cmQuit), 'SetCmdState enable');
+  Cmds := Default(TCommandSet);
+  Check(Cmds.IsEmpty and not Cmds.Has(cmQuit), 'a new TCommandSet is empty');
+  Cmds := Cmds + cmQuit + 300;
+  Check(Cmds.Has(cmQuit) and not Cmds.Has(300) and not Cmds.IsEmpty, 'TCommandSet: + adds a command below 256');
+  Check(((Cmds or CommandsOf([cmZoom])) and CommandsOf([cmZoom])) = CommandsOf([cmZoom]), 'TCommandSet: or, and, =');
+  Check((Cmds - cmQuit).IsEmpty and ((Cmds - Cmds) <> Cmds), 'TCommandSet: - and <>');
 
   { colors }
   V1 := TFill.Create(R(0, 0, 2, 1), 'c', $07);

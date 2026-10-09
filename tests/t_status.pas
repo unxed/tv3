@@ -4,6 +4,15 @@ uses TvCodePg, TvGeom, TvColors, TvCell, TvEvents, TvKeys, TvDrawBuf, TvScreen, 
   TvUtil, TvMenus;
 {$I testlib.inc}
 
+function CommandsOf(const A: array of Integer): TCommandSet;
+var
+  I: Integer;
+begin
+  Result := Default(TCommandSet);
+  for I := 0 to High(A) do
+    Result := Result + A[I];
+end;
+
 const
   W = 40;
   H = 12;
@@ -134,7 +143,7 @@ begin
   Desk.Options := 0;
   Desk.Buffer := TScreen.ScreenBuffer;
   Desk.State := sfVisible or sfSelected or sfFocused or sfModal or sfExposed;
-  TView.EnableCommands([cmHelp, cmQuit, cmSave]);
+  TView.EnableCommands(CommandsOf([cmHelp, cmQuit, cmSave]));
   Used0 := GetFPCHeapStatus.CurrHeapUsed;
 
   Line := THintLine.Create(R(0, Y, W, H), Defs);

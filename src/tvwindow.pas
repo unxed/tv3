@@ -1049,15 +1049,15 @@ begin
     SetState(sfActive, Enable);
     if Frame <> nil then
       Frame.SetState(sfActive, Enable);
-    WindowCommands := [];
-    Include(WindowCommands, cmNext);
-    Include(WindowCommands, cmPrev);
+    WindowCommands := Default(TCommandSet);
+    WindowCommands := WindowCommands + cmNext;
+    WindowCommands := WindowCommands + cmPrev;
     if (Flags and (wfGrow or wfMove)) <> 0 then
-      Include(WindowCommands, cmResize);
+      WindowCommands := WindowCommands + cmResize;
     if (Flags and wfClose) <> 0 then
-      Include(WindowCommands, cmClose);
+      WindowCommands := WindowCommands + cmClose;
     if (Flags and wfZoom) <> 0 then
-      Include(WindowCommands, cmZoom);
+      WindowCommands := WindowCommands + cmZoom;
     if Enable then
       EnableCommands(WindowCommands)
     else

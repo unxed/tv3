@@ -409,8 +409,8 @@ procedure TInputLine.SetCmdState(Command: Word; Enable: Boolean);
 var
   S: TCommandSet;
 begin
-  S := [];
-  Include(S, Command);
+  S := Default(TCommandSet);
+  S := S + Command;
   if Enable and CanUpdateCommands then
     EnableCommands(S)
   else
