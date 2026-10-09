@@ -8,7 +8,6 @@
 
   Differences from the C++ original (see tv/DESIGN.md):
     - the texts are ShortStrings;
-    - streams are not translated yet;
     - the data of TCluster is a Word, the one of TMultiCheckBoxes is a LongWord, as in the
       original (DataSize). }
 unit TvCluster;
@@ -42,8 +41,13 @@ type
     Sel: Integer;
     Strings: TStringCollection;
     constructor Create(const Bounds: TRect; AStrings: TSItem);
-    constructor Load(S: TStream);
-    procedure Store(S: TStream); override;
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    function Read(Ip: ipstream): Pointer; override;
+    procedure Write(Os: opstream); override;
+  public
     destructor Destroy; override;
     function DataSize: Integer; override;
     procedure DrawBox(const Icon: ShortString; Marker: Char);
@@ -69,7 +73,11 @@ type
   end;
 
   TRadioButtons = class(TCluster)
-    constructor Load(S: TStream);
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+  public
     procedure Draw; override;
     function Mark(Item: Integer): Boolean; override;
     procedure MovedTo(Item: Integer); override;
@@ -78,7 +86,11 @@ type
   end;
 
   TCheckBoxes = class(TCluster)
-    constructor Load(S: TStream);
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+  public
     procedure Draw; override;
     function Mark(Item: Integer): Boolean; override;
     procedure Press(Item: Integer); override;
@@ -92,8 +104,13 @@ type
     States: PStr;
     constructor Create(const Bounds: TRect; AStrings: TSItem; ASelRange: Byte; AFlags: Word;
       const AStates: ShortString);
-    constructor Load(S: TStream);
-    procedure Store(S: TStream); override;
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    function Read(Ip: ipstream): Pointer; override;
+    procedure Write(Os: opstream); override;
+  public
     destructor Destroy; override;
     function DataSize: Integer; override;
     procedure Draw; override;
@@ -108,7 +125,7 @@ const
 
 var
   { stream records (see RView of TvViews) }
-  RCluster, RRadioButtons, RCheckBoxes, RMultiCheckBoxes: TStreamRec;
+  RCluster, RRadioButtons, RCheckBoxes, RMultiCheckBoxes: TStreamableClass;
 
 implementation
 
@@ -693,129 +710,109 @@ end;
 
 { --- Streams ------------------------------------------------------------------ }
 
-type
-  { the fields of a cluster in a stream, before its texts }
-  TClusterFields = packed record
-    Val, Mask: LongWord;
-    Cur: LongInt;
-  end;
-
-constructor TCluster.Load(S: TStream);
-var
-  F: TClusterFields;
+procedure TCluster.Write(Os: opstream);
 begin
-  inherited Load(S);
-  S.Read(F, SizeOf(F));
-  Value := F.Val;
-  EnableMask := F.Mask;
-  Sel := F.Cur;
-  Strings := TStringCollection.Load(S);       { the texts follow inline: no type number to register }
+  inherited Write(Os);
+  Os.WriteBytes(Value, SizeOf(LongWord));
+  Os.WriteBytes(Sel, SizeOf(Integer));
+  Os.WriteBytes(EnableMask, SizeOf(LongWord));
+  Os.WritePointer(Strings);
 end;
 
-procedure TCluster.Store(S: TStream);
-var
-  F: TClusterFields;
+function TCluster.Read(Ip: ipstream): Pointer;
 begin
-  inherited Store(S);
-  F.Val := Value;
-  F.Mask := EnableMask;
-  F.Cur := Sel;
-  S.Write(F, SizeOf(F));
-  Strings.Store(S);
+  inherited Read(Ip);
+  Ip.ReadBytes(Value, SizeOf(LongWord));
+  Ip.ReadBytes(Sel, SizeOf(Integer));
+  Ip.ReadBytes(EnableMask, SizeOf(LongWord));
+  Strings := TStringCollection(Ip.ReadPointer);
+  SetCursor(2, 0);
+  ShowCursor;
+  SetButtonState(0, True);
+  Result := Self;
 end;
 
-constructor TRadioButtons.Load(S: TStream);
+class function TCluster.Build: TStreamable;
 begin
-  inherited Load(S);
+  Result := TCluster.Create(streamableInit);
 end;
 
-constructor TCheckBoxes.Load(S: TStream);
+constructor TCluster.Create(AInit: TStreamableInit);
 begin
-  inherited Load(S);
+  inherited Create(streamableInit);
 end;
 
-constructor TMultiCheckBoxes.Load(S: TStream);
-var
-  Bits: Word;
-  Count: Byte;
+function TCluster.StreamableName: ShortString;
 begin
-  inherited Load(S);
-  S.Read(Bits, 2);
-  S.Read(Count, 1);
-  Flags := Bits;
-  SelRange := Count;
-  States := S.ReadStr;
+  Result := 'TCluster';
 end;
 
-procedure TMultiCheckBoxes.Store(S: TStream);
-var
-  Bits: Word;
-  Count: Byte;
+class function TRadioButtons.Build: TStreamable;
 begin
-  inherited Store(S);
-  Bits := Flags;
-  Count := SelRange;
-  S.Write(Bits, 2);
-  S.Write(Count, 1);
-  S.WriteStr(States);
+  Result := TRadioButtons.Create(streamableInit);
 end;
 
-function BuildCluster(S: TStream): TStreamable;
+constructor TRadioButtons.Create(AInit: TStreamableInit);
 begin
-  Result := TStreamable(Pointer(TCluster.Load(S)));
+  inherited Create(streamableInit);
 end;
 
-procedure StoreCluster(P: TStreamable; S: TStream);
+function TRadioButtons.StreamableName: ShortString;
 begin
-  TCluster(Pointer(P)).Store(S);
+  Result := 'TRadioButtons';
 end;
 
-function BuildRadioButtons(S: TStream): TStreamable;
+class function TCheckBoxes.Build: TStreamable;
 begin
-  Result := TStreamable(Pointer(TRadioButtons.Load(S)));
+  Result := TCheckBoxes.Create(streamableInit);
 end;
 
-procedure StoreRadioButtons(P: TStreamable; S: TStream);
+constructor TCheckBoxes.Create(AInit: TStreamableInit);
 begin
-  TRadioButtons(Pointer(P)).Store(S);
+  inherited Create(streamableInit);
 end;
 
-function BuildCheckBoxes(S: TStream): TStreamable;
+function TCheckBoxes.StreamableName: ShortString;
 begin
-  Result := TStreamable(Pointer(TCheckBoxes.Load(S)));
+  Result := 'TCheckBoxes';
 end;
 
-procedure StoreCheckBoxes(P: TStreamable; S: TStream);
+procedure TMultiCheckBoxes.Write(Os: opstream);
 begin
-  TCheckBoxes(Pointer(P)).Store(S);
+  inherited Write(Os);
+  Os.WriteByte(SelRange);
+  Os.WriteWord(Flags);
+  Os.WriteString(States);
 end;
 
-function BuildMultiCheckBoxes(S: TStream): TStreamable;
+function TMultiCheckBoxes.Read(Ip: ipstream): Pointer;
 begin
-  Result := TStreamable(Pointer(TMultiCheckBoxes.Load(S)));
+  inherited Read(Ip);
+  SelRange := Ip.ReadByte;
+  Flags := Ip.ReadWord;
+  States := Ip.ReadString;
+  Result := Self;
 end;
 
-procedure StoreMultiCheckBoxes(P: TStreamable; S: TStream);
+class function TMultiCheckBoxes.Build: TStreamable;
 begin
-  TMultiCheckBoxes(Pointer(P)).Store(S);
+  Result := TMultiCheckBoxes.Create(streamableInit);
+end;
+
+constructor TMultiCheckBoxes.Create(AInit: TStreamableInit);
+begin
+  inherited Create(streamableInit);
+end;
+
+function TMultiCheckBoxes.StreamableName: ShortString;
+begin
+  Result := 'TMultiCheckBoxes';
 end;
 
 initialization
-  RCluster.ObjType := 13;
-  RCluster.VmtLink := PtrUInt(System.TClass(TCluster));
-  RCluster.Load := @BuildCluster;
-  RCluster.Store := @StoreCluster;
-  RRadioButtons.ObjType := 14;
-  RRadioButtons.VmtLink := PtrUInt(System.TClass(TRadioButtons));
-  RRadioButtons.Load := @BuildRadioButtons;
-  RRadioButtons.Store := @StoreRadioButtons;
-  RCheckBoxes.ObjType := 15;
-  RCheckBoxes.VmtLink := PtrUInt(System.TClass(TCheckBoxes));
-  RCheckBoxes.Load := @BuildCheckBoxes;
-  RCheckBoxes.Store := @StoreCheckBoxes;
-  RMultiCheckBoxes.ObjType := 16;
-  RMultiCheckBoxes.VmtLink := PtrUInt(System.TClass(TMultiCheckBoxes));
-  RMultiCheckBoxes.Load := @BuildMultiCheckBoxes;
-  RMultiCheckBoxes.Store := @StoreMultiCheckBoxes;
+  RCluster := TStreamableClass.Create('TCluster', @TCluster.Build);
+  RRadioButtons := TStreamableClass.Create('TRadioButtons', @TRadioButtons.Build);
+  RCheckBoxes := TStreamableClass.Create('TCheckBoxes', @TCheckBoxes.Build);
+  RMultiCheckBoxes := TStreamableClass.Create('TMultiCheckBoxes', @TMultiCheckBoxes.Build);
 
 end.

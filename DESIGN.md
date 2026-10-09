@@ -54,7 +54,7 @@ the library (`source/tvision`, `source/platform`, `include/tvision` without `com
 | 7b | `TvTimer` — the timer queue `TTimerQueue` | `system.h`, `ttimerqu.cpp` | done |
 | 7c | `TvApp` — `TBackground`, `TDeskTop` (Tile, Cascade), `TProgram`, `TApplication` | `app.h`, `tprogram.cpp`, `tapplica.cpp`, `tdesktop.cpp`, `tbkgrnd.cpp` | done (without streams, `LowMemory`; dialog — any view) |
 | 7d | `TvMouse` — mouse state → events (press, release, move, auto-repeat, wheel, double and triple click) | `tevent.cpp` (`getMouseEvent`) | done; delays in ms (in the original, ticks of 55 ms), configurable via variables |
-| 7e | `TvObjs` — `TStreamable`, the streams `TStream`/`TDosStream`/`TBufStream`/`TMemoryStream` with a type registry (`RegisterType`, `Get`, `Put`), the collections `TCollection`/`TSortedCollection`/`TStringCollection` | own, following the Pascal TV API and the semantics of magiblot's `TNSCollection` | written; `TView` is now a descendant of `TStreamable` |
+| 7e | `TvObjs` — `TStreamable`, the object streams (`pstream`, `ipstream`, `opstream`, `fpstream` ...), the byte streams `TStream`/`TDosStream`/`TBufStream`/`TMemoryStream`, the collections `TCollection`/`TSortedCollection`/`TStringCollection` | magiblot `tobjstrm`, `tcollect`, `tsortcol`, `tstrcoll` | written; `TView` is now a descendant of `TStreamable` |
 | 9a | `TvDialog` — `TDialog`, `TStaticText`, `TLabel`, `TButton` | `dialogs.h`, `tdialog.cpp`, `tstatict.cpp`, `tlabel.cpp`, `tbutton.cpp` | done (without streams) |
 | 9b | `TvMsgBox` — `MessageBox`, `MessageBoxRect`, formatted variants | `msgbox.h`, `msgbox.cpp` | done; `InputBox` is in `TvInput` |
 | 9c | `TvValid` — `TValidator`, `TPXPictureValidator`, `TFilterValidator`, `TRangeValidator`, `TLookupValidator`, `TStringLookupValidator` | `validate.h`, `tvalidat.cpp` | done (without streams) |
@@ -161,7 +161,7 @@ collections and streams, the editor — to the extent that DN uses them.
 - **The destructor** `Done` detaches the view from its group (as in Pascal TV), so `shutDown` from
   C++ is not ported as a separate method; the group in `Done` hides and deletes its subviews.
 - **`TCommandSet`** is a record of 256 bits with the methods and operators of tvision; commands above 255 are always enabled.
-- **Not yet ported in `TView`/`TGroup`:** streams (`read`/`write`/`build`), timers,
+- **Not yet ported in `TView`/`TGroup`:** timers,
   `getEvent` with a timeout and `textEvent` (`TvApp` is waiting for them).
 - **`ResetCurrent` and the traversal order.** `FirstMatch` starts from `Last` (the bottom view), then
   goes from top to bottom (`Last.Next = First`). A new window becomes current because the bottom
@@ -185,7 +185,7 @@ collections and streams, the editor — to the extent that DN uses them.
 - **The window tests** (`t_window.pas`) use a top view `TTop` with an event queue: it gives
   the `MouseEvent` loops of the frame and the bar pre-prepared events and remembers `PutEvent`.
   This is a draft of what will later become `TProgram.GetEvent`.
-- **Not yet ported in `TvWindow`:** streams; `TWindow.Palette` and `Flags` have the same
+- `TWindow.Palette` and `Flags` have the same
   values as in the original.
 - **Menus** are the classes of tvision: `TMenu`, `TMenuItem`, `TSubMenu` with their constructors, `NewLine` and the
   `operator +` that chains them. The key of an item is a `TKey` (a key code converts to it). The name is a pointer to
@@ -268,20 +268,16 @@ collections and streams, the editor — to the extent that DN uses them.
   on reading the text is left as is (CR LF). The facts about the API are from Ralf Brown's Interrupt List
   (from memory), checked against the emulation in DOSBox-X; testing on real Windows (9x, XP)
   is left for milestone 5. Text only.
-- **`TvObjs` — the Pascal API of classes, streams and collections** (needed by DN: `TCollection` in 17 files,
-  `TBufStream`/`TDosStream` in 13 and 6, `TStreamRec`/`RegisterType` in 9). Written anew from the
-  behavior of the API, and not from the Borland or FPC sources (the same-named FPC module matches Borland by
-  20%, so we do not take it). Differences:
-  - the `Create` constructor zeroes the class fields; the instance size is taken from the VMT;
-    `TView` is now a descendant of `TStreamable`;
-  - type registration: `Load` is a factory function `function(var S: TStream): TStreamable`, `Store` is a
-    procedure `procedure(P: TStreamable; var S: TStream)`, `VmtLink` is `PtrUInt(TypeOf(TFoo))`
-    (calling a constructor through a pointer is not portable between FPC targets); entries of the form
-    `Load: @TFoo.Load` in DN have to be replaced with factories on import (import script, milestone 4);
-  - sizes and counters are 32-bit; `ForEach`/`FirstThat`/`LastThat` take a pointer to an
-    ordinary procedure/function, not to a nested one (the nested ones in DN will have to be moved out);
-  - repeated registration of a type number is ignored;
-  - `TBufStream` has its own buffer window algorithm (a write into the middle of a file first reads the window).
+- **`TvObjs` — the object streams and the collections of tvision** (`pstream`, `ipstream`, `opstream`, `iopstream`,
+  `fpbase`, `ifpstream`, `ofpstream`, `fpstream`, `TStreamable`, `TStreamableClass`, `TStreamableTypes`, `TPWrittenObjects`,
+  `TPReadObjects`; `TCollection`, `TSortedCollection`, `TStringCollection`). The format of tvision: a pointer is a byte
+  (`ptNull`, `ptIndexed` with the index of an object already written, `ptObject` with `[`, the name of the class, the data
+  and `]`); a string is a length byte (255 for a null string) and the characters. A class is registered by name:
+  `RView := TStreamableClass.Create('TView', @TView.Build)`; `Build` makes an empty object through the protected
+  `Create(streamableInit)` and `Read` fills it. The differences are listed in `docs/API-NAMES.md` (section 1).
+  The unit also has the byte streams `TStream`, `TDosStream`, `TBufStream`, `TMemoryStream` (the buffers of the object
+  streams, and the files of dn) and the old registry `RegisterType`/`Get`/`Put`, used now only by the help topics
+  (`docs/API-NAMES.md`, section 3).
 - **FPC trap:** `SizeOf(X)` for a class variable with a VMT reads the size from the VMT
   of the instance (an uninitialized instance — a crash); for a static size write
   `SizeOf(TFoo)`.
@@ -394,19 +390,13 @@ collections and streams, the editor — to the extent that DN uses them.
 - `FirstThat`/`LastThat`/`ForEach` of collections and groups accept procedural variables of the `is nested` kind
   (`{$modeswitch nestedprocvars}` in `tvdefs.inc`): this makes local functions work, like `@Name` in Turbo Pascal.
 
-### View streams (Load/Store, 2026-10-02)
+### View streams (read/write/build, 2026-10-09)
 
-- `TView.Load/Store`, `TGroup.Load/Store` and the other classes (`TFrame`, `TScrollBar`, `TScroller`, `TWindow`, `TDialog`,
-  `TStaticText`, `TLabel`, `TButton`, `TInputLine`, `THistory`, `TCluster` and its descendants, `TListViewer`, `TListBox`,
-  collections) write their fields; the format is ours. The type records `RView`, `RGroup`, `RFrame`, `RScrollBar`, `RScroller`, `RWindow`, `RDialog`,
-  `RStaticText`, `RLabel`, `RButton`, `RInputLine`, `RCluster`, `RRadioButtons`, `RCheckBoxes`, `RMultiCheckBoxes`, `RListViewer`,
-  `RListBox`, `RHistory`, `RCollection`, `RStringCollection` have the Turbo Vision numbers (1, 6, 2, 7, 3, 4, ...); the
-  program registers them: `RegisterType(RView)`.
-- A reference to a neighboring view (`GetPeerViewPtr`/`PutPeerViewPtr`, `GetSubViewPtr`/`PutSubViewPtr`) is written as a number in the owner's
-  list and becomes a pointer when the group has read all the views (`TGroup.Load`; the list of fixups is in the module).
-  `TGroup.ReadChildPtr` reads the number of a child view of the group immediately (for the window's `Frame` and `Current`).
-- A view that was read is not active, not selected, not focused: `State` is cleared of `sfActive`, `sfSelected`, `sfFocused`, `sfExposed`;
-  `TInputLine.Awaken` selects all the text (the cursor position after loading is 0, as in Borland TV).
+- Every streamable class of tvision has `Read(Ip: ipstream): Pointer`, `Write(Os: opstream)`, `Build` and `StreamableName`,
+  and writes the fields that tvision writes, in the same order and sizes. A reference to another view (the `current` of a
+  group, the `link` of a label, the bars of a scroller) is written with `WritePointer`: an object written before is an index.
+- The old file formats are not read (decision of the owner, 2026-10-08): resources, desktops and configurations are made anew.
+- `TDialog` of tvision does not write the `DirectLink` of tv3.
 - DN fields in `TView`: `UpdTicks`, `UpTmr` (`TEventTimer`), `ClearPositionalEvents`, the method `Update` (does nothing).
 
 ## far2l terminal extensions

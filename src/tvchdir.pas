@@ -58,7 +58,12 @@ type
   TDirListBox = class(TListBox)
     Dir: ShortString;
     Cur: Integer;
-    constructor Create(const Bounds: TRect; AScrollBar: TScrollBar);
+    constructor Create(const Bounds: TRect; AScrollBar: TScrollBar); overload;
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+  public
     function GetText(Item, MaxLen: Integer): ShortString; override;
     function IsSelected(Item: Integer): Boolean; override;
     procedure NewDirectory(const S: ShortString);
@@ -75,7 +80,14 @@ type
     DirInput: TInputLine;
     OKButton: TButton;
     ChDirButton: TButton;
-    constructor Create(Opts: Word; HistId: Word);
+    constructor Create(Opts: Word; HistId: Word); overload;
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    function Read(Ip: ipstream): Pointer; override;
+    procedure Write(Os: opstream); override;
+  public
     destructor Destroy; override;
     function DataSize: Integer; override;
     procedure GetData(var Rec); override;
@@ -85,6 +97,10 @@ type
     procedure SetUpDialog;
     function Valid(Command: Word): Boolean; override;
   end;
+
+var
+  { the stream classes }
+  RDirListBox, RChDirDialog: TStreamableClass;
 
 implementation
 
@@ -462,4 +478,57 @@ begin
     Result := True;
 end;
 
+class function TDirListBox.Build: TStreamable;
+begin
+  Result := TDirListBox.Create(streamableInit);
+end;
+
+constructor TDirListBox.Create(AInit: TStreamableInit);
+begin
+  inherited Create(streamableInit);
+end;
+
+function TDirListBox.StreamableName: ShortString;
+begin
+  Result := 'TDirListBox';
+end;
+
+procedure TChDirDialog.Write(Os: opstream);
+begin
+  inherited Write(Os);
+  Os.WritePointer(DirList);
+  Os.WritePointer(DirInput);
+  Os.WritePointer(OKButton);
+  Os.WritePointer(ChDirButton);
+end;
+
+function TChDirDialog.Read(Ip: ipstream): Pointer;
+begin
+  inherited Read(Ip);
+  DirList := TDirListBox(Ip.ReadPointer);
+  DirInput := TInputLine(Ip.ReadPointer);
+  OKButton := TButton(Ip.ReadPointer);
+  ChDirButton := TButton(Ip.ReadPointer);
+  SetUpDialog;
+  Result := Self;
+end;
+
+class function TChDirDialog.Build: TStreamable;
+begin
+  Result := TChDirDialog.Create(streamableInit);
+end;
+
+constructor TChDirDialog.Create(AInit: TStreamableInit);
+begin
+  inherited Create(streamableInit);
+end;
+
+function TChDirDialog.StreamableName: ShortString;
+begin
+  Result := 'TChDirDialog';
+end;
+
+initialization
+  RDirListBox := TStreamableClass.Create('TDirListBox', @TDirListBox.Build);
+  RChDirDialog := TStreamableClass.Create('TChDirDialog', @TChDirDialog.Build);
 end.

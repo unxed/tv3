@@ -35,8 +35,13 @@ type
     Focused: Integer;
     Range: Integer;
     constructor Create(const Bounds: TRect; ANumCols: Integer; AHScrollBar, AVScrollBar: TScrollBar);
-    constructor Load(S: TStream);
-    procedure Store(S: TStream); override;
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    function Read(Ip: ipstream): Pointer; override;
+    procedure Write(Os: opstream); override;
+  public
     destructor Destroy; override;
     procedure ChangeBounds(const Bounds: TRect); override;
     procedure Draw; override;
@@ -65,8 +70,13 @@ type
     Items: TCollection;
     function List: TCollection;
     constructor Create(const Bounds: TRect; ANumCols: Integer; AScrollBar: TScrollBar);
-    constructor Load(S: TStream);
-    procedure Store(S: TStream); override;
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    function Read(Ip: ipstream): Pointer; override;
+    procedure Write(Os: opstream); override;
+  public
     destructor Destroy; override;
     function DataSize: Integer; override;
     procedure GetData(var Rec); override;
@@ -86,7 +96,7 @@ var
     Ctrl+PgUp and Ctrl+PgDn go to the first and the last item. The default is not changed: lists of the applications built on tv3 rely on it. }
   UxListHomeEnd: Boolean = False;
   { stream records (see RView of TvViews) }
-  RListViewer, RListBox: TStreamRec;
+  RListViewer, RListBox: TStreamableClass;
   { TListBox.Done disposes the list (as in Turbo Vision); the fork of the application does not and its code disposes the list itself
     (TSysDialog.Done): the application sets False }
   ListBoxOwnsList: Boolean = True;
@@ -556,82 +566,86 @@ end;
 
 { --- Streams ------------------------------------------------------------------ }
 
-type
-  { the fields of a list viewer in a stream, before its scroll bars }
-  TListViewerFields = packed record
-    Cols, Top, Cur, Count: LongInt;
-  end;
-
-constructor TListViewer.Load(S: TStream);
+procedure TListViewer.Write(Os: opstream);
 var
-  F: TListViewerFields;
+  N: SmallInt;
 begin
-  inherited Load(S);
-  S.Read(F, SizeOf(F));
-  GetPeerViewPtr(S, HScrollBar);
-  GetPeerViewPtr(S, VScrollBar);
-  NumCols := F.Cols;
-  TopItem := F.Top;
-  Focused := F.Cur;
-  Range := F.Count;
+  inherited Write(Os);
+  Os.WritePointer(HScrollBar);
+  Os.WritePointer(VScrollBar);
+  N := NumCols;
+  Os.WriteBytes(N, SizeOf(SmallInt));
+  N := TopItem;
+  Os.WriteBytes(N, SizeOf(SmallInt));
+  N := Focused;
+  Os.WriteBytes(N, SizeOf(SmallInt));
+  N := Range;
+  Os.WriteBytes(N, SizeOf(SmallInt));
 end;
 
-procedure TListViewer.Store(S: TStream);
+function TListViewer.Read(Ip: ipstream): Pointer;
 var
-  F: TListViewerFields;
+  N: SmallInt;
 begin
-  inherited Store(S);
-  F.Cols := NumCols;
-  F.Top := TopItem;
-  F.Cur := Focused;
-  F.Count := Range;
-  S.Write(F, SizeOf(F));
-  PutPeerViewPtr(S, HScrollBar);
-  PutPeerViewPtr(S, VScrollBar);
+  inherited Read(Ip);
+  HScrollBar := TScrollBar(Ip.ReadPointer);
+  VScrollBar := TScrollBar(Ip.ReadPointer);
+  Ip.ReadBytes(N, SizeOf(SmallInt));
+  NumCols := N;
+  Ip.ReadBytes(N, SizeOf(SmallInt));
+  TopItem := N;
+  Ip.ReadBytes(N, SizeOf(SmallInt));
+  Focused := N;
+  Ip.ReadBytes(N, SizeOf(SmallInt));
+  Range := N;
+  Result := Self;
 end;
 
-constructor TListBox.Load(S: TStream);
+class function TListViewer.Build: TStreamable;
 begin
-  inherited Load(S);
-  Items := TCollection(Pointer(S.Get));
-  if Items <> nil then
-    Range := Items.Count;
+  Result := TListViewer.Create(streamableInit);
 end;
 
-procedure TListBox.Store(S: TStream);
+constructor TListViewer.Create(AInit: TStreamableInit);
 begin
-  inherited Store(S);
-  S.Put(TStreamable(Pointer(Items)));
+  inherited Create(streamableInit);
 end;
 
-function BuildListViewer(S: TStream): TStreamable;
+function TListViewer.StreamableName: ShortString;
 begin
-  Result := TStreamable(Pointer(TListViewer.Load(S)));
+  Result := 'TListViewer';
 end;
 
-procedure StoreListViewer(P: TStreamable; S: TStream);
+procedure TListBox.Write(Os: opstream);
 begin
-  TListViewer(Pointer(P)).Store(S);
+  inherited Write(Os);
+  Os.WritePointer(Items);
 end;
 
-function BuildListBox(S: TStream): TStreamable;
+function TListBox.Read(Ip: ipstream): Pointer;
 begin
-  Result := TStreamable(Pointer(TListBox.Load(S)));
+  inherited Read(Ip);
+  Items := TCollection(Ip.ReadPointer);
+  Result := Self;
 end;
 
-procedure StoreListBox(P: TStreamable; S: TStream);
+class function TListBox.Build: TStreamable;
 begin
-  TListBox(Pointer(P)).Store(S);
+  Result := TListBox.Create(streamableInit);
+end;
+
+constructor TListBox.Create(AInit: TStreamableInit);
+begin
+  inherited Create(streamableInit);
+end;
+
+function TListBox.StreamableName: ShortString;
+begin
+  Result := 'TListBox';
 end;
 
 initialization
-  RListViewer.ObjType := 5;
-  RListViewer.VmtLink := PtrUInt(System.TClass(TListViewer));
-  RListViewer.Load := @BuildListViewer;
-  RListViewer.Store := @StoreListViewer;
-  RListBox.ObjType := 17;
-  RListBox.VmtLink := PtrUInt(System.TClass(TListBox));
-  RListBox.Load := @BuildListBox;
-  RListBox.Store := @StoreListBox;
+  RListViewer := TStreamableClass.Create('TListViewer', @TListViewer.Build);
+  RListBox := TStreamableClass.Create('TListBox', @TListBox.Build);
 
 end.

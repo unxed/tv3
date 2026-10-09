@@ -20,7 +20,7 @@ unit TvMenus;
 interface
 
 uses
-  TvGeom, TvColors, TvCell, TvKeys, TvEvents, TvDrawBuf, TvScreen, TvViews, TvUtil, TvGlyphs, TvXlat, TvSys;
+  TvGeom, TvColors, TvCell, TvKeys, TvEvents, TvDrawBuf, TvScreen, TvObjs, TvViews, TvUtil, TvGlyphs, TvXlat, TvSys;
 
 type
   TMenu = class;
@@ -74,7 +74,14 @@ type
     PutClickEventOnExit: Boolean;
     { set by a drop-down that Esc closed: the menu bar stays active (UxMenuEsc) }
     SubClosedByEsc: Boolean;
-    constructor Create(const Bounds: TRect; AMenu: TMenu; AParent: TMenuView);
+    constructor Create(const Bounds: TRect; AMenu: TMenu; AParent: TMenuView); overload;
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    function Read(Ip: ipstream): Pointer; override;
+    procedure Write(Os: opstream); override;
+  public
     function Execute: Word; override;
     function FindItem(const Shortcut: ShortString): TMenuItem;
     function GetItemRect(Item: TMenuItem): TRect; virtual;
@@ -97,17 +104,29 @@ type
     procedure DoASelect(var Event: TEvent);
     function FindHotKey(P: TMenuItem; Key: TKey): TMenuItem;
     function FindAltShortcut(const Event: TEvent): TMenuItem;
+    class procedure WriteMenu(Os: opstream; AMenu: TMenu); static;
+    class function ReadMenu(Ip: ipstream): TMenu; static;
   end;
 
   TMenuBar = class(TMenuView)
-    constructor Create(const Bounds: TRect; AMenu: TMenu);
+    constructor Create(const Bounds: TRect; AMenu: TMenu); overload;
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+  public
     destructor Destroy; override;
     procedure Draw; override;
     function GetItemRect(Item: TMenuItem): TRect; override;
   end;
 
   TMenuBox = class(TMenuView)
-    constructor Create(const Bounds: TRect; AMenu: TMenu; AParentMenu: TMenuView);
+    constructor Create(const Bounds: TRect; AMenu: TMenu; AParentMenu: TMenuView); overload;
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+  public
     procedure Draw; override;
     function GetItemRect(Item: TMenuItem): TRect; override;
   private
@@ -115,7 +134,12 @@ type
   end;
 
   TMenuPopup = class(TMenuBox)
-    constructor Create(const Bounds: TRect; AMenu: TMenu; AParentMenu: TMenuView);
+    constructor Create(const Bounds: TRect; AMenu: TMenu; AParentMenu: TMenuView); overload;
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+  public
     destructor Destroy; override;
     function Execute: Word; override;
     procedure HandleEvent(var Event: TEvent); override;
@@ -143,7 +167,14 @@ type
   TStatusLine = class(TView)
     Items: TStatusItem;
     Defs: TStatusDef;
-    constructor Create(const Bounds: TRect; ADefs: TStatusDef);
+    constructor Create(const Bounds: TRect; ADefs: TStatusDef); overload;
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    function Read(Ip: ipstream): Pointer; override;
+    procedure Write(Os: opstream); override;
+  public
     destructor Destroy; override;
     procedure Draw; override;
     function GetPalette: TPalette; override;
@@ -151,6 +182,10 @@ type
     function Hint(AHelpCtx: Word): ShortString; virtual;
     procedure Update; override;
   private
+    class procedure WriteItems(Os: opstream; Ts: TStatusItem); static;
+    class procedure WriteDefs(Os: opstream; Td: TStatusDef); static;
+    class function ReadItems(Ip: ipstream): TStatusItem; static;
+    class function ReadDefs(Ip: ipstream): TStatusDef; static;
     procedure DrawSelect(Selected: TStatusItem);
     procedure FindItems;
     function ItemMouseIsIn(Mouse: TPoint): TStatusItem;
@@ -166,6 +201,8 @@ operator +(S1: TStatusDef; S2: TStatusItem): TStatusDef;
 operator +(S1, S2: TStatusDef): TStatusDef;
 
 var
+  { the stream classes }
+  RMenuView, RMenuBar, RMenuBox, RMenuPopup, RStatusLine: TStreamableClass;
   { UX guidelines of vtui, menus: Esc closes an open drop-down but keeps the menu bar active, a second Esc leaves the bar (in Turbo Vision one Esc leaves both).
     False: the classic behaviour. }
   UxMenuEsc: Boolean = True;
@@ -1459,4 +1496,283 @@ begin
   end;
 end;
 
+class procedure TMenuView.WriteMenu(Os: opstream; AMenu: TMenu);
+var
+  Tok: Byte;
+  Item: TMenuItem;
+  Temp: Integer;
+begin
+  Tok := $FF;
+  Assert(AMenu <> nil);
+  Item := AMenu.Items;
+  while Item <> nil do
+  begin
+    Os.WriteByte(Tok);
+    Os.WriteString(Item.Name);
+    Os.WriteWord(Item.Command);
+    Temp := Ord(Item.Disabled);
+    Os.WriteBytes(Temp, SizeOf(Integer));
+    Os.WriteWord(Item.KeyCode.Code);
+    Os.WriteWord(Item.KeyCode.Mods);
+    Os.WriteWord(Item.HelpCtx);
+    if Item.Name <> nil then
+    begin
+      if Item.Command = 0 then
+        WriteMenu(Os, Item.SubMenu)
+      else
+        Os.WriteString(Item.Param);
+    end;
+    Item := Item.Next;
+  end;
+  Tok := 0;
+  Os.WriteByte(Tok);
+end;
+
+class function TMenuView.ReadMenu(Ip: ipstream): TMenu;
+var
+  AMenu: TMenu;
+  Last: ^TMenuItem;
+  Item: TMenuItem;
+  Tok: Byte;
+  Temp: Integer;
+begin
+  AMenu := TMenu.Create;
+  Last := @AMenu.Items;
+  Tok := Ip.ReadByte;
+  while Tok <> 0 do
+  begin
+    Assert(Tok = $FF);
+    Item := TMenuItem.Create('', TKey.Create(0), TMenu(nil));
+    Last^ := Item;
+    Last := @Item.Next;
+    Item.Name := Ip.ReadString;
+    Item.Command := Ip.ReadWord;
+    Ip.ReadBytes(Temp, SizeOf(Integer));
+    Item.KeyCode.Code := Ip.ReadWord;
+    Item.KeyCode.Mods := Ip.ReadWord;
+    Item.HelpCtx := Ip.ReadWord;
+    Item.Disabled := Temp <> 0;
+    if Item.Name <> nil then
+    begin
+      if Item.Command = 0 then
+        Item.SubMenu := ReadMenu(Ip)
+      else
+        Item.Param := Ip.ReadString;
+    end;
+    Tok := Ip.ReadByte;
+  end;
+  Last^ := nil;
+  AMenu.Deflt := AMenu.Items;
+  Result := AMenu;
+end;
+
+procedure TMenuView.Write(Os: opstream);
+begin
+  inherited Write(Os);
+  WriteMenu(Os, Menu);
+end;
+
+function TMenuView.Read(Ip: ipstream): Pointer;
+begin
+  inherited Read(Ip);
+  Menu := ReadMenu(Ip);
+  ParentMenu := nil;
+  Current := nil;
+  Result := Self;
+end;
+
+class function TMenuView.Build: TStreamable;
+begin
+  Result := TMenuView.Create(streamableInit);
+end;
+
+constructor TMenuView.Create(AInit: TStreamableInit);
+begin
+  inherited Create(streamableInit);
+end;
+
+function TMenuView.StreamableName: ShortString;
+begin
+  Result := 'TMenuView';
+end;
+
+class function TMenuBar.Build: TStreamable;
+begin
+  Result := TMenuBar.Create(streamableInit);
+end;
+
+constructor TMenuBar.Create(AInit: TStreamableInit);
+begin
+  inherited Create(streamableInit);
+end;
+
+function TMenuBar.StreamableName: ShortString;
+begin
+  Result := 'TMenuBar';
+end;
+
+class function TMenuBox.Build: TStreamable;
+begin
+  Result := TMenuBox.Create(streamableInit);
+end;
+
+constructor TMenuBox.Create(AInit: TStreamableInit);
+begin
+  inherited Create(streamableInit);
+end;
+
+function TMenuBox.StreamableName: ShortString;
+begin
+  Result := 'TMenuBox';
+end;
+
+class function TMenuPopup.Build: TStreamable;
+begin
+  Result := TMenuPopup.Create(streamableInit);
+end;
+
+constructor TMenuPopup.Create(AInit: TStreamableInit);
+begin
+  inherited Create(streamableInit);
+end;
+
+function TMenuPopup.StreamableName: ShortString;
+begin
+  Result := 'TMenuPopup';
+end;
+
+class procedure TStatusLine.WriteItems(Os: opstream; Ts: TStatusItem);
+var
+  ACount: Integer;
+  T: TStatusItem;
+begin
+  ACount := 0;
+  T := Ts;
+  while T <> nil do
+  begin
+    Inc(ACount);
+    T := T.Next;
+  end;
+  Os.WriteBytes(ACount, SizeOf(Integer));
+  while Ts <> nil do
+  begin
+    Os.WriteString(Ts.Text);
+    Os.WriteWord(Ts.KeyCode.Code);
+    Os.WriteWord(Ts.KeyCode.Mods);
+    Os.WriteWord(Ts.Command);
+    Ts := Ts.Next;
+  end;
+end;
+
+class procedure TStatusLine.WriteDefs(Os: opstream; Td: TStatusDef);
+var
+  ACount: Integer;
+  T: TStatusDef;
+begin
+  ACount := 0;
+  T := Td;
+  while T <> nil do
+  begin
+    Inc(ACount);
+    T := T.Next;
+  end;
+  Os.WriteBytes(ACount, SizeOf(Integer));
+  while Td <> nil do
+  begin
+    Os.WriteWord(Td.Min);
+    Os.WriteWord(Td.Max);
+    WriteItems(Os, Td.Items);
+    Td := Td.Next;
+  end;
+end;
+
+class function TStatusLine.ReadItems(Ip: ipstream): TStatusItem;
+var
+  Cur, First: TStatusItem;
+  Last: ^TStatusItem;
+  ACount: Integer;
+  T: PStr;
+  Key, Cmd: Word;
+  Text: ShortString;
+begin
+  First := nil;
+  Last := @First;
+  Ip.ReadBytes(ACount, SizeOf(Integer));
+  while ACount > 0 do
+  begin
+    Dec(ACount);
+    T := Ip.ReadString;
+    Key := Ip.ReadWord;
+    Cmd := Ip.ReadWord;
+    if T = nil then
+      Text := ''
+    else
+      Text := T^;
+    Cur := TStatusItem.Create(Text, Key, Cmd);
+    Last^ := Cur;
+    Last := @Cur.Next;
+    DisposeStr(T);
+  end;
+  Last^ := nil;
+  Result := First;
+end;
+
+class function TStatusLine.ReadDefs(Ip: ipstream): TStatusDef;
+var
+  Cur, First: TStatusDef;
+  Last: ^TStatusDef;
+  ACount: Integer;
+  AMin, AMax: Word;
+begin
+  First := nil;
+  Last := @First;
+  Ip.ReadBytes(ACount, SizeOf(Integer));
+  while ACount > 0 do
+  begin
+    Dec(ACount);
+    AMin := Ip.ReadWord;
+    AMax := Ip.ReadWord;
+    Cur := TStatusDef.Create(AMin, AMax, ReadItems(Ip));
+    Last^ := Cur;
+    Last := @Cur.Next;
+  end;
+  Last^ := nil;
+  Result := First;
+end;
+
+procedure TStatusLine.Write(Os: opstream);
+begin
+  inherited Write(Os);
+  WriteDefs(Os, Defs);
+end;
+
+function TStatusLine.Read(Ip: ipstream): Pointer;
+begin
+  inherited Read(Ip);
+  Defs := ReadDefs(Ip);
+  FindItems;
+  Result := Self;
+end;
+
+class function TStatusLine.Build: TStreamable;
+begin
+  Result := TStatusLine.Create(streamableInit);
+end;
+
+constructor TStatusLine.Create(AInit: TStreamableInit);
+begin
+  inherited Create(streamableInit);
+end;
+
+function TStatusLine.StreamableName: ShortString;
+begin
+  Result := 'TStatusLine';
+end;
+
+initialization
+  RMenuView := TStreamableClass.Create('TMenuView', @TMenuView.Build);
+  RMenuBar := TStreamableClass.Create('TMenuBar', @TMenuBar.Build);
+  RMenuBox := TStreamableClass.Create('TMenuBox', @TMenuBox.Build);
+  RMenuPopup := TStreamableClass.Create('TMenuPopup', @TMenuPopup.Build);
+  RStatusLine := TStreamableClass.Create('TStatusLine', @TStatusLine.Build);
 end.

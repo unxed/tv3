@@ -1,20 +1,29 @@
-{ TvObjs: the base class, streams (file, buffered file, memory) and collections of the
-  Pascal Turbo Vision API (TStreamable, TStream, TDosStream, TBufStream, TMemoryStream,
-  TCollection, TSortedCollection, TStringCollection) with the registry of streamable types.
+{ TvObjs: the base class of the streamable objects, the object streams and the collections:
+  TStreamable, TStreamableClass, TStreamableTypes, TPWrittenObjects, TPReadObjects, pstream,
+  ipstream, opstream, iopstream, fpbase, ifpstream, ofpstream, fpstream; TCollection,
+  TSortedCollection, TStringCollection.
 
-  The interface (names, fields and the behavior of the methods) is
-  the one that Pascal programs written for Turbo Vision use; the implementation is new,
-  written from that behavior and with the collection semantics of magiblot/tvision
-  (TNSCollection) in mind, not from any Borland or Free Pascal source.
+  Translated from magiblot/tvision @ b4831e2:
+    include/tvision/tobjstrm.h, objects.h (the streams, the stream members of the collections)
+    source/tvision/tobjstrm.cpp, tcollect.cpp, tsortcol.cpp, tstrcoll.cpp (read, write, build),
+    nmcollct.cpp, nmscoll.cpp, nmstrcol.cpp, sstrcoll.cpp (names and registration)
+  Borland disclaimer and MIT notice: COPYRIGHT.magiblot.
 
-  Differences from the Pascal Turbo Vision (see tv/DESIGN.md):
-    - sizes and counts are 32-bit (Longint, Integer);
-    - a streamable type is registered with a TStreamRec whose Load is a function that
-      makes and loads an instance and whose Store is a procedure that stores one, instead
-      of pointers to the constructor and to the method (calling a constructor through a
-      pointer is not portable between the FPC targets); VmtLink holds the address of the
-      VMT: PtrUInt(TypeOf(TFoo));
-    - registering a type number twice is ignored. }
+  Differences from the C++ original (see tv/docs/API-NAMES.md):
+    - sizes and counts are 32-bit (Integer);
+    - TNSCollection and TNSSortedCollection are merged into TCollection and TSortedCollection;
+    - the streambuf of a stream is a TStream of this unit, the filebuf of a file stream a TBufStream;
+      the open modes are those of TDosStream (stOpenRead, stCreate ...), the seek directions those of
+      FileSeek (fsFromBeginning, fsFromCurrent, fsFromEnd);
+    - the operators << and >> of the streams are methods: WriteObject and ReadObject for an
+      object, WritePointer and ReadPointer for a pointer to an object, WriteBytes and
+      ReadBytes (WriteByte, WriteWord ...) for the other types;
+    - a class has one base: iopstream is an ipstream with an opstream (it converts to it),
+      ifpstream, ofpstream and fpstream have the members of fpbase.
+
+  The byte streams TStream, TDosStream, TBufStream, TMemoryStream and the registry RegisterType,
+  TStreamRec (with TStream.Get and Put) are tv3 additions: the buffers of the object streams, the
+  files of dn, and the streams of the help topics (TvHelp). }
 unit TvObjs;
 
 {$I tvdefs.inc}
@@ -44,11 +53,39 @@ const
   MaxCollectionSize = MaxInt div SizeOf(Pointer);
 
 type
-  PStreamRec = ^TStreamRec;
+  { the argument of the constructors that make an object to be read from a stream (StreamableInit of tvision) }
+  TStreamableInit = (streamableInit);
 
-  { Every class participating in the stream registry descends from TStreamable. }
+  P_id_type = LongWord;
+
+const
+  P_id_notFound = High(LongWord);
+
+type
+  pstream = class;
+  ipstream = class;
+  opstream = class;
+
   TStreamable = class
+  protected
+    function StreamableName: ShortString; virtual; abstract;
+    function Read(Ip: ipstream): Pointer; virtual; abstract;
+    procedure Write(Os: opstream); virtual; abstract;
   end;
+
+  { makes an object of a class, to be read from a stream (BUILDER) }
+  TStreamableBuilder = function: TStreamable;
+
+  { a class that can be read from a stream: its name and its builder; it registers itself }
+  TStreamableClass = class
+  private
+    Name: ShortString;
+    Build: TStreamableBuilder;
+  public
+    constructor Create(const N: ShortString; B: TStreamableBuilder; Unused: Integer = 0);
+  end;
+
+  PStreamRec = ^TStreamRec;
 
   TStream = class
     Status: Integer;
@@ -163,8 +200,7 @@ type
     Count: Integer;
     Limit: Integer;
     Delta: Integer;
-    constructor Create(ALimit, ADelta: Integer);
-    constructor Load(S: TStream);
+    constructor Create(ALimit, ADelta: Integer); overload;
     destructor Destroy; override;
     function At(Index: Integer): Pointer;
     procedure AtRemove(Index: Integer);
@@ -182,14 +218,18 @@ type
     procedure Free(Item: Pointer); overload;
     procedure FreeAll;
     procedure FreeItem(Item: Pointer); virtual;
-    function GetItem(S: TStream): Pointer; virtual;
     function IndexOf(Item: Pointer): Integer; virtual;
     procedure Insert(Item: Pointer); virtual;
     function LastThat(Test: TNestedTestProc): Pointer;
     procedure Pack;
-    procedure PutItem(S: TStream; Item: Pointer); virtual;
     procedure SetLimit(ALimit: Integer); virtual;
-    procedure Store(S: TStream); virtual;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    function ReadItem(Ip: ipstream): Pointer; virtual; abstract;
+    procedure WriteItem(Item: Pointer; Os: opstream); virtual; abstract;
+    function Read(Ip: ipstream): Pointer; override;
+    procedure Write(Os: opstream); override;
   end;
 
   { Test: function(Item: Pointer): Boolean; Action: procedure(Item: Pointer): the
@@ -199,24 +239,234 @@ type
 
   TSortedCollection = class(TCollection)
     Duplicates: Boolean;
-    constructor Create(ALimit, ADelta: Integer);
-    constructor Load(S: TStream);
+    constructor Create(ALimit, ADelta: Integer); overload;
     function Compare(Key1, Key2: Pointer): Integer; virtual;
     function IndexOf(Item: Pointer): Integer; override;
     procedure Insert(Item: Pointer); override;
     function KeyOf(Item: Pointer): Pointer; virtual;
     function Search(Key: Pointer; var Index: Integer): Boolean; virtual;
-    procedure Store(S: TStream); override;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    function Read(Ip: ipstream): Pointer; override;
+    procedure Write(Os: opstream); override;
   end;
 
   { the items are pointers to ShortStrings (PStr) }
   TStringCollection = class(TSortedCollection)
     function Compare(Key1, Key2: Pointer): Integer; override;
     procedure FreeItem(Item: Pointer); override;
-    function GetItem(S: TStream): Pointer; override;
-    procedure PutItem(S: TStream; Item: Pointer); override;
+    class function Build: TStreamable; static;
+  protected
+    function StreamableName: ShortString; override;
+    function ReadItem(Ip: ipstream): Pointer; override;
+    procedure WriteItem(Item: Pointer; Os: opstream); override;
   end;
 
+
+  { the registry of the classes, sorted by name }
+  TStreamableTypes = class(TSortedCollection)
+  public
+    constructor Create;
+    destructor Destroy; override;
+    procedure RegisterType(D: TStreamableClass);
+    function Lookup(const AName: ShortString): TStreamableClass;
+    function KeyOf(Item: Pointer): Pointer; override;
+    function Compare(Key1, Key2: Pointer): Integer; override;
+    procedure FreeItem(Item: Pointer); override;
+  end;
+
+  { the objects written to an opstream, sorted by address, with their numbers }
+  TPWrittenObjects = class(TSortedCollection)
+  private
+    CurId: P_id_type;
+    constructor Create;
+    procedure RegisterObject(Adr: Pointer);
+    function Find(Adr: Pointer): P_id_type;
+  public
+    destructor Destroy; override;
+    procedure RemoveAll;
+    function KeyOf(Item: Pointer): Pointer; override;
+    function Compare(Key1, Key2: Pointer): Integer; override;
+  end;
+
+  TPWObj = class
+  private
+    Address: Pointer;
+    Ident: P_id_type;
+    constructor Create(Adr: Pointer; Id: P_id_type);
+  end;
+
+  { the objects read from an ipstream, in the order of their numbers }
+  TPReadObjects = class(TCollection)
+  private
+    CurId: P_id_type;
+    constructor Create;
+    procedure RegisterObject(Adr: Pointer);
+    function Find(Id: P_id_type): Pointer;
+  public
+    destructor Destroy; override;
+    procedure RemoveAll;
+  end;
+
+  pstream = class
+  public type
+    StreamableError = (peNotRegistered, peInvalidType);
+    PointerTypes = (ptNull, ptIndexed, ptObject);
+    openmode = Word;
+    seekdir = Integer;            { fsFromBeginning, fsFromCurrent, fsFromEnd (SysUtils) }
+  public const
+    { the state bits (ios::goodbit ... of C++) }
+    goodbit = 0;
+    eofbit = 1;
+    failbit = 2;
+    badbit = 4;
+  protected
+    Bp: TStream;
+    State: Integer;
+    class var Types: TStreamableTypes;
+    constructor Create; overload;
+    procedure Error(E: StreamableError); overload;
+    procedure Error(E: StreamableError; T: TStreamable); overload;
+    procedure Init(Sbp: TStream);
+    procedure SetState(B: Integer);
+  public
+    constructor Create(Sb: TStream); overload;
+    destructor Destroy; override;
+    function RdState: Integer;
+    function Eof: Integer;
+    function Fail: Integer;
+    function Bad: Integer;
+    function Good: Integer;
+    procedure Clear(I: Integer = 0);
+    function RdBuf: TStream;
+    class procedure InitTypes; static;
+    class procedure RegisterType(Ts: TStreamableClass); static;
+  end;
+
+  ipstream = class(pstream)
+  private
+    Objs: TPReadObjects;
+  protected
+    constructor Create; overload;
+    function ReadPrefix: TStreamableClass;
+    function ReadData(C: TStreamableClass; Mem: TStreamable): Pointer;
+    procedure ReadSuffix;
+    function Find(Id: P_id_type): Pointer;
+    procedure RegisterObject(Adr: Pointer);
+  public
+    constructor Create(Sb: TStream); overload;
+    destructor Destroy; override;
+    function TellG: Int64;
+    function SeekG(Pos: Int64): ipstream; overload;
+    function SeekG(Off: Int64; Dir: pstream.seekdir): ipstream; overload;
+    function ReadByte: Byte;
+    procedure ReadBytes(var Data; Sz: SizeInt);
+    function ReadWord: Word;
+    { nil for the null string }
+    function ReadString: PStr; overload;
+    function ReadString(Buf: PChar; MaxLen: LongWord): PChar; overload;
+    { >> of an object (TStreamable &) and of a pointer to an object (void *&) }
+    procedure ReadObject(T: TStreamable);
+    function ReadPointer: Pointer;
+  end;
+
+  opstream = class(pstream)
+  private
+    Objs: TPWrittenObjects;
+  protected
+    constructor Create; overload;
+    procedure WritePrefix(T: TStreamable);
+    procedure WriteData(T: TStreamable);
+    procedure WriteSuffix(T: TStreamable);
+    function Find(Adr: Pointer): P_id_type;
+    procedure RegisterObject(Adr: Pointer);
+  public
+    constructor Create(Sb: TStream); overload;
+    destructor Destroy; override;
+    function TellP: Int64;
+    function SeekP(Pos: Int64): opstream; overload;
+    function SeekP(Off: Int64; Dir: pstream.seekdir): opstream; overload;
+    function Flush: opstream;
+    procedure WriteByte(Ch: Byte);
+    procedure WriteBytes(const Data; Sz: SizeInt);
+    procedure WriteWord(Sh: Word);
+    { nil is the null string }
+    procedure WriteString(Str: PStr); overload;
+    procedure WriteString(const Str: ShortString); overload;
+    { << of an object (TStreamable &) and of a pointer to an object (TStreamable *) }
+    procedure WriteObject(T: TStreamable);
+    procedure WritePointer(T: TStreamable);
+  end;
+
+  { an ipstream that writes too: its opstream part is Op (an iopstream converts to it) }
+  iopstream = class(ipstream)
+  protected
+    Op: opstream;
+    constructor Create; overload;
+  public
+    constructor Create(Sb: TStream); overload;
+    destructor Destroy; override;
+    function TellP: Int64;
+    function SeekP(Pos: Int64): opstream; overload;
+    function SeekP(Off: Int64; Dir: pstream.seekdir): opstream; overload;
+    function Flush: opstream;
+    procedure WriteByte(Ch: Byte);
+    procedure WriteBytes(const Data; Sz: SizeInt);
+    procedure WriteWord(Sh: Word);
+    procedure WriteString(Str: PStr); overload;
+    procedure WriteString(const Str: ShortString); overload;
+    procedure WriteObject(T: TStreamable);
+    procedure WritePointer(T: TStreamable);
+  end;
+
+  fpbase = class(pstream)
+  private
+    Buf: TBufStream;
+  public
+    constructor Create; overload;
+    constructor Create(const AName: string; Omode: pstream.openmode); overload;
+    destructor Destroy; override;
+    procedure Open(const AName: string; Omode: pstream.openmode);
+    procedure Close;
+    function RdBuf: TStream;
+  end;
+
+  ifpstream = class(ipstream)
+  private
+    Buf: TBufStream;
+  public
+    constructor Create; overload;
+    constructor Create(const AName: string; Omode: pstream.openmode = stOpenRead); overload;
+    destructor Destroy; override;
+    procedure Open(const AName: string; Omode: pstream.openmode = stOpenRead);
+    procedure Close;
+    function RdBuf: TStream;
+  end;
+
+  ofpstream = class(opstream)
+  private
+    Buf: TBufStream;
+  public
+    constructor Create; overload;
+    constructor Create(const AName: string; Omode: pstream.openmode = stCreate); overload;
+    destructor Destroy; override;
+    procedure Open(const AName: string; Omode: pstream.openmode = stCreate);
+    procedure Close;
+    function RdBuf: TStream;
+  end;
+
+  fpstream = class(iopstream)
+  private
+    Buf: TBufStream;
+  public
+    constructor Create; overload;
+    constructor Create(const AName: string; Omode: pstream.openmode); overload;
+    destructor Destroy; override;
+    procedure Open(const AName: string; Omode: pstream.openmode);
+    procedure Close;
+    function RdBuf: TStream;
+  end;
 
 procedure RegisterType(var S: TStreamRec);
 { DN: registers the record in place of the one that is registered for the same type number (RegisterType keeps the first). }
@@ -229,10 +479,14 @@ type
   TFileNameHook = function(const Name: string): string;
 
 var
-  { stream records of the collections: RegisterType(RCollection) (TCollection), RStringCollection }
-  RCollection, RStringCollection: TStreamRec;
   { when set, TDosStream passes the names of its files through it }
   OnFileName: TFileNameHook = nil;
+
+{ the opstream part of an iopstream }
+operator :=(S: iopstream): opstream;
+
+var
+  RStringCollection: TStreamableClass;
 
 implementation
 
@@ -939,6 +1193,835 @@ begin
     Size := Position;
 end;
 
+const
+  NullStringLen = 255;
+
+{ --- TStreamableClass --------------------------------------------------------- }
+
+constructor TStreamableClass.Create(const N: ShortString; B: TStreamableBuilder; Unused: Integer);
+begin
+  inherited Create;
+  Name := N;
+  Build := B;
+  pstream.InitTypes;
+  pstream.RegisterType(Self);
+end;
+
+{ --- TStreamableTypes --------------------------------------------------------- }
+
+constructor TStreamableTypes.Create;
+begin
+  inherited Create(5, 5);
+end;
+
+destructor TStreamableTypes.Destroy;
+begin
+  RemoveAll;
+  inherited Destroy;
+end;
+
+procedure TStreamableTypes.RegisterType(D: TStreamableClass);
+begin
+  Insert(D);
+end;
+
+function TStreamableTypes.Lookup(const AName: ShortString): TStreamableClass;
+var
+  Loc: Integer;
+begin
+  if Search(@AName, Loc) then
+    Result := TStreamableClass(At(Loc))
+  else
+    Result := nil;
+end;
+
+function TStreamableTypes.KeyOf(Item: Pointer): Pointer;
+begin
+  Result := @TStreamableClass(Item).Name;
+end;
+
+function TStreamableTypes.Compare(Key1, Key2: Pointer): Integer;
+begin
+  if PShortString(Key1)^ < PShortString(Key2)^ then
+    Result := -1
+  else if PShortString(Key1)^ > PShortString(Key2)^ then
+    Result := 1
+  else
+    Result := 0;
+end;
+
+procedure TStreamableTypes.FreeItem(Item: Pointer);
+begin
+  { the classes are not owned by the registry }
+end;
+
+{ --- TPWrittenObjects --------------------------------------------------------- }
+
+constructor TPWrittenObjects.Create;
+begin
+  inherited Create(5, 5);
+  CurId := 0;
+end;
+
+destructor TPWrittenObjects.Destroy;
+begin
+  inherited Destroy;
+end;
+
+procedure TPWrittenObjects.RemoveAll;
+begin
+  CurId := 0;
+  FreeAll;
+end;
+
+procedure TPWrittenObjects.RegisterObject(Adr: Pointer);
+var
+  O: TPWObj;
+begin
+  O := TPWObj.Create(Adr, CurId);
+  Inc(CurId);
+  Insert(O);
+end;
+
+function TPWrittenObjects.Find(Adr: Pointer): P_id_type;
+var
+  Loc: Integer;
+begin
+  if Search(Adr, Loc) then
+    Result := TPWObj(At(Loc)).Ident
+  else
+    Result := P_id_notFound;
+end;
+
+function TPWrittenObjects.KeyOf(Item: Pointer): Pointer;
+begin
+  Result := TPWObj(Item).Address;
+end;
+
+function TPWrittenObjects.Compare(Key1, Key2: Pointer): Integer;
+begin
+  if Key1 = Key2 then
+    Result := 0
+  else if PtrUInt(Key1) < PtrUInt(Key2) then
+    Result := -1
+  else
+    Result := 1;
+end;
+
+constructor TPWObj.Create(Adr: Pointer; Id: P_id_type);
+begin
+  inherited Create;
+  Address := Adr;
+  Ident := Id;
+end;
+
+{ --- TPReadObjects ------------------------------------------------------------ }
+
+constructor TPReadObjects.Create;
+begin
+  inherited Create(5, 5);
+  CurId := 0;
+end;
+
+destructor TPReadObjects.Destroy;
+begin
+  inherited Destroy;
+end;
+
+procedure TPReadObjects.RemoveAll;
+begin
+  CurId := 0;
+  inherited RemoveAll;
+end;
+
+procedure TPReadObjects.RegisterObject(Adr: Pointer);
+begin
+  AtInsert(Count, Adr);
+  Assert(Integer(CurId) = Count - 1);
+  Inc(CurId);
+end;
+
+function TPReadObjects.Find(Id: P_id_type): Pointer;
+begin
+  Result := At(Id);
+end;
+
+{ --- pstream ------------------------------------------------------------------ }
+
+constructor pstream.Create(Sb: TStream);
+begin
+  inherited Create;
+  Init(Sb);
+end;
+
+destructor pstream.Destroy;
+begin
+  inherited Destroy;
+end;
+
+class procedure pstream.InitTypes;
+begin
+  if Types = nil then
+    Types := TStreamableTypes.Create;
+end;
+
+function pstream.RdState: Integer;
+begin
+  Result := State;
+end;
+
+function pstream.Eof: Integer;
+begin
+  Result := State and eofbit;
+end;
+
+function pstream.Fail: Integer;
+begin
+  Result := State and (failbit or badbit);
+end;
+
+function pstream.Bad: Integer;
+begin
+  Result := State and badbit;
+end;
+
+function pstream.Good: Integer;
+begin
+  Result := Ord(State = 0);
+end;
+
+procedure pstream.Clear(I: Integer);
+begin
+  State := I and $FF;
+end;
+
+class procedure pstream.RegisterType(Ts: TStreamableClass);
+begin
+  Types.RegisterType(Ts);
+end;
+
+function pstream.RdBuf: TStream;
+begin
+  Result := Bp;
+end;
+
+constructor pstream.Create;
+begin
+  inherited Create;
+end;
+
+procedure pstream.Error(E: StreamableError);
+begin
+  if E = peInvalidType then
+    WriteLn(StdErr, 'pstream error: invalid type encountered')
+  else if E = peNotRegistered then
+    WriteLn(StdErr, 'pstream error: type not registered');
+  Halt(3);
+end;
+
+procedure pstream.Error(E: StreamableError; T: TStreamable);
+begin
+  if E = peNotRegistered then
+    WriteLn(StdErr, 'pstream error: type ''', T.StreamableName, ''' not registered')
+  else
+    Error(E);
+  Halt(3);
+end;
+
+procedure pstream.Init(Sbp: TStream);
+begin
+  State := 0;
+  Bp := Sbp;
+end;
+
+procedure pstream.SetState(B: Integer);
+begin
+  State := State or (B and $FF);
+end;
+
+{ --- ipstream ----------------------------------------------------------------- }
+
+constructor ipstream.Create(Sb: TStream);
+begin
+  inherited Create;
+  Objs := TPReadObjects.Create;
+  Init(Sb);
+end;
+
+destructor ipstream.Destroy;
+begin
+  if Objs <> nil then
+    Objs.RemoveAll;
+  Objs.Free;
+  inherited Destroy;
+end;
+
+{ the position after a seek of Off from Dir }
+procedure SeekBuf(Bp: TStream; Off: Int64; Dir: pstream.seekdir);
+begin
+  case Dir of
+    fsFromCurrent: Bp.Seek(Bp.GetPos + Off);
+    fsFromEnd: Bp.Seek(Bp.GetSize + Off);
+  else
+    Bp.Seek(Off);
+  end;
+end;
+
+function ipstream.TellG: Int64;
+begin
+  Result := Bp.GetPos;
+end;
+
+function ipstream.SeekG(Pos: Int64): ipstream;
+begin
+  Objs.RemoveAll;
+  Bp.Seek(Pos);
+  Result := Self;
+end;
+
+function ipstream.SeekG(Off: Int64; Dir: pstream.seekdir): ipstream;
+begin
+  Objs.RemoveAll;
+  SeekBuf(Bp, Off, Dir);
+  Result := Self;
+end;
+
+function ipstream.ReadByte: Byte;
+begin
+  Result := 0;
+  Bp.Read(Result, 1);
+end;
+
+function ipstream.ReadWord: Word;
+begin
+  Result := 0;
+  Bp.Read(Result, SizeOf(Word));
+end;
+
+procedure ipstream.ReadBytes(var Data; Sz: SizeInt);
+begin
+  if Sz > 0 then
+    Bp.Read(Data, Sz);
+end;
+
+function ipstream.ReadString: PStr;
+var
+  Len: Byte;
+begin
+  Len := ReadByte;
+  if Len = NullStringLen then
+    Exit(nil);
+  GetMem(Result, Len + 1);
+  Result^[0] := Chr(Len);
+  ReadBytes(Result^[1], Len);
+end;
+
+function ipstream.ReadString(Buf: PChar; MaxLen: LongWord): PChar;
+var
+  Len: Byte;
+begin
+  Assert(Buf <> nil);
+  Len := ReadByte;
+  if Len > MaxLen - 1 then
+    Exit(nil);
+  ReadBytes(Buf^, Len);
+  Buf[Len] := #0;
+  Result := Buf;
+end;
+
+procedure ipstream.ReadObject(T: TStreamable);
+var
+  Pc: TStreamableClass;
+begin
+  Pc := ReadPrefix;
+  ReadData(Pc, T);
+  ReadSuffix;
+end;
+
+function ipstream.ReadPointer: Pointer;
+var
+  Ch: Byte;
+  Index: P_id_type;
+  Pc: TStreamableClass;
+begin
+  Result := nil;
+  Ch := ReadByte;
+  case Ch of
+    Ord(ptNull):
+      Result := nil;
+    Ord(ptIndexed):
+    begin
+      Index := ReadWord;
+      Result := Find(Index);
+      Assert(Result <> nil);
+    end;
+    Ord(ptObject):
+    begin
+      Pc := ReadPrefix;
+      Result := ReadData(Pc, nil);
+      ReadSuffix;
+    end;
+  else
+    Error(peInvalidType);
+  end;
+end;
+
+constructor ipstream.Create;
+begin
+  inherited Create;
+  Objs := TPReadObjects.Create;
+end;
+
+function ipstream.ReadPrefix: TStreamableClass;
+var
+  Ch: Char;
+  AName: array[0..127] of Char;
+begin
+  Ch := Chr(ReadByte);
+  Assert(Ch = '[');
+  if ReadString(@AName[0], SizeOf(AName)) = nil then
+    AName[0] := #0;
+  Result := Types.Lookup(StrPas(@AName[0]));
+end;
+
+function ipstream.ReadData(C: TStreamableClass; Mem: TStreamable): Pointer;
+begin
+  if Mem = nil then
+  begin
+    if C = nil then
+      Error(peNotRegistered);
+    Mem := C.Build();
+  end;
+  RegisterObject(Mem);
+  Result := Mem.Read(Self);
+end;
+
+procedure ipstream.ReadSuffix;
+var
+  Ch: Char;
+begin
+  Ch := Chr(ReadByte);
+  Assert(Ch = ']');
+end;
+
+function ipstream.Find(Id: P_id_type): Pointer;
+begin
+  Result := Objs.Find(Id);
+end;
+
+procedure ipstream.RegisterObject(Adr: Pointer);
+begin
+  Objs.RegisterObject(Adr);
+end;
+
+{ --- opstream ----------------------------------------------------------------- }
+
+constructor opstream.Create;
+begin
+  inherited Create;
+  Objs := TPWrittenObjects.Create;
+end;
+
+constructor opstream.Create(Sb: TStream);
+begin
+  inherited Create;
+  Objs := TPWrittenObjects.Create;
+  Init(Sb);
+end;
+
+destructor opstream.Destroy;
+begin
+  Objs.Free;
+  inherited Destroy;
+end;
+
+function opstream.SeekP(Pos: Int64): opstream;
+begin
+  Objs.FreeAll;
+  Bp.Seek(Pos);
+  Result := Self;
+end;
+
+function opstream.SeekP(Off: Int64; Dir: pstream.seekdir): opstream;
+begin
+  Objs.FreeAll;
+  SeekBuf(Bp, Off, Dir);
+  Result := Self;
+end;
+
+function opstream.TellP: Int64;
+begin
+  Result := Bp.GetPos;
+end;
+
+function opstream.Flush: opstream;
+begin
+  Bp.Flush;
+  Result := Self;
+end;
+
+procedure opstream.WriteByte(Ch: Byte);
+begin
+  Bp.Write(Ch, 1);
+end;
+
+procedure opstream.WriteBytes(const Data; Sz: SizeInt);
+begin
+  if Sz > 0 then
+    Bp.Write(Data, Sz);
+end;
+
+procedure opstream.WriteWord(Sh: Word);
+begin
+  Bp.Write(Sh, SizeOf(Word));
+end;
+
+procedure opstream.WriteString(Str: PStr);
+begin
+  if Str = nil then
+  begin
+    WriteByte(NullStringLen);
+    Exit;
+  end;
+  WriteString(Str^);
+end;
+
+procedure opstream.WriteString(const Str: ShortString);
+var
+  Len: Byte;
+begin
+  Len := Length(Str);
+  if Len > NullStringLen - 1 then
+    Len := NullStringLen - 1;
+  WriteByte(Len);
+  WriteBytes(Str[1], Len);
+end;
+
+procedure opstream.WriteObject(T: TStreamable);
+begin
+  WritePrefix(T);
+  WriteData(T);
+  WriteSuffix(T);
+end;
+
+procedure opstream.WritePointer(T: TStreamable);
+var
+  Index: P_id_type;
+begin
+  if T = nil then
+    WriteByte(Ord(ptNull))
+  else
+  begin
+    Index := Find(T);
+    if Index <> P_id_notFound then
+    begin
+      WriteByte(Ord(ptIndexed));
+      WriteWord(Index);
+    end
+    else
+    begin
+      WriteByte(Ord(ptObject));
+      WriteObject(T);
+    end;
+  end;
+end;
+
+procedure opstream.WritePrefix(T: TStreamable);
+begin
+  WriteByte(Ord('['));
+  WriteString(T.StreamableName);
+end;
+
+procedure opstream.WriteData(T: TStreamable);
+begin
+  if Types.Lookup(T.StreamableName) = nil then
+    Error(peNotRegistered, T)
+  else
+  begin
+    RegisterObject(T);
+    T.Write(Self);
+  end;
+end;
+
+procedure opstream.WriteSuffix(T: TStreamable);
+begin
+  WriteByte(Ord(']'));
+end;
+
+function opstream.Find(Adr: Pointer): P_id_type;
+begin
+  Result := Objs.Find(Adr);
+end;
+
+procedure opstream.RegisterObject(Adr: Pointer);
+begin
+  Objs.RegisterObject(Adr);
+end;
+
+{ --- iopstream ---------------------------------------------------------------- }
+
+constructor iopstream.Create(Sb: TStream);
+begin
+  inherited Create(Sb);
+  Op := opstream.Create(Sb);
+end;
+
+constructor iopstream.Create;
+begin
+  inherited Create;
+  Op := opstream.Create;
+end;
+
+destructor iopstream.Destroy;
+begin
+  Op.Free;
+  inherited Destroy;
+end;
+
+function iopstream.TellP: Int64;
+begin
+  Result := Op.TellP;
+end;
+
+function iopstream.SeekP(Pos: Int64): opstream;
+begin
+  Result := Op.SeekP(Pos);
+end;
+
+function iopstream.SeekP(Off: Int64; Dir: pstream.seekdir): opstream;
+begin
+  Result := Op.SeekP(Off, Dir);
+end;
+
+function iopstream.Flush: opstream;
+begin
+  Result := Op.Flush;
+end;
+
+procedure iopstream.WriteByte(Ch: Byte);
+begin
+  Op.WriteByte(Ch);
+end;
+
+procedure iopstream.WriteBytes(const Data; Sz: SizeInt);
+begin
+  Op.WriteBytes(Data, Sz);
+end;
+
+procedure iopstream.WriteWord(Sh: Word);
+begin
+  Op.WriteWord(Sh);
+end;
+
+procedure iopstream.WriteString(Str: PStr);
+begin
+  Op.WriteString(Str);
+end;
+
+procedure iopstream.WriteString(const Str: ShortString);
+begin
+  Op.WriteString(Str);
+end;
+
+procedure iopstream.WriteObject(T: TStreamable);
+begin
+  Op.WriteObject(T);
+end;
+
+procedure iopstream.WritePointer(T: TStreamable);
+begin
+  Op.WritePointer(T);
+end;
+
+operator :=(S: iopstream): opstream;
+begin
+  if S = nil then
+    Result := nil
+  else
+    Result := S.Op;
+end;
+
+{ --- the file streams --------------------------------------------------------- }
+
+{ opens Name with Omode into Buf: the state of a stream after the open of fpbase }
+procedure OpenFile(S: pstream; var Buf: TBufStream; const AName: string; Omode: pstream.openmode);
+begin
+  if Buf <> nil then
+    S.Clear(pstream.failbit)          { fail - already open }
+  else
+  begin
+    Buf := TBufStream.Create(AName, Omode, 4096);
+    if Buf.Status = stOk then
+      S.Clear(pstream.goodbit)
+    else
+    begin
+      FreeAndNil(Buf);
+      S.Clear(pstream.badbit);
+    end;
+  end;
+end;
+
+procedure CloseFile(S: pstream; var Buf: TBufStream);
+begin
+  if Buf <> nil then
+  begin
+    FreeAndNil(Buf);
+    S.Clear(pstream.goodbit);
+  end
+  else
+    S.SetState(pstream.failbit);
+end;
+
+constructor fpbase.Create;
+begin
+  inherited Create;
+  Init(nil);
+end;
+
+constructor fpbase.Create(const AName: string; Omode: pstream.openmode);
+begin
+  inherited Create;
+  Init(nil);
+  Open(AName, Omode);
+end;
+
+destructor fpbase.Destroy;
+begin
+  Buf.Free;
+  inherited Destroy;
+end;
+
+procedure fpbase.Open(const AName: string; Omode: pstream.openmode);
+begin
+  OpenFile(Self, Buf, AName, Omode);
+  Bp := Buf;
+end;
+
+procedure fpbase.Close;
+begin
+  CloseFile(Self, Buf);
+  Bp := nil;
+end;
+
+function fpbase.RdBuf: TStream;
+begin
+  Result := Buf;
+end;
+
+constructor ifpstream.Create;
+begin
+  inherited Create;
+  Init(nil);
+end;
+
+constructor ifpstream.Create(const AName: string; Omode: pstream.openmode);
+begin
+  inherited Create;
+  Init(nil);
+  Open(AName, Omode);
+end;
+
+destructor ifpstream.Destroy;
+begin
+  Buf.Free;
+  inherited Destroy;
+end;
+
+procedure ifpstream.Open(const AName: string; Omode: pstream.openmode);
+begin
+  OpenFile(Self, Buf, AName, Omode);
+  Bp := Buf;
+end;
+
+procedure ifpstream.Close;
+begin
+  CloseFile(Self, Buf);
+  Bp := nil;
+end;
+
+function ifpstream.RdBuf: TStream;
+begin
+  Result := Buf;
+end;
+
+constructor ofpstream.Create;
+begin
+  inherited Create;
+  Init(nil);
+end;
+
+constructor ofpstream.Create(const AName: string; Omode: pstream.openmode);
+begin
+  inherited Create;
+  Init(nil);
+  Open(AName, Omode);
+end;
+
+destructor ofpstream.Destroy;
+begin
+  Buf.Free;
+  inherited Destroy;
+end;
+
+procedure ofpstream.Open(const AName: string; Omode: pstream.openmode);
+begin
+  OpenFile(Self, Buf, AName, Omode);
+  Bp := Buf;
+end;
+
+procedure ofpstream.Close;
+begin
+  CloseFile(Self, Buf);
+  Bp := nil;
+end;
+
+function ofpstream.RdBuf: TStream;
+begin
+  Result := Buf;
+end;
+
+constructor fpstream.Create;
+begin
+  inherited Create;
+  Init(nil);
+end;
+
+constructor fpstream.Create(const AName: string; Omode: pstream.openmode);
+begin
+  inherited Create;
+  Init(nil);
+  Open(AName, Omode);
+end;
+
+destructor fpstream.Destroy;
+begin
+  Op.Free;
+  Op := nil;
+  Buf.Free;
+  inherited Destroy;
+end;
+
+procedure fpstream.Open(const AName: string; Omode: pstream.openmode);
+begin
+  OpenFile(Self, Buf, AName, Omode);
+  Bp := Buf;
+  Op.Init(Buf);
+  Op.State := State;
+end;
+
+procedure fpstream.Close;
+begin
+  CloseFile(Self, Buf);
+  Bp := nil;
+  Op.Init(nil);
+end;
+
+function fpstream.RdBuf: TStream;
+begin
+  Result := Buf;
+end;
+
+
 { --- TCollection ------------------------------------------------------------- }
 
 constructor TCollection.Create(ALimit, ADelta: Integer);
@@ -949,27 +2032,9 @@ begin
   SetLimit(ALimit);
 end;
 
-constructor TCollection.Load(S: TStream);
-var
-  N, L, D, K: Integer;
+constructor TCollection.Create(AInit: TStreamableInit);
 begin
   inherited Create;
-  S.Read(N, SizeOf(Integer));
-  S.Read(L, SizeOf(Integer));
-  S.Read(D, SizeOf(Integer));
-  Items := nil;
-  Count := 0;
-  Limit := 0;
-  Delta := D;
-  if L < N then
-    L := N;
-  SetLimit(L);
-  for K := 1 to N do
-  begin
-    if S.Status <> stOk then
-      Break;
-    AtInsert(Count, GetItem(S));
-  end;
 end;
 
 destructor TCollection.Destroy;
@@ -1147,11 +2212,6 @@ begin
     TStreamable(Item).Free;
 end;
 
-function TCollection.GetItem(S: TStream): Pointer;
-begin
-  Result := S.Get;
-end;
-
 function TCollection.IndexOf(Item: Pointer): Integer;
 var
   I: Integer;
@@ -1181,11 +2241,6 @@ begin
   Count := J;
 end;
 
-procedure TCollection.PutItem(S: TStream; Item: Pointer);
-begin
-  S.Put(TStreamable(Item));
-end;
-
 procedure TCollection.SetLimit(ALimit: Integer);
 begin
   if ALimit < Count then
@@ -1198,15 +2253,33 @@ begin
   Limit := ALimit;
 end;
 
-procedure TCollection.Store(S: TStream);
-var
-  I: Integer;
+function TCollection.StreamableName: ShortString;
 begin
-  S.Write(Count, SizeOf(Integer));
-  S.Write(Limit, SizeOf(Integer));
-  S.Write(Delta, SizeOf(Integer));
-  for I := 0 to Count - 1 do
-    PutItem(S, At(I));
+  Result := 'TCollection';
+end;
+
+procedure TCollection.Write(Os: opstream);
+var
+  Idx: Integer;
+begin
+  Os.WriteBytes(Count, SizeOf(Integer));
+  Os.WriteBytes(Limit, SizeOf(Integer));
+  Os.WriteBytes(Delta, SizeOf(Integer));
+  for Idx := 0 to Count - 1 do
+    WriteItem(Items^[Idx], Os);
+end;
+
+function TCollection.Read(Ip: ipstream): Pointer;
+var
+  SavedLimit, Idx: Integer;
+begin
+  Ip.ReadBytes(Count, SizeOf(Integer));
+  Ip.ReadBytes(SavedLimit, SizeOf(Integer));
+  Ip.ReadBytes(Delta, SizeOf(Integer));
+  SetLimit(SavedLimit);
+  for Idx := 0 to Count - 1 do
+    Items^[Idx] := ReadItem(Ip);
+  Result := Self;
 end;
 
 { --- TSortedCollection ------------------------------------------------------- }
@@ -1217,10 +2290,9 @@ begin
   Duplicates := False;
 end;
 
-constructor TSortedCollection.Load(S: TStream);
+constructor TSortedCollection.Create(AInit: TStreamableInit);
 begin
-  inherited Load(S);
-  S.Read(Duplicates, SizeOf(Boolean));
+  inherited Create(streamableInit);
 end;
 
 function TSortedCollection.Compare(Key1, Key2: Pointer): Integer;
@@ -1288,10 +2360,28 @@ begin
   Index := Lo;
 end;
 
-procedure TSortedCollection.Store(S: TStream);
+function TSortedCollection.StreamableName: ShortString;
 begin
-  inherited Store(S);
-  S.Write(Duplicates, SizeOf(Boolean));
+  Result := 'TSortedCollection';
+end;
+
+procedure TSortedCollection.Write(Os: opstream);
+var
+  Temp: Integer;
+begin
+  inherited Write(Os);
+  Temp := Ord(Duplicates);
+  Os.WriteBytes(Temp, SizeOf(Integer));
+end;
+
+function TSortedCollection.Read(Ip: ipstream): Pointer;
+var
+  Temp: Integer;
+begin
+  inherited Read(Ip);
+  Ip.ReadBytes(Temp, SizeOf(Integer));
+  Duplicates := Temp <> 0;
+  Result := Self;
 end;
 
 { --- TStringCollection ------------------------------------------------------- }
@@ -1311,45 +2401,26 @@ begin
   DisposeStr(PStr(Item));
 end;
 
-function TStringCollection.GetItem(S: TStream): Pointer;
+class function TStringCollection.Build: TStreamable;
 begin
-  Result := S.ReadStr;
+  Result := TStringCollection.Create(streamableInit);
 end;
 
-procedure TStringCollection.PutItem(S: TStream; Item: Pointer);
+function TStringCollection.StreamableName: ShortString;
 begin
-  S.WriteStr(PStr(Item));
+  Result := 'TStringCollection';
 end;
 
-function BuildCollection(S: TStream): TStreamable;
+procedure TStringCollection.WriteItem(Item: Pointer; Os: opstream);
 begin
-  Result := TStreamable(Pointer(TCollection.Load(S)));
+  Os.WriteString(PStr(Item));
 end;
 
-procedure StoreCollection(P: TStreamable; S: TStream);
+function TStringCollection.ReadItem(Ip: ipstream): Pointer;
 begin
-  TCollection(Pointer(P)).Store(S);
+  Result := Ip.ReadString;
 end;
-
-function BuildStringCollection(S: TStream): TStreamable;
-begin
-  Result := TStreamable(Pointer(TStringCollection.Load(S)));
-end;
-
-procedure StoreStringCollection(P: TStreamable; S: TStream);
-begin
-  TStringCollection(Pointer(P)).Store(S);
-end;
-
 
 initialization
-  RCollection.ObjType := 50;
-  RCollection.VmtLink := PtrUInt(System.TClass(TCollection));
-  RCollection.Load := @BuildCollection;
-  RCollection.Store := @StoreCollection;
-  RStringCollection.ObjType := 51;
-  RStringCollection.VmtLink := PtrUInt(System.TClass(TStringCollection));
-  RStringCollection.Load := @BuildStringCollection;
-  RStringCollection.Store := @StoreStringCollection;
-
+  RStringCollection := TStreamableClass.Create('TStringCollection', @TStringCollection.Build);
 end.

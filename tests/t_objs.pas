@@ -21,8 +21,28 @@ type
   TPt = class;
   TPt = class(TStreamable)
     X, Y: Integer;
-    constructor Create(AX, AY: Integer);
-    procedure Store(S: TStream);
+    constructor Create(AX, AY: Integer); overload;
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    function Read(Ip: ipstream): Pointer; override;
+    procedure Write(Os: opstream); override;
+  end;
+
+  { a collection of points: the items are written as pointers }
+  TPtColl = class(TCollection)
+    class function Build: TStreamable; static;
+  protected
+    function StreamableName: ShortString; override;
+    function ReadItem(Ip: ipstream): Pointer; override;
+    procedure WriteItem(Item: Pointer; Os: opstream); override;
+  end;
+
+  { a class that is not registered }
+  TLost = class(TPt)
+  protected
+    function StreamableName: ShortString; override;
   end;
 
   { a collection that records its errors instead of stopping the program }
@@ -59,30 +79,61 @@ begin
   Y := AY;
 end;
 
-procedure TPt.Store(S: TStream);
+class function TPt.Build: TStreamable;
 begin
-  S.Write(X, SizeOf(X));
-  S.Write(Y, SizeOf(Y));
+  Result := TPt.Create(streamableInit);
 end;
 
-function LoadPt(S: TStream): TStreamable;
+constructor TPt.Create(AInit: TStreamableInit);
+begin
+  inherited Create;
+end;
+
+function TPt.StreamableName: ShortString;
+begin
+  Result := 'TPt';
+end;
+
+procedure TPt.Write(Os: opstream);
+begin
+  Os.WriteBytes(X, SizeOf(Integer));
+  Os.WriteBytes(Y, SizeOf(Integer));
+end;
+
+function TPt.Read(Ip: ipstream): Pointer;
+begin
+  Ip.ReadBytes(X, SizeOf(Integer));
+  Ip.ReadBytes(Y, SizeOf(Integer));
+  Result := Self;
+end;
+
+function TLost.StreamableName: ShortString;
+begin
+  Result := 'TLost';
+end;
+
+class function TPtColl.Build: TStreamable;
+begin
+  Result := TPtColl.Create(streamableInit);
+end;
+
+function TPtColl.StreamableName: ShortString;
+begin
+  Result := 'TPtColl';
+end;
+
+procedure TPtColl.WriteItem(Item: Pointer; Os: opstream);
+begin
+  Os.WritePointer(TStreamable(Item));
+end;
+
+function TPtColl.ReadItem(Ip: ipstream): Pointer;
+begin
+  Result := Ip.ReadPointer;
+end;
+
 var
-  P: TPt;
-begin
-  P := TPt.Create(0, 0);
-  S.Read(P.X, SizeOf(Integer));
-  S.Read(P.Y, SizeOf(Integer));
-  Result := P;
-end;
-
-procedure StorePt(P: TStreamable; S: TStream);
-begin
-  TPt(P).Store(S);
-end;
-
-var
-  RPt: TStreamRec;
-  RPt2: TStreamRec;
+  RPt, RPtColl: TStreamableClass;
 
 procedure TSafeColl.Error(Code, Info: Integer);
 begin
@@ -125,15 +176,16 @@ const
 
 var
   X: TB;
-  M, M2: TMemoryStream;
-  F: TDosStream;
-  BF: TBufStream;
-  Buf: array[0..9999] of Byte;
-  Back: array[0..9999] of Byte;
+  M: TMemoryStream;
+  Os: opstream;
+  Ip: ipstream;
+  OF_: ofpstream;
+  IF_: ifpstream;
+  F: fpstream;
+  Buf: array[0..63] of Char;
   I: Integer;
   P: PStr;
   W: Word;
-  Ok: Boolean;
   Used0: PtrUInt;
   FreeObj: TStreamable;
   C: TSafeColl;
@@ -142,9 +194,9 @@ var
   C2: TSafeColl;
   PC: TCollection;
   Pt: TPt;
-  O: TStreamable;
-  Dummy: TStreamable;
-  Bytes: array[0..3] of Byte;
+  O, O2: TStreamable;
+  PCC: TPtColl;
+  Long: ShortString;
 
 { routines declared inside the caller, passed as @Name (Turbo Pascal style): they use the variables of the caller }
 procedure NestedCheck(C: TCollection);
@@ -174,51 +226,158 @@ begin
   Check((Count = C.Count) and (Total = 20 + 30 + 60 + 70), 'ForEach with a local procedure');
 end;
 
-{ the extensions of DN: Eof, long strings, zero-terminated strings, ReadBlock, Open/Close }
-procedure StreamExtras;
+procedure StreamSections;
 var
   M: TMemoryStream;
-  F: TBufStream;
-  L: AnsiString;
-  PL: PAnsiString;
-  S: ShortString;
-  Z: PChar;
-  B: array[0..9] of Byte;
-  N: Word;
-  Name: string;
+  Os: opstream;
+  Ip: ipstream;
+  OF_: ofpstream;
+  IF_: ifpstream;
+  F: fpstream;
+  Buf: array[0..63] of Char;
+  I: Integer;
+  P: PStr;
+  Pt: TPt;
+  O, O2: TStreamable;
+  PCC: TPtColl;
+  Long: ShortString;
 begin
+  { --- the bytes, the words and the strings of a stream -------------------------- }
   M := TMemoryStream.Create(0, 64);
-  L := StringOfChar('x', 300) + 'END';
-  M.WriteLongStr(@L);
-  M.StrWrite('zero');
-  M.StrWrite(nil);
-  S := 'short';
-  M.WriteStr(@S);
+  Os := opstream.Create(M);
+  Os.WriteByte($41);
+  Os.WriteWord($1234);
+  I := -5;
+  Os.WriteBytes(I, SizeOf(Integer));
+  Os.WriteString('Привет');
+  Os.WriteString(PStr(nil));
+  FillChar(Long[1], 255, Ord('x'));
+  Long[0] := #255;
+  Os.WriteString(Long);
+  Check((M.GetSize = 1 + 2 + 4 + 1 + Length('Привет') + 1 + 1 + 254) and (Os.TellP = M.GetSize), 'the sizes of the bytes, words and strings');
+  Os.Free;
   M.Seek(0);
-  Check(not M.Eof, 'Eof is false at the start');
-  PL := M.ReadLongStr;
-  Check((PL <> nil) and (PL^ = L) and (Length(PL^) = 303), 'ReadLongStr: a string of more than 255 characters');
-  Dispose(PL);
-  Z := M.StrRead;
-  Check((Z <> nil) and (StrComp(Z, 'zero') = 0), 'StrRead');
-  StrDispose(Z);
-  Check(M.StrRead = nil, 'StrRead of an empty string is nil');
-  M.ReadStrV(S);
-  Check(S = 'short', 'ReadStrV');
-  Check(M.Eof, 'Eof at the end');
+  Ip := ipstream.Create(M);
+  Check((Ip.ReadByte = $41) and (Ip.ReadWord = $1234), 'ReadByte, ReadWord');
+  Ip.ReadBytes(I, SizeOf(Integer));
+  Check(I = -5, 'ReadBytes');
+  P := Ip.ReadString;
+  Check((P <> nil) and (P^ = 'Привет'), 'ReadString');
+  DisposeStr(P);
+  Check(Ip.ReadString = nil, 'the null string');
+  P := Ip.ReadString;
+  Check((P <> nil) and (Length(P^) = 254), 'a string is cut to 254 bytes');
+  DisposeStr(P);
+  Ip.SeekG(0);
+  Check((Ip.TellG = 0) and (Ip.ReadByte = $41), 'SeekG and TellG');
+  Ip.SeekG(-1, fsFromEnd);
+  Check(Ip.ReadByte = Ord('x'), 'SeekG from the end');
+  Ip.SeekG(7);
+  Check((Ip.ReadString(@Buf[0], 4) = nil), 'ReadString into a buffer that is too small gives nil');
+  Ip.SeekG(7);
+  Check((Ip.ReadString(@Buf[0], SizeOf(Buf)) <> nil) and (StrPas(@Buf[0]) = 'Привет'), 'ReadString into a buffer');
+  Ip.Free;
   M.Free;
 
-  Name := 'tvobjs_ext.tmp';
-  F := TBufStream.Create(Name, stCreate, 128);
-  B[0] := 1; B[1] := 2; B[2] := 3;
-  F.Write(B, 3);
-  F.Close;
-  F.Open(Name, stOpenRead);
-  FillChar(B, SizeOf(B), 0);
-  F.ReadBlock(B, 10, N);
-  Check((N = 3) and (B[2] = 3), 'Close, Open again and ReadBlock reads what is there');
+  { --- objects: the prefix with the name, the pointers, the indexed objects ---------- }
+  M := TMemoryStream.Create(0, 64);
+  Os := opstream.Create(M);
+  Pt := TPt.Create(3, -4);
+  Os.WritePointer(Pt);
+  Os.WritePointer(nil);
+  Os.WritePointer(Pt);                         { written once: the second time it is an index }
+  O := TPt.Create(3, -4);
+  Os.WriteObject(O);
+  O.Free;
+  Os.Free;
+  M.Seek(0);
+  Check((PByte(M.Data)[0] = Ord(pstream.PointerTypes.ptObject)) and (PByte(M.Data)[1] = Ord('[')) and
+    (PByte(M.Data)[2] = 3) and (PChar(M.Data)[3] = 'T'), 'a pointer to an object: ptObject, ''['', the name');
+  Ip := ipstream.Create(M);
+  O := TStreamable(Ip.ReadPointer);
+  Check((O <> nil) and (O is TPt) and (TPt(O).X = 3) and (TPt(O).Y = -4), 'ReadPointer makes the object again');
+  Check(Ip.ReadPointer = nil, 'ptNull');
+  O2 := TStreamable(Ip.ReadPointer);
+  Check(O2 = O, 'ptIndexed gives the object read before');
+  Pt.X := 0;
+  Ip.ReadObject(Pt);
+  Check((Pt.X = 3) and (Pt.Y = -4), 'ReadObject reads into an object');
+  Ip.Free;
+  O.Free;
+  Pt.Free;
+  M.Free;
+
+  { --- a collection of objects and a string collection -------------------------------- }
+  PCC := TPtColl.Create(2, 2);
+  Pt := TPt.Create(5, 6); PCC.Insert(Pt);
+  PCC.Insert(Pt);
+  Pt := TPt.Create(7, 8); PCC.Insert(Pt);
+  M := TMemoryStream.Create(0, 64);
+  Os := opstream.Create(M);
+  Os.WritePointer(PCC);
+  Os.Free;
+  PCC.AtRemove(1);
+  PCC.Free;
+  M.Seek(0);
+  Ip := ipstream.Create(M);
+  PCC := TPtColl(Ip.ReadPointer);
+  Ip.Free;
+  M.Free;
+  Check((PCC.Count = 3) and (TPt(PCC.At(2)).X = 7) and (TPt(PCC.At(0)).Y = 6) and (PCC.At(1) = PCC.At(0)),
+    'a collection of objects through a stream; an object twice in it is read once');
+  PCC.AtRemove(1);
+  PCC.Free;
+
+  { --- the file streams ---------------------------------------------------------------- }
+  OF_ := ofpstream.Create('t_objs.tmp');
+  Check(OF_.Good <> 0, 'ofpstream opens a new file');
+  Pt := TPt.Create(11, 12);
+  OF_.WritePointer(Pt);
+  Pt.Free;
+  OF_.Free;
+  IF_ := ifpstream.Create('t_objs.tmp');
+  O := TStreamable(IF_.ReadPointer);
+  Check((O <> nil) and (TPt(O).X = 11), 'ifpstream reads it back');
+  O.Free;
+  IF_.Close;
+  Check(IF_.RdBuf = nil, 'Close');
+  IF_.Open('t_objs_missing.tmp');
+  Check(IF_.Bad <> 0, 'opening a missing file sets badbit');
+  IF_.Free;
+  F := fpstream.Create('t_objs.tmp', stOpen);
+  F.SeekP(0, fsFromEnd);
+  Pt := TPt.Create(21, 22);
+  F.WritePointer(Pt);
+  Pt.Free;
+  F.SeekG(0);
+  O := TStreamable(F.ReadPointer);
+  O2 := TStreamable(F.ReadPointer);
+  Check((TPt(O).X = 11) and (TPt(O2).X = 21), 'fpstream reads and writes one file');
+  O.Free;
+  O2.Free;
   F.Free;
-  DeleteFile(Name);
+  DeleteFile('t_objs.tmp');
+
+end;
+
+function StringCollThroughStream(SC: TStringCollection): TStringCollection;
+var
+  M: TMemoryStream;
+  Os: opstream;
+  Ip: ipstream;
+begin
+  { through a stream }
+  M := TMemoryStream.Create(0, 64);
+  Os := opstream.Create(M);
+  Os.WritePointer(SC);
+  Os.Free;
+  SC.Free;
+  M.Seek(0);
+  Ip := ipstream.Create(M);
+  Result := TStringCollection(Ip.ReadPointer);
+  Ip.Free;
+  M.Free;
+  Check((Result.Count = 3) and (PStr(Result.At(2))^ = 'pear') and (PStr(Result.At(0))^ = 'apple'), 'a string collection through a stream');
 end;
 
 begin
@@ -232,177 +391,19 @@ begin
   FreeObj.Free;
   Check(GetFPCHeapStatus.CurrHeapUsed = Used0, 'Free disposes the instance');
 
-  { TStreamable.Init zeroing is gone: the compiler zeroes the instances of classes }
-
-  { --- memory stream ------------------------------------------------------------ }
-  M := TMemoryStream.Create(0, 16);
-  Check((M.GetPos = 0) and (M.GetSize = 0) and (M.Status = stOk), 'a new memory stream is empty');
-  I := 12345;
-  M.Write(I, SizeOf(I));
-  Check((M.GetPos = 4) and (M.GetSize = 4), 'Write moves the position');
-  M.Seek(0);
-  I := 0;
-  M.Read(I, SizeOf(I));
-  Check((I = 12345) and (M.Status = stOk), 'Read gives it back');
-  M.Read(I, SizeOf(I));
-  Check((M.Status = stReadError) and (I = 0), 'Read past the end: stReadError and zeros');
-  M.Reset;
-  Check((M.Status = stOk) and (M.ErrorInfo = 0), 'Reset');
-  for I := 0 to 9999 do
-    Buf[I] := Byte(I * 7);
-  M.Seek(0);
-  M.Write(Buf, 10000);
-  Check(M.GetSize = 10000, 'a stream grows over many blocks');
-  M.Seek(5000);
-  M.Read(Back, 100);
-  Check(CompareByte(Back, Buf[5000], 100) = 0, 'and keeps its contents');
-  M.Seek(20000);
-  M.Write(I, 1);
-  Check(M.GetSize = 20001, 'writing far beyond the end grows it');
-  M.Seek(15000);
-  M.Read(Bytes, 4);
-  Check((Bytes[0] = 0) and (Bytes[3] = 0), 'the gap is zeros');
-  M.Seek(100);
-  M.Truncate;
-  Check(M.GetSize = 100, 'Truncate cuts at the position');
-
-  { strings }
-  M.Seek(0);
-  M.Truncate;
-  P := NewStr('Привет');
-  M.WriteStr(P);
-  M.WriteStr(nil);
-  DisposeStr(P);
-  M.Seek(0);
-  P := M.ReadStr;
-  Check((P <> nil) and (P^ = 'Привет'), 'WriteStr and ReadStr');
-  DisposeStr(P);
-  P := M.ReadStr;
-  Check(P = nil, 'a nil string is an empty one');
-
-  { CopyFrom }
-  M2 := TMemoryStream.Create(0, 64);
-  M.Seek(0);
-  M2.CopyFrom(M, M.GetSize);
-  Check((M2.GetSize = M.GetSize) and (M2.Status = stOk), 'CopyFrom copies the bytes');
-  M2.Free;
-  M.Free;
-
-  { --- file streams -------------------------------------------------------------- }
-  F := TDosStream.Create(TmpName, stCreate);
-  Check(F.Status = stOk, 'a file is created');
-  F.Write(Buf, 10000);
-  Check((F.GetPos = 10000) and (F.GetSize = 10000), 'TDosStream: position and size');
-  Check((F.Position = 10000) and (F.StreamSize = 10000), 'DN extensions: Position and StreamSize follow the writes');
-  F.Seek(9000);
-  F.Read(Back, 500);
-  Check(CompareByte(Back, Buf[9000], 500) = 0, 'TDosStream: Seek and Read');
-  F.Seek(9990);
-  F.Read(Back, 100);
-  Check(F.Status = stReadError, 'TDosStream: reading past the end');
-  F.Reset;
-  F.Seek(50);
-  F.Truncate;
-  Check(F.GetSize = 50, 'TDosStream: Truncate');
-  Check((F.StreamSize = 50) and (F.Position = 50), 'DN extensions: Truncate sets StreamSize');
-  F.Free;
-  F := TDosStream.Create('NO_SUCH.DIR/NOFILE.TMP', stOpenRead);
-  Check(F.Status = stInitError, 'opening a missing file: stInitError');
-  F.Free;
-
-  { buffered: more bytes than the buffer holds, in odd pieces }
-  BF := TBufStream.Create(TmpName, stCreate, 256);
-  for I := 0 to 99 do
-    BF.Write(Buf[I * 100], 100);
-  Check(BF.GetPos = 10000, 'TBufStream: position after many writes');
-  Check(BF.GetSize = 10000, 'TBufStream: size');
-  BF.Seek(0);
-  I := 0;
-  Ok := True;
-  while I + 37 <= 10000 do
-  begin
-    BF.Read(Back[I], 37);
-    I := I + 37;
-  end;
-  Check(BF.Status = stOk, 'TBufStream: reads in odd pieces');
-  BF.Seek(0);
-  BF.Read(Back, 10000);
-  Check(CompareByte(Back, Buf, 10000) = 0, 'TBufStream: everything comes back');
-  { change bytes in the middle, far from the buffer }
-  Bytes[0] := $AA; Bytes[1] := $BB;
-  BF.Seek(5001);
-  BF.Write(Bytes, 2);
-  BF.Seek(0);
-  BF.Seek(7000);
-  BF.Seek(5000);
-  BF.Read(Back, 4);
-  Check((Back[0] = Buf[5000]) and (Back[1] = $AA) and (Back[2] = $BB) and (Back[3] = Buf[5003]),
-    'TBufStream: rewriting in the middle keeps the neighbours');
-  BF.Free;
-  F := TDosStream.Create(TmpName, stOpenRead);
-  Check(F.GetSize = 10000, 'TBufStream: Done writes the buffer');
-  F.Seek(5000);
-  F.Read(Back, 4);
-  Check((Back[1] = $AA) and (Back[2] = $BB) and (Back[0] = Buf[5000]), 'the file has the change');
-  F.Free;
-  { append to an existing file }
-  BF := TBufStream.Create(TmpName, stOpen, 64);
-  BF.Seek(BF.GetSize);
-  BF.Write(Buf, 10);
-  Check(BF.GetSize = 10010, 'TBufStream: append');
-  BF.Free;
-  F := TDosStream.Create(TmpName, stOpenRead);
-  Check(F.GetSize = 10010, 'the appended file has the new size');
-  F.Free;
-  DeleteFile(TmpName);
-
-  { --- registered types: Get and Put -------------------------------------------------- }
-  FillChar(RPt, SizeOf(RPt), 0);
-  RPt.ObjType := 4001;
-  RPt.VmtLink := PtrUInt(System.TClass(TPt));
-  RPt.Load := @LoadPt;
-  RPt.Store := @StorePt;
-  RegisterType(RPt);
-  Check(FindStreamRec(4001) = @RPt, 'RegisterType');
-  RPt2 := RPt;
-  RegisterType(RPt2);
-  Check(FindStreamRec(4001) = @RPt, 'RegisterType keeps the first record of a number');
-  RPt2.Next := nil;
-  ReRegisterType(RPt2);
-  Check(FindStreamRec(4001) = @RPt2, 'DN extensions: ReRegisterType replaces it');
-  ReRegisterType(RPt);
-  Check(FindStreamRec(4001) = @RPt, 'DN extensions: and back');
+  { --- registration by name ---------------------------------------------------- }
+  RPt := TStreamableClass.Create('TPt', @TPt.Build);
+  RPtColl := TStreamableClass.Create('TPtColl', @TPtColl.Build);
+  { a warm-up: the RTL allocates some state at the first conversion of a string and the first output }
   M := TMemoryStream.Create(0, 64);
-  Pt := TPt.Create(3, -4);
-  M.Put(Pt);
-  M.Put(nil);
-  Pt.X := 99;
-  M.Put(Pt);
-  Pt.Free;
-  Check(M.Status = stOk, 'Put of a registered type');
-  M.Seek(0);
-  O := M.Get;
-  Check((O <> nil) and (TPt(O).X = 3) and (TPt(O).Y = -4), 'Get makes the instance again');
-  O.Free;
-  Check(M.Get = nil, 'a nil instance');
-  O := M.Get;
-  Check((O <> nil) and (TPt(O).X = 99), 'the next instance');
-  O.Free;
-  Dummy := TStreamable.Create;
-  M.Put(Dummy);
-  Check(M.Status = stPutError, 'Put of a type that is not registered: stPutError');
-  M.Reset;
-  W := 7777;
-  M.Seek(0);
-  M.Truncate;
-  M.Write(W, 2);
-  M.Seek(0);
-  Check((M.Get = nil) and (M.Status = stGetError) and (M.ErrorInfo = 7777), 'Get of an unknown number: stGetError');
+  Os := opstream.Create(M);
+  Os.WriteString('Привет');
+  Os.Free;
   M.Free;
-  Dummy.Free;
-  Check(True, 'a number registered twice is ignored');
-  RegisterType(RPt);
-  Check(FindStreamRec(4001) = @RPt, 'the registry is not damaged');
+  Check(True, 'the classes are registered');
+  Used0 := GetFPCHeapStatus.CurrHeapUsed;      { the classes stay registered }
+
+  StreamSections;
 
   { --- collections ----------------------------------------------------------------------- }
   C := TSafeColl.Create(2, 2);
@@ -436,7 +437,6 @@ begin
   C.ForEach(@AddTo);
   Check(Sum = 20 + 30 + 60 + 70, 'ForEach');
   NestedCheck(C);
-  StreamExtras;
   C.AtPut(1, nil);
   C.Pack;
   Check((C.Count = 3) and (C.At(1) = Pointer(60)), 'Pack removes the nil items');
@@ -496,28 +496,8 @@ begin
   P := NewStr('fig');
   Check((SC.IndexOf(P) = 1), 'IndexOf compares the contents');
   DisposeStr(P);
-  { Store and Load through a stream }
-  M := TMemoryStream.Create(0, 64);
-  SC.Store(M);
-  Check(M.Status = stOk, 'Store of a string collection');
+  SC := StringCollThroughStream(SC);
   SC.Free;
-  M.Seek(0);
-  SC := TStringCollection.Load(M);
-  Check((SC.Count = 3) and (PStr(SC.At(2))^ = 'pear') and (PStr(SC.At(0))^ = 'apple'), 'Load gives the strings back');
-  SC.Free;
-  M.Free;
-  { a collection of registered instances through a stream }
-  PC := TCollection.Create(2, 2);
-  Pt := TPt.Create(5, 6); PC.Insert(Pt);
-  Pt := TPt.Create(7, 8); PC.Insert(Pt);
-  M := TMemoryStream.Create(0, 64);
-  PC.Store(M);
-  PC.Free;
-  M.Seek(0);
-  PC := TCollection.Load(M);
-  Check((PC.Count = 2) and (TPt(PC.At(1)).X = 7) and (TPt(PC.At(0)).Y = 6), 'a collection of instances through a stream');
-  PC.Free;
-  M.Free;
 
   Check(GetFPCHeapStatus.CurrHeapUsed = Used0, 'no memory is left behind');
   Finish;

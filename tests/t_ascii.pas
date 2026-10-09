@@ -3,6 +3,7 @@ program t_ascii;
 uses SysUtils, TvCodePg, TvGeom, TvColors, TvCell, TvEvents, TvKeys, TvDrawBuf, TvScreen, TvObjs, TvViews,
   TvWindow, TvAscii;
 {$I testlib.inc}
+{$I strmlib.inc}
 
 const
   W = 40;
@@ -141,7 +142,7 @@ var
   Loaded, Plain: TAsciiChart;
   Cat: TCatcher;
   Data: LongInt;
-  SM: TMemoryStream;
+  SM: TTestStream;
   Ox, Oy: Integer;
 
 begin
@@ -223,21 +224,13 @@ begin
     (AsciiUnicodeText(1) = #1), 'AsciiUnicodeText: UTF-8, controls, wide characters');
 
   { --- streams --- }
-  RegisterType(RView);
-  RegisterType(RGroup);
-  RegisterType(RFrame);
-  RegisterType(RWindow);
-  RegisterType(RAsciiTable);
-  RegisterType(RAsciiReport);
-  RegisterType(RAsciiChart);
   Plain := TAsciiChart.Create('Stored', False);
   Plain.Table.SetCode(200);
-  SM := TMemoryStream.Create(0, 1024);
+  SM := TTestStream.Create;
   SM.Put(Plain);
-  Check(SM.Status = stOk, 'the window is stored');
-  SM.Seek(0);
+  SM.Rewind;
   Loaded := TAsciiChart(Pointer(SM.Get));
-  Check((Loaded <> nil) and (SM.Status = stOk), 'the window is loaded from a stream');
+  Check(Loaded <> nil, 'the window is written to a stream and read from it');
   if Loaded <> nil then
   begin
     Check((Loaded.Table <> nil) and (Loaded.Report <> nil), 'its table and report are found');

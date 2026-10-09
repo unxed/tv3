@@ -95,7 +95,7 @@ are in the `dn` repository (not here yet; this is documentation of where they ar
 
 Differences from Borland TV that the shims cannot hide and that cost time in DN (worth knowing before you start): the fields `Message.Command` and `KeyDown.KeyCode` of `TEvent` are not at the same place (`Message(R, evKeyDown, Key, nil)`
 does nothing; DN has `MessageKey` for it); the text of a key is UTF-8 (`Text`, `TextLength`), not only a character; strings can be UTF-8 inside; the screen is 16-bit cells with attributes of
-`TvCell`; resources (streams) use `TStreamRec` and deferred pointer fixups (`GetSubViewPtr` of `TView` is deferred, of `TGroup` immediate: a saved desktop depends on it).
+`TvCell`; resources and desktops use the object streams of tvision (`opstream`, `ipstream`, `fpstream`; classes registered by name).
 The notes on what else was met during the revival are in `docs/MODERNIZATION-GUIDE.md` of `dn`.
 
 **Other things in `dn` that could be reused (not done: only noted):**

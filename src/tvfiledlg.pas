@@ -68,7 +68,12 @@ type
 
   { shows the name of the focused file of the list }
   TFileInputLine = class(TInputLine)
-    constructor Create(const Bounds: TRect; AMaxLen: Integer);
+    constructor Create(const Bounds: TRect; AMaxLen: Integer); overload;
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+  public
     procedure HandleEvent(var Event: TEvent); override;
   end;
 
@@ -76,7 +81,13 @@ type
   TSortedListBox = class(TListBox)
     ShiftState: Word;
     SearchPos: Integer;
-    constructor Create(const Bounds: TRect; ANumCols: Integer; AScrollBar: TScrollBar);
+    constructor Create(const Bounds: TRect; ANumCols: Integer; AScrollBar: TScrollBar); overload;
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    function Read(Ip: ipstream): Pointer; override;
+  public
     procedure HandleEvent(var Event: TEvent); override;
     function GetKey(const S: ShortString): Pointer; virtual;
     procedure NewList(AList: TCollection);   { DN passes a PCollection (the list must be sorted) }
@@ -86,7 +97,12 @@ type
   end;
 
   TFileList = class(TSortedListBox)
-    constructor Create(const Bounds: TRect; AScrollBar: TScrollBar);
+    constructor Create(const Bounds: TRect; AScrollBar: TScrollBar); overload;
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+  public
     function DataSize: Integer; override;
     procedure FocusItem(Item: Integer); override;
     procedure GetData(var Rec); override;
@@ -103,7 +119,12 @@ type
   { Palette: 1 = text }
   TFileInfoPane = class(TView)
     FileBlock: TSearchRec;
-    constructor Create(const Bounds: TRect);
+    constructor Create(const Bounds: TRect); overload;
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+  public
     procedure Draw; override;
     function GetPalette: TPalette; override;
     procedure HandleEvent(var Event: TEvent); override;
@@ -115,7 +136,14 @@ type
     WildCard: ShortString;
     Directory: PStr;
     constructor Create(const AWildCard, ATitle, InputName: ShortString; AOptions: Word;
-      HistId: Byte);
+      HistId: Byte); overload;
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    function Read(Ip: ipstream): Pointer; override;
+    procedure Write(Os: opstream); override;
+  public
     destructor Destroy; override;
     function GetFileName: ShortString;
     procedure GetData(var Rec); override;
@@ -127,6 +155,10 @@ type
   private
     function CheckDirectory(const S: ShortString): Boolean;
   end;
+
+var
+  { the stream classes }
+  RFileInputLine, RSortedListBox, RFileList, RFileInfoPane, RFileDialog: TStreamableClass;
 
 implementation
 
@@ -764,6 +796,115 @@ begin
     MonthNames[M] := Copy(Abbrevs, M * 3 - 2, 3);
 end;
 
+class function TFileInputLine.Build: TStreamable;
+begin
+  Result := TFileInputLine.Create(streamableInit);
+end;
+
+constructor TFileInputLine.Create(AInit: TStreamableInit);
+begin
+  inherited Create(streamableInit);
+end;
+
+function TFileInputLine.StreamableName: ShortString;
+begin
+  Result := 'TFileInputLine';
+end;
+
+function TSortedListBox.Read(Ip: ipstream): Pointer;
+begin
+  inherited Read(Ip);
+  SearchPos := -1;
+  ShiftState := 0;
+  Result := Self;
+end;
+
+class function TSortedListBox.Build: TStreamable;
+begin
+  Result := TSortedListBox.Create(streamableInit);
+end;
+
+constructor TSortedListBox.Create(AInit: TStreamableInit);
+begin
+  inherited Create(streamableInit);
+end;
+
+function TSortedListBox.StreamableName: ShortString;
+begin
+  Result := 'TSortedListBox';
+end;
+
+class function TFileList.Build: TStreamable;
+begin
+  Result := TFileList.Create(streamableInit);
+end;
+
+constructor TFileList.Create(AInit: TStreamableInit);
+begin
+  inherited Create(streamableInit);
+end;
+
+function TFileList.StreamableName: ShortString;
+begin
+  Result := 'TFileList';
+end;
+
+class function TFileInfoPane.Build: TStreamable;
+begin
+  Result := TFileInfoPane.Create(streamableInit);
+end;
+
+constructor TFileInfoPane.Create(AInit: TStreamableInit);
+begin
+  inherited Create(streamableInit);
+end;
+
+function TFileInfoPane.StreamableName: ShortString;
+begin
+  Result := 'TFileInfoPane';
+end;
+
+procedure TFileDialog.Write(Os: opstream);
+begin
+  inherited Write(Os);
+  Os.WriteString(WildCard);
+  Os.WritePointer(FileName);
+  Os.WritePointer(FileList);
+end;
+
+function TFileDialog.Read(Ip: ipstream): Pointer;
+var
+  Buf: array[0..255] of Char;
+begin
+  inherited Read(Ip);
+  if Ip.ReadString(@Buf[0], SizeOf(Buf)) <> nil then
+    WildCard := StrPas(@Buf[0]);
+  FileName := TFileInputLine(Ip.ReadPointer);
+  FileList := TFileList(Ip.ReadPointer);
+  ReadDirectory;
+  Result := Self;
+end;
+
+class function TFileDialog.Build: TStreamable;
+begin
+  Result := TFileDialog.Create(streamableInit);
+end;
+
+constructor TFileDialog.Create(AInit: TStreamableInit);
+begin
+  inherited Create(streamableInit);
+end;
+
+function TFileDialog.StreamableName: ShortString;
+begin
+  Result := 'TFileDialog';
+end;
+
 initialization
   InitMonthNames;
+  RFileInputLine := TStreamableClass.Create('TFileInputLine', @TFileInputLine.Build);
+  RSortedListBox := TStreamableClass.Create('TSortedListBox', @TSortedListBox.Build);
+  RFileList := TStreamableClass.Create('TFileList', @TFileList.Build);
+  RFileInfoPane := TStreamableClass.Create('TFileInfoPane', @TFileInfoPane.Build);
+  RFileDialog := TStreamableClass.Create('TFileDialog', @TFileDialog.Build);
 end.

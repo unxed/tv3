@@ -43,8 +43,13 @@ type
       True keeps them for the owner of the field (a history list opens on Down) }
     KeepVertical: Boolean;
     constructor Create(const Bounds: TRect; AMaxLen: Integer);
-    constructor Load(S: TStream);
-    procedure Store(S: TStream); override;
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    function Read(Ip: ipstream): Pointer; override;
+    procedure Write(Os: opstream); override;
+  public
     destructor Destroy; override;
     function DataSize: Integer; override;
     procedure Draw; override;
@@ -87,7 +92,7 @@ function InputBoxRect(const Bounds: TRect; const Title, ALabel: ShortString;
 
 var
   { stream records (see RView of TvViews) }
-  RInputLine: TStreamRec;
+  RInputLine: TStreamableClass;
 
 implementation
 
@@ -795,16 +800,36 @@ end;
 
 { --- Streams ------------------------------------------------------------------ }
 
-constructor TInputLine.Load(S: TStream);
+procedure TInputLine.Write(Os: opstream);
 var
-  T: PStr;
+  N: Integer;
 begin
-  inherited Load(S);
-  S.Read(MaxLen, SizeOf(MaxLen));
-  S.Read(CurPos, SizeOf(CurPos));
-  S.Read(FirstPos, SizeOf(FirstPos));
-  S.Read(SelStart, SizeOf(SelStart));
-  S.Read(SelEnd, SizeOf(SelEnd));
+  inherited Write(Os);
+  Os.WriteBytes(MaxLen, SizeOf(Integer));
+  N := MaxInt;                     { maxWidth and maxChars: tv3 limits the text by MaxLen only }
+  Os.WriteBytes(N, SizeOf(Integer));
+  Os.WriteBytes(N, SizeOf(Integer));
+  Os.WriteBytes(CurPos, SizeOf(Integer));
+  Os.WriteBytes(FirstPos, SizeOf(Integer));
+  Os.WriteBytes(SelStart, SizeOf(Integer));
+  Os.WriteBytes(SelEnd, SizeOf(Integer));
+  Os.WriteString(Data);
+  Os.WritePointer(Validator);
+end;
+
+function TInputLine.Read(Ip: ipstream): Pointer;
+var
+  N: Integer;
+  Buf: array[0..256] of Char;
+begin
+  inherited Read(Ip);
+  Ip.ReadBytes(MaxLen, SizeOf(Integer));
+  Ip.ReadBytes(N, SizeOf(Integer));
+  Ip.ReadBytes(N, SizeOf(Integer));
+  Ip.ReadBytes(CurPos, SizeOf(Integer));
+  Ip.ReadBytes(FirstPos, SizeOf(Integer));
+  Ip.ReadBytes(SelStart, SizeOf(Integer));
+  Ip.ReadBytes(SelEnd, SizeOf(Integer));
   if MaxLen < 1 then
     MaxLen := 1;
   if MaxLen > 255 then
@@ -813,46 +838,32 @@ begin
   GetMem(OldData, MaxLen + 1);
   Data^ := '';
   OldData^ := '';
-  T := S.ReadStr;
-  if T <> nil then
-  begin
-    Data^ := Copy(T^, 1, MaxLen);
-    DisposeStr(T);
-  end;
-  Validator := TValidator(Pointer(S.Get));
+  if Ip.ReadString(@Buf[0], MaxLen + 1) <> nil then
+    Data^ := StrPas(@Buf[0]);
+  State := State or sfCursorVis;
+  Validator := TValidator(Ip.ReadPointer);
   Anchor := -1;
+  LC := ' ';
+  RC := ' ';
+  Result := Self;
 end;
 
-procedure TInputLine.Store(S: TStream);
-var
-  Nums: array[0..4] of Integer;
+class function TInputLine.Build: TStreamable;
 begin
-  inherited Store(S);
-  { in the order Load reads them }
-  Nums[0] := MaxLen;
-  Nums[1] := CurPos;
-  Nums[2] := FirstPos;
-  Nums[3] := SelStart;
-  Nums[4] := SelEnd;
-  S.Write(Nums, SizeOf(Nums));
-  S.WriteStr(Data);
-  S.Put(TStreamable(Pointer(Validator)));
+  Result := TInputLine.Create(streamableInit);
 end;
 
-function BuildInputLine(S: TStream): TStreamable;
+constructor TInputLine.Create(AInit: TStreamableInit);
 begin
-  Result := TStreamable(Pointer(TInputLine.Load(S)));
+  inherited Create(streamableInit);
 end;
 
-procedure StoreInputLine(P: TStreamable; S: TStream);
+function TInputLine.StreamableName: ShortString;
 begin
-  TInputLine(Pointer(P)).Store(S);
+  Result := 'TInputLine';
 end;
 
 initialization
-  RInputLine.ObjType := 11;
-  RInputLine.VmtLink := PtrUInt(System.TClass(TInputLine));
-  RInputLine.Load := @BuildInputLine;
-  RInputLine.Store := @StoreInputLine;
+  RInputLine := TStreamableClass.Create('TInputLine', @TInputLine.Build);
 
 end.

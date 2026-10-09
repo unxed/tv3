@@ -73,6 +73,11 @@ type
     function Compare(Key1, Key2: Pointer): Integer; override;
     procedure FreeItem(Item: Pointer); override;
     function At2(Index: Integer): PSearchRec;
+    class function Build: TStreamable; static;
+  protected
+    function StreamableName: ShortString; override;
+    function ReadItem(Ip: ipstream): Pointer; override;
+    procedure WriteItem(Item: Pointer; Os: opstream); override;
   end;
 
   PDirEntry = ^TDirEntry;
@@ -84,6 +89,11 @@ type
   TDirCollection = class(TCollection)
     procedure FreeItem(Item: Pointer); override;
     function At2(Index: Integer): PDirEntry;
+    class function Build: TStreamable; static;
+  protected
+    function StreamableName: ShortString; override;
+    function ReadItem(Ip: ipstream): Pointer; override;
+    procedure WriteItem(Item: Pointer; Os: opstream); override;
   end;
 
 
@@ -105,6 +115,10 @@ function FExpand(const Path: ShortString): ShortString;
 function FExpandFrom(const Path, RelativeTo: ShortString): ShortString;
 { Dir includes the drive and the last separator; Ext starts with a dot. }
 procedure FSplit(const Path: ShortString; out Dir, Name, Ext: ShortString);
+
+var
+  { the stream classes }
+  RFileCollection, RDirCollection: TStreamableClass;
 
 implementation
 
@@ -412,4 +426,83 @@ begin
   Ext := ShortString(E);
 end;
 
+{ --- the streams of the collections ---------------------------------------------- }
+
+class function TFileCollection.Build: TStreamable;
+begin
+  Result := TFileCollection.Create(streamableInit);
+end;
+
+function TFileCollection.StreamableName: ShortString;
+begin
+  Result := 'TFileCollection';
+end;
+
+procedure TFileCollection.WriteItem(Item: Pointer; Os: opstream);
+var
+  Rec: PSearchRec;
+  ASize: LongInt;
+begin
+  Rec := PSearchRec(Item);
+  Os.WriteByte(Rec^.Attr);
+  Os.WriteBytes(Rec^.Time, SizeOf(LongInt));
+  ASize := Rec^.Size;
+  Os.WriteBytes(ASize, SizeOf(LongInt));
+  Os.WriteString(Rec^.Name);
+end;
+
+function TFileCollection.ReadItem(Ip: ipstream): Pointer;
+var
+  Rec: PSearchRec;
+  ASize: LongInt;
+  Buf: array[0..255] of Char;
+begin
+  New(Rec);
+  Rec^.Attr := Ip.ReadByte;
+  Ip.ReadBytes(Rec^.Time, SizeOf(LongInt));
+  Ip.ReadBytes(ASize, SizeOf(LongInt));
+  Rec^.Size := ASize;
+  Rec^.Name := '';
+  if Ip.ReadString(@Buf[0], SizeOf(Buf)) <> nil then
+    Rec^.Name := StrPas(@Buf[0]);
+  Result := Rec;
+end;
+
+class function TDirCollection.Build: TStreamable;
+begin
+  Result := TDirCollection.Create(streamableInit);
+end;
+
+function TDirCollection.StreamableName: ShortString;
+begin
+  Result := 'TDirCollection';
+end;
+
+procedure TDirCollection.WriteItem(Item: Pointer; Os: opstream);
+begin
+  Os.WriteString(PDirEntry(Item)^.Text);
+  Os.WriteString(PDirEntry(Item)^.Dir);
+end;
+
+function TDirCollection.ReadItem(Ip: ipstream): Pointer;
+var
+  Txt, Dir: PStr;
+  T, D: ShortString;
+begin
+  Txt := Ip.ReadString;
+  Dir := Ip.ReadString;
+  T := '';
+  D := '';
+  if Txt <> nil then
+    T := Txt^;
+  if Dir <> nil then
+    D := Dir^;
+  Result := NewDirEntry(T, D);
+  DisposeStr(Txt);
+  DisposeStr(Dir);
+end;
+
+initialization
+  RFileCollection := TStreamableClass.Create('TFileCollection', @TFileCollection.Build);
+  RDirCollection := TStreamableClass.Create('TDirCollection', @TDirCollection.Build);
 end.

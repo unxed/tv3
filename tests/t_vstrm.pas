@@ -3,6 +3,7 @@ program t_vstrm;
 {$I ../src/tvdefs.inc}
 uses TvGeom, TvEvents, TvScreen, TvObjs, TvUtil, TvViews, TvWindow, TvDialog, TvInput, TvCluster, TvList;
 {$I testlib.inc}
+{$I strmlib.inc}
 
 function R(A, B, C, D: Integer): TRect;
 begin
@@ -11,7 +12,7 @@ end;
 
 var
   D, L: TDialog;
-  M: TMemoryStream;
+  M: TTestStream;
   Inp: TInputLine;
   Lab: TLabel;
   Btn: TButton;
@@ -46,23 +47,6 @@ end;
 
 begin
   ScreenCreate(80, 25);
-  RegisterType(RView);
-  RegisterType(RGroup);
-  RegisterType(RFrame);
-  RegisterType(RWindow);
-  RegisterType(RScrollBar);
-  RegisterType(RListViewer);
-  RegisterType(RDialog);
-  RegisterType(RStaticText);
-  RegisterType(RLabel);
-  RegisterType(RButton);
-  RegisterType(RInputLine);
-  RegisterType(RCluster);
-  RegisterType(RCheckBoxes);
-  RegisterType(RRadioButtons);
-  RegisterType(RListBox);
-  RegisterType(RCollection);
-  RegisterType(RStringCollection);
 
   D := TDialog.Create(R(0, 0, 50, 16), 'Options');
   Inp := TInputLine.Create(R(3, 3, 30, 4), 20);
@@ -84,19 +68,14 @@ begin
   Lb.NewList(Coll);
   D.Insert(Lb);
 
-  D.DirectLink[1] := Inp;           { DN: the controls of a dialog by number }
-  D.DirectLink[2] := Chk;
-  M := TMemoryStream.Create(0, 1024);
+  M := TTestStream.Create;
   M.Put(D);
-  Check(M.Status = stOk, 'a dialog is stored');
-  M.Seek(0);
+  M.Rewind;
   L := TDialog(M.Get);
-  Check((L <> nil) and (M.Status = stOk), 'a dialog is loaded');
+  Check(L <> nil, 'a dialog is written and read');
   Check((L <> nil) and (L.Title^ = 'Options') and (L.Size.X = 50), 'the window part');
   Find;
   Check(Inp2 <> nil, 'the input line');
-  Check((L <> nil) and (L.DirectLink[1] = TView(Inp2)) and (L.DirectLink[2] = TView(Chk2)) and (L.DirectLink[3] = nil),
-    'DirectLink: the numbers of the controls of the dialog are stored and give the loaded controls');
   Check((Inp2 <> nil) and (Inp2.Data^ = 'abc') and (Inp2.MaxLen = 20),
     'the text and the length of the input line (Awaken selects all, as in Borland TV)');
   Check((Lab2 <> nil) and (Lab2.Link = TView(Inp2)), 'the label points to its input line');

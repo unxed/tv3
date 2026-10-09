@@ -2,6 +2,7 @@ program t_valid;
 {$I ../src/tvdefs.inc}
 uses TvGeom, TvEvents, TvKeys, TvViews, TvObjs, TvUtil, TvMem, TvApp, TvMsgBox, TvValid;
 {$I testlib.inc}
+{$I strmlib.inc}
 
 var
   App: TApplication;
@@ -10,7 +11,7 @@ var
   Rg: TRangeValidator;
   Pic: TPXPictureValidator;
   L: TStringLookupValidator;
-  M: TMemoryStream;
+  M: TTestStream;
   PV: TValidator;
   SC: TStringCollection;
   S: ShortString;
@@ -163,11 +164,7 @@ begin
   Pic.Free;
 
   { streams }
-  RegisterType(RPXPictureValidator);
-  RegisterType(RFilterValidator);
-  RegisterType(RRangeValidator);
-  RegisterType(RStringLookupValidator);
-  M := TMemoryStream.Create(0, 1024);
+  M := TTestStream.Create;
   F := TFilterValidator.Create(['0'..'9']);
   Rg := TRangeValidator.Create(-5, 99);
   Pic := TPXPictureValidator.Create('{##}-{##}', True);
@@ -177,7 +174,7 @@ begin
   F.Free;
   Rg.Free;
   Pic.Free;
-  M.Seek(0);
+  M.Rewind;
   PV := TValidator(Pointer(M.Get));
   Check((PV <> nil) and (PV is TFilterValidator) and TFilterValidator(PV).IsValid('123') and
     not TFilterValidator(PV).IsValid('1a'), 'a filter validator through a stream');

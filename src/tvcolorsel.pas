@@ -83,8 +83,13 @@ type
     Color: Byte;
     SelType: TColorSel;
     constructor Create(const Bounds: TRect; ASelType: TColorSel);
-    constructor Load(S: TStream);
-    procedure Store(S: TStream); override;
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    function Read(Ip: ipstream): Pointer; override;
+    procedure Write(Os: opstream); override;
+  public
     procedure Draw; override;
     procedure HandleEvent(var Event: TEvent); override;
   private
@@ -93,7 +98,11 @@ type
 
   TMonoSelector = class(TCluster)
     constructor Create(const Bounds: TRect);
-    constructor Load(S: TStream);
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+  public
     procedure Draw; override;
     procedure HandleEvent(var Event: TEvent); override;
     function Mark(Item: Integer): Boolean; override;
@@ -107,9 +116,14 @@ type
     Color: PColorAttr;
     Text: PStr;
     constructor Create(const Bounds: TRect; const AText: ShortString);
-    constructor Load(S: TStream);
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    function Read(Ip: ipstream): Pointer; override;
+    procedure Write(Os: opstream); override;
+  public
     destructor Destroy; override;
-    procedure Store(S: TStream); override;
     procedure Draw; override;
     procedure HandleEvent(var Event: TEvent); override;
     procedure SetColor(AColor: PColorAttr);
@@ -118,9 +132,14 @@ type
   TColorGroupList = class(TListViewer)
     Groups: PColorGroup;
     constructor Create(const Bounds: TRect; AScrollBar: TScrollBar; AGroups: PColorGroup);
-    constructor Load(S: TStream);
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    function Read(Ip: ipstream): Pointer; override;
+    procedure Write(Os: opstream); override;
+  public
     destructor Destroy; override;
-    procedure Store(S: TStream); override;
     procedure FocusItem(Item: Integer); override;
     function GetText(Item, MaxLen: Integer): ShortString; override;
     procedure HandleEvent(var Event: TEvent); override;
@@ -128,12 +147,21 @@ type
     function GetGroupIndex(GroupNum: Byte): Byte;
     function GetGroup(GroupNum: Byte): PColorGroup;
     function GetNumGroups: Byte;
+  private
+    class procedure WriteItems(Os: opstream; AItems: PColorItem); static;
+    class procedure WriteGroups(Os: opstream; AGroups: PColorGroup); static;
+    class function ReadItems(Ip: ipstream): PColorItem; static;
+    class function ReadGroups(Ip: ipstream): PColorGroup; static;
   end;
 
   TColorItemList = class(TListViewer)
     Items: PColorItem;
     constructor Create(const Bounds: TRect; AScrollBar: TScrollBar; AItems: PColorItem);
-    constructor Load(S: TStream);
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+  public
     procedure FocusItem(Item: Integer); override;
     function GetText(Item, MaxLen: Integer): ShortString; override;
     procedure HandleEvent(var Event: TEvent); override;
@@ -151,9 +179,14 @@ type
     MonoSel: TMonoSelector;
     GroupIndex: Byte;
     constructor Create(const APalette: TPalette; AGroups: PColorGroup);
-    constructor Load(S: TStream);
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    function Read(Ip: ipstream): Pointer; override;
+    procedure Write(Os: opstream); override;
+  public
     destructor Destroy; override;
-    procedure Store(S: TStream); override;
     function DataSize: Integer; override;
     procedure GetData(var Rec); override;
     procedure HandleEvent(var Event: TEvent); override;
@@ -164,6 +197,8 @@ type
   end;
 
 var
+  { the stream classes }
+  RColorSelector, RMonoSelector, RColorDisplay, RColorGroupList, RColorItemList, RColorDialog: TStreamableClass;
   { the indexes remembered between the uses of the dialog }
   ColorIndexes: PColorIndex = nil;
 
@@ -261,26 +296,6 @@ begin
   EventMask := EventMask or evBroadcast;
   SelType := ASelType;
   Color := 0;
-end;
-
-constructor TColorSelector.Load(S: TStream);
-var
-  Temp: Integer;
-begin
-  inherited Load(S);
-  S.Read(Color, SizeOf(Color));
-  S.Read(Temp, SizeOf(Temp));
-  SelType := TColorSel(Temp);
-end;
-
-procedure TColorSelector.Store(S: TStream);
-var
-  Temp: Integer;
-begin
-  inherited Store(S);
-  S.Write(Color, SizeOf(Color));
-  Temp := Ord(SelType);
-  S.Write(Temp, SizeOf(Temp));
 end;
 
 procedure TColorSelector.Draw;
@@ -411,11 +426,6 @@ begin
   EventMask := EventMask or evBroadcast;
 end;
 
-constructor TMonoSelector.Load(S: TStream);
-begin
-  inherited Load(S);
-end;
-
 procedure TMonoSelector.Draw;
 begin
   DrawBox(' ( ) ', #$07);
@@ -464,19 +474,6 @@ begin
   Color := nil;
   Text := NewStr(AText);
   EventMask := EventMask or evBroadcast;
-end;
-
-constructor TColorDisplay.Load(S: TStream);
-begin
-  inherited Load(S);
-  Text := S.ReadStr;
-  Color := nil;
-end;
-
-procedure TColorDisplay.Store(S: TStream);
-begin
-  inherited Store(S);
-  S.WriteStr(Text);
 end;
 
 destructor TColorDisplay.Destroy;
@@ -562,29 +559,29 @@ begin
   SetRange(I);
 end;
 
-procedure WriteColorItems(S: TStream; Items: PColorItem);
+class procedure TColorGroupList.WriteItems(Os: opstream; AItems: PColorItem);
 var
   Count: Integer;
   Cur: PColorItem;
 begin
   Count := 0;
-  Cur := Items;
+  Cur := AItems;
   while Cur <> nil do
   begin
     Inc(Count);
     Cur := Cur^.Next;
   end;
-  S.Write(Count, SizeOf(Count));
-  Cur := Items;
+  Os.WriteBytes(Count, SizeOf(Integer));
+  Cur := AItems;
   while Cur <> nil do
   begin
-    S.WriteStr(Cur^.Name);
-    S.Write(Cur^.Index, SizeOf(Cur^.Index));
+    Os.WriteString(Cur^.Name);
+    Os.WriteByte(Cur^.Index);
     Cur := Cur^.Next;
   end;
 end;
 
-procedure WriteColorGroups(S: TStream; AGroups: PColorGroup);
+class procedure TColorGroupList.WriteGroups(Os: opstream; AGroups: PColorGroup);
 var
   Count: Integer;
   Cur: PColorGroup;
@@ -596,81 +593,69 @@ begin
     Inc(Count);
     Cur := Cur^.Next;
   end;
-  S.Write(Count, SizeOf(Count));
+  Os.WriteBytes(Count, SizeOf(Integer));
   Cur := AGroups;
   while Cur <> nil do
   begin
-    S.WriteStr(Cur^.Name);
-    WriteColorItems(S, Cur^.Items);
+    Os.WriteString(Cur^.Name);
+    WriteItems(Os, Cur^.Items);
     Cur := Cur^.Next;
   end;
 end;
 
-function ReadColorItems(S: TStream): PColorItem;
+class function TColorGroupList.ReadItems(Ip: ipstream): PColorItem;
 var
   Count: Integer;
-  Items, Last, Cur: PColorItem;
+  AItems, Last, Cur: PColorItem;
   Nm: PStr;
   Idx: Byte;
 begin
-  S.Read(Count, SizeOf(Count));
-  Items := nil;
+  Ip.ReadBytes(Count, SizeOf(Integer));
+  AItems := nil;
   Last := nil;
   while Count > 0 do
   begin
     Dec(Count);
-    Nm := S.ReadStr;
-    S.Read(Idx, SizeOf(Idx));
+    Nm := Ip.ReadString;
+    Idx := Ip.ReadByte;
     New(Cur);
     Cur^.Name := Nm;
     Cur^.Index := Idx;
     Cur^.Next := nil;
-    if Items = nil then
-      Items := Cur
+    if AItems = nil then
+      AItems := Cur
     else
       Last^.Next := Cur;
     Last := Cur;
   end;
-  Result := Items;
+  Result := AItems;
 end;
 
-function ReadColorGroups(S: TStream): PColorGroup;
+class function TColorGroupList.ReadGroups(Ip: ipstream): PColorGroup;
 var
   Count: Integer;
-  Groups, Last, Cur: PColorGroup;
+  AGroups, Last, Cur: PColorGroup;
   Nm: PStr;
 begin
-  S.Read(Count, SizeOf(Count));
-  Groups := nil;
+  Ip.ReadBytes(Count, SizeOf(Integer));
+  AGroups := nil;
   Last := nil;
   while Count > 0 do
   begin
     Dec(Count);
-    Nm := S.ReadStr;
+    Nm := Ip.ReadString;
     New(Cur);
     Cur^.Name := Nm;
     Cur^.Index := 0;
-    Cur^.Items := ReadColorItems(S);
+    Cur^.Items := ReadItems(Ip);
     Cur^.Next := nil;
-    if Groups = nil then
-      Groups := Cur
+    if AGroups = nil then
+      AGroups := Cur
     else
       Last^.Next := Cur;
     Last := Cur;
   end;
-  Result := Groups;
-end;
-
-constructor TColorGroupList.Load(S: TStream);
-begin
-  inherited Load(S);
-  Groups := ReadColorGroups(S);
-end;
-
-procedure TColorGroupList.Store(S: TStream);
-begin
-  inherited Store(S);
-  WriteColorGroups(S, Groups);
+  Result := AGroups;
 end;
 
 destructor TColorGroupList.Destroy;
@@ -793,13 +778,6 @@ begin
     Inc(I);
   end;
   SetRange(I);
-end;
-
-constructor TColorItemList.Load(S: TStream);
-begin
-  inherited Load(S);
-  { Items point into TColorGroupList.Groups; wired by cmNewColorItem. }
-  Items := nil;
 end;
 
 procedure TColorItemList.FocusItem(Item: Integer);
@@ -942,36 +920,6 @@ begin
     SetData(Pal);
 end;
 
-constructor TColorDialog.Load(S: TStream);
-begin
-  inherited Load(S);
-  { Children are already loaded; resolve peer indexes now (TView.GetPeerViewPtr
-    would only queue fixups on an enclosing owner and leave these fields nil). }
-  Display := TColorDisplay(ReadChildPtr(S));
-  Groups := TColorGroupList(ReadChildPtr(S));
-  ForLabel := TLabel(ReadChildPtr(S));
-  ForSel := TColorSelector(ReadChildPtr(S));
-  BakLabel := TLabel(ReadChildPtr(S));
-  BakSel := TColorSelector(ReadChildPtr(S));
-  MonoLabel := TLabel(ReadChildPtr(S));
-  MonoSel := TMonoSelector(ReadChildPtr(S));
-  Pal := Default(TPalette);
-  GroupIndex := 0;
-end;
-
-procedure TColorDialog.Store(S: TStream);
-begin
-  inherited Store(S);
-  PutPeerViewPtr(S, Display);
-  PutPeerViewPtr(S, Groups);
-  PutPeerViewPtr(S, ForLabel);
-  PutPeerViewPtr(S, ForSel);
-  PutPeerViewPtr(S, BakLabel);
-  PutPeerViewPtr(S, BakSel);
-  PutPeerViewPtr(S, MonoLabel);
-  PutPeerViewPtr(S, MonoSel);
-end;
-
 destructor TColorDialog.Destroy;
 begin
   Pal := Default(TPalette);
@@ -1053,4 +1001,177 @@ begin
     ColorIndexes^.ColorIndex[Index] := Groups.GetGroupIndex(Index);
 end;
 
+procedure TColorSelector.Write(Os: opstream);
+var
+  Temp: Integer;
+begin
+  inherited Write(Os);
+  Os.WriteByte(Color);
+  Temp := Ord(SelType);
+  Os.WriteBytes(Temp, SizeOf(Integer));
+end;
+
+function TColorSelector.Read(Ip: ipstream): Pointer;
+var
+  Temp: Integer;
+begin
+  inherited Read(Ip);
+  Color := Ip.ReadByte;
+  Ip.ReadBytes(Temp, SizeOf(Integer));
+  SelType := TColorSel(Temp);
+  Result := Self;
+end;
+
+class function TColorSelector.Build: TStreamable;
+begin
+  Result := TColorSelector.Create(streamableInit);
+end;
+
+constructor TColorSelector.Create(AInit: TStreamableInit);
+begin
+  inherited Create(streamableInit);
+end;
+
+function TColorSelector.StreamableName: ShortString;
+begin
+  Result := 'TColorSelector';
+end;
+
+class function TMonoSelector.Build: TStreamable;
+begin
+  Result := TMonoSelector.Create(streamableInit);
+end;
+
+constructor TMonoSelector.Create(AInit: TStreamableInit);
+begin
+  inherited Create(streamableInit);
+end;
+
+function TMonoSelector.StreamableName: ShortString;
+begin
+  Result := 'TMonoSelector';
+end;
+
+procedure TColorDisplay.Write(Os: opstream);
+begin
+  inherited Write(Os);
+  Os.WriteString(Text);
+end;
+
+function TColorDisplay.Read(Ip: ipstream): Pointer;
+begin
+  inherited Read(Ip);
+  Text := Ip.ReadString;
+  Color := nil;
+  Result := Self;
+end;
+
+class function TColorDisplay.Build: TStreamable;
+begin
+  Result := TColorDisplay.Create(streamableInit);
+end;
+
+constructor TColorDisplay.Create(AInit: TStreamableInit);
+begin
+  inherited Create(streamableInit);
+end;
+
+function TColorDisplay.StreamableName: ShortString;
+begin
+  Result := 'TColorDisplay';
+end;
+
+procedure TColorGroupList.Write(Os: opstream);
+begin
+  inherited Write(Os);
+  WriteGroups(Os, Groups);
+end;
+
+function TColorGroupList.Read(Ip: ipstream): Pointer;
+begin
+  inherited Read(Ip);
+  Groups := ReadGroups(Ip);
+  Result := Self;
+end;
+
+class function TColorGroupList.Build: TStreamable;
+begin
+  Result := TColorGroupList.Create(streamableInit);
+end;
+
+constructor TColorGroupList.Create(AInit: TStreamableInit);
+begin
+  inherited Create(streamableInit);
+end;
+
+function TColorGroupList.StreamableName: ShortString;
+begin
+  Result := 'TColorGroupList';
+end;
+
+class function TColorItemList.Build: TStreamable;
+begin
+  Result := TColorItemList.Create(streamableInit);
+end;
+
+constructor TColorItemList.Create(AInit: TStreamableInit);
+begin
+  inherited Create(streamableInit);
+end;
+
+function TColorItemList.StreamableName: ShortString;
+begin
+  Result := 'TColorItemList';
+end;
+
+procedure TColorDialog.Write(Os: opstream);
+begin
+  inherited Write(Os);
+  Os.WritePointer(Display);
+  Os.WritePointer(Groups);
+  Os.WritePointer(ForLabel);
+  Os.WritePointer(ForSel);
+  Os.WritePointer(BakLabel);
+  Os.WritePointer(BakSel);
+  Os.WritePointer(MonoLabel);
+  Os.WritePointer(MonoSel);
+end;
+
+function TColorDialog.Read(Ip: ipstream): Pointer;
+begin
+  inherited Read(Ip);
+  Display := TColorDisplay(Ip.ReadPointer);
+  Groups := TColorGroupList(Ip.ReadPointer);
+  ForLabel := TLabel(Ip.ReadPointer);
+  ForSel := TColorSelector(Ip.ReadPointer);
+  BakLabel := TLabel(Ip.ReadPointer);
+  BakSel := TColorSelector(Ip.ReadPointer);
+  MonoLabel := TLabel(Ip.ReadPointer);
+  MonoSel := TMonoSelector(Ip.ReadPointer);
+  Pal := Default(TPalette);
+  Result := Self;
+end;
+
+class function TColorDialog.Build: TStreamable;
+begin
+  Result := TColorDialog.Create(streamableInit);
+end;
+
+constructor TColorDialog.Create(AInit: TStreamableInit);
+begin
+  inherited Create(streamableInit);
+end;
+
+function TColorDialog.StreamableName: ShortString;
+begin
+  Result := 'TColorDialog';
+end;
+
+initialization
+  RColorSelector := TStreamableClass.Create('TColorSelector', @TColorSelector.Build);
+  RMonoSelector := TStreamableClass.Create('TMonoSelector', @TMonoSelector.Build);
+  RColorDisplay := TStreamableClass.Create('TColorDisplay', @TColorDisplay.Build);
+  RColorGroupList := TStreamableClass.Create('TColorGroupList', @TColorGroupList.Build);
+  RColorItemList := TStreamableClass.Create('TColorItemList', @TColorItemList.Build);
+  RColorDialog := TStreamableClass.Create('TColorDialog', @TColorDialog.Build);
 end.

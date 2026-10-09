@@ -23,7 +23,7 @@ interface
 
 uses
   SysUtils,
-  TvUtil, TvGeom, TvColors, TvCell, TvGlyphs, TvDrawBuf, TvScreen,
+  TvUtil, TvObjs, TvGeom, TvColors, TvCell, TvGlyphs, TvDrawBuf, TvScreen,
   TvKeys, TvEvents, TvXlat, TvSys, TvTimer,
   TvViews, TvWindow, TvMenus;
 
@@ -62,6 +62,8 @@ const
   hcZoom      = $FF24;
 
 var
+  { the stream classes }
+  RBackground, RDeskTop: TStreamableClass;
   { UX guidelines of vtui, tier 0: Ctrl+Tab and Ctrl+Shift+Tab walk through the windows of the desktop. False: the keys are left to the application. }
   UxCtrlTab: Boolean = True;
   { UX guidelines 0.2, 0.3: with key releases at hand (TvSys.KeyUpAvailable: the win32 input mode, the keyboard protocol of Kitty) Ctrl+Tab opens a list of the
@@ -87,7 +89,14 @@ type
   { Palette: 1 = background }
   TBackground = class(TView)
     Pattern: Byte;
-    constructor Create(const Bounds: TRect; APattern: Byte);
+    constructor Create(const Bounds: TRect; APattern: Byte); overload;
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    function Read(Ip: ipstream): Pointer; override;
+    procedure Write(Os: opstream); override;
+  public
     procedure Draw; override;
     function GetPalette: TPalette; override;
   end;
@@ -95,7 +104,12 @@ type
   TDeskTop = class(TGroup)
     Background: TBackground;
     TileColumnsFirst: Boolean;
-    constructor Create(const Bounds: TRect);
+    constructor Create(const Bounds: TRect); overload;
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+  public
     destructor Destroy; override;
     procedure Cascade(const R: TRect);
     procedure HandleEvent(var Event: TEvent); override;
@@ -1081,7 +1095,52 @@ begin
   WriteLn('Type EXIT to return...');
 end;
 
+procedure TBackground.Write(Os: opstream);
+begin
+  inherited Write(Os);
+  Os.WriteByte(Pattern);
+end;
+
+function TBackground.Read(Ip: ipstream): Pointer;
+begin
+  inherited Read(Ip);
+  Pattern := Ip.ReadByte;
+  Result := Self;
+end;
+
+class function TBackground.Build: TStreamable;
+begin
+  Result := TBackground.Create(streamableInit);
+end;
+
+constructor TBackground.Create(AInit: TStreamableInit);
+begin
+  inherited Create(streamableInit);
+end;
+
+function TBackground.StreamableName: ShortString;
+begin
+  Result := 'TBackground';
+end;
+
+class function TDeskTop.Build: TStreamable;
+begin
+  Result := TDeskTop.Create(streamableInit);
+end;
+
+constructor TDeskTop.Create(AInit: TStreamableInit);
+begin
+  inherited Create(streamableInit);
+end;
+
+function TDeskTop.StreamableName: ShortString;
+begin
+  Result := 'TDeskTop';
+end;
+
 initialization
+  RBackground := TStreamableClass.Create('TBackground', @TBackground.Build);
+  RDeskTop := TStreamableClass.Create('TDeskTop', @TDeskTop.Build);
   SystemColors[apColor] := AppColorPalette;
   SystemColors[apBlackWhite] := AppBlackWhitePalette;
   SystemColors[apMonochrome] := AppMonochromePalette;

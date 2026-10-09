@@ -58,8 +58,13 @@ type
     CharText: TAsciiCharText;
     OnPick: TAsciiPickEvent;
     constructor Create(const Bounds: TRect);
-    constructor Load(S: TStream);
-    procedure Store(S: TStream); override;
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    function Read(Ip: ipstream): Pointer; override;
+    procedure Write(Os: opstream); override;
+  public
     function GetPalette: TPalette; override;
     procedure Draw; override;
     procedure HandleEvent(var Event: TEvent); override;
@@ -83,8 +88,13 @@ type
     Unicode: Boolean;
     CharStr: AnsiString;
     constructor Create(const Bounds: TRect);
-    constructor Load(S: TStream);
-    procedure Store(S: TStream); override;
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    function Read(Ip: ipstream): Pointer; override;
+    procedure Write(Os: opstream); override;
+  public
     function GetPalette: TPalette; override;
     procedure Draw; override;
     procedure HandleEvent(var Event: TEvent); override;
@@ -97,8 +107,13 @@ type
     Table: TAsciiTable;
     Report: TAsciiReport;
     constructor Create(const ATitle: ShortString = 'ASCII Table'; AUnicode: Boolean = False);
-    constructor Load(S: TStream);
-    procedure Store(S: TStream); override;
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    function Read(Ip: ipstream): Pointer; override;
+    procedure Write(Os: opstream); override;
+  public
     { the views; a subclass makes its own (e.g. with the key codes of its application) }
     function MakeTable(const Bounds: TRect): TAsciiTable; virtual;
     function MakeReport(const Bounds: TRect): TAsciiReport; virtual;
@@ -115,7 +130,7 @@ var
   AsciiPalette: ShortString = #6#7;
   { the CharText of a new table; nil: AsciiCodePageText or AsciiUnicodeText by the mode }
   AsciiCharText: TAsciiCharText = nil;
-  RAsciiTable, RAsciiReport, RAsciiChart: TStreamRec;
+  RAsciiTable, RAsciiReport, RAsciiChart: TStreamableClass;
 
 implementation
 
@@ -155,29 +170,6 @@ begin
   CharText := AsciiCharText;
   BlockCursor;
   ShowCursor;
-end;
-
-constructor TAsciiTable.Load(S: TStream);
-var
-  B: Byte;
-begin
-  inherited Load(S);
-  S.Read(Block, SizeOf(Block));
-  S.Read(B, 1);
-  Unicode := (B and 1) <> 0;
-  TypePicks := (B and 2) <> 0;
-  MarkCursor := (B and 4) <> 0;
-  CharText := AsciiCharText;
-end;
-
-procedure TAsciiTable.Store(S: TStream);
-var
-  B: Byte;
-begin
-  inherited Store(S);
-  S.Write(Block, SizeOf(Block));
-  B := Ord(Unicode) or (Ord(TypePicks) shl 1) or (Ord(MarkCursor) shl 2);
-  S.Write(B, 1);
 end;
 
 function TAsciiTable.GetPalette: TPalette;
@@ -434,32 +426,6 @@ begin
   EventMask := EventMask or evBroadcast;
 end;
 
-constructor TAsciiReport.Load(S: TStream);
-var
-  B: Byte;
-begin
-  inherited Load(S);
-  S.Read(Code, SizeOf(Code));
-  S.Read(B, 1);
-  Unicode := B <> 0;
-  if Assigned(AsciiCharText) then
-    CharStr := AsciiCharText(Code)
-  else if Unicode then
-    CharStr := AsciiUnicodeText(Code)
-  else
-    CharStr := AsciiCodePageText(Code);
-end;
-
-procedure TAsciiReport.Store(S: TStream);
-var
-  B: Byte;
-begin
-  inherited Store(S);
-  S.Write(Code, SizeOf(Code));
-  B := Ord(Unicode);
-  S.Write(B, 1);
-end;
-
 function TAsciiReport.GetPalette: TPalette;
 begin
   Result := TPalette.Create(PChar(@AsciiPalette[1]), Length(AsciiPalette));
@@ -559,61 +525,113 @@ begin
   Result := TAsciiReport.Create(Bounds);
 end;
 
-constructor TAsciiChart.Load(S: TStream);
+procedure TAsciiTable.Write(Os: opstream);
+var
+  B: Byte;
 begin
-  inherited Load(S);
-  GetSubViewPtr(S, Table);
-  GetSubViewPtr(S, Report);
+  inherited Write(Os);
+  Os.WriteBytes(Block, SizeOf(Block));
+  B := Ord(Unicode) or (Ord(TypePicks) shl 1) or (Ord(MarkCursor) shl 2);
+  Os.WriteByte(B);
 end;
 
-procedure TAsciiChart.Store(S: TStream);
+function TAsciiTable.Read(Ip: ipstream): Pointer;
+var
+  B: Byte;
 begin
-  inherited Store(S);
-  PutSubViewPtr(S, Table);
-  PutSubViewPtr(S, Report);
+  inherited Read(Ip);
+  Ip.ReadBytes(Block, SizeOf(Block));
+  B := Ip.ReadByte;
+  Unicode := (B and 1) <> 0;
+  TypePicks := (B and 2) <> 0;
+  MarkCursor := (B and 4) <> 0;
+  CharText := AsciiCharText;
+  Result := Self;
 end;
 
-function BuildAsciiTable(S: TStream): TStreamable;
+class function TAsciiTable.Build: TStreamable;
 begin
-  Result := TStreamable(Pointer(TAsciiTable.Load(S)));
+  Result := TAsciiTable.Create(streamableInit);
 end;
 
-procedure StoreAsciiTable(P: TStreamable; S: TStream);
+constructor TAsciiTable.Create(AInit: TStreamableInit);
 begin
-  TAsciiTable(Pointer(P)).Store(S);
+  inherited Create(streamableInit);
 end;
 
-function BuildAsciiReport(S: TStream): TStreamable;
+function TAsciiTable.StreamableName: ShortString;
 begin
-  Result := TStreamable(Pointer(TAsciiReport.Load(S)));
+  Result := 'TAsciiTable';
 end;
 
-procedure StoreAsciiReport(P: TStreamable; S: TStream);
+procedure TAsciiReport.Write(Os: opstream);
 begin
-  TAsciiReport(Pointer(P)).Store(S);
+  inherited Write(Os);
+  Os.WriteBytes(Code, SizeOf(Code));
+  Os.WriteByte(Ord(Unicode));
 end;
 
-function BuildAsciiChart(S: TStream): TStreamable;
+function TAsciiReport.Read(Ip: ipstream): Pointer;
 begin
-  Result := TStreamable(Pointer(TAsciiChart.Load(S)));
+  inherited Read(Ip);
+  Ip.ReadBytes(Code, SizeOf(Code));
+  Unicode := Ip.ReadByte <> 0;
+  if Assigned(AsciiCharText) then
+    CharStr := AsciiCharText(Code)
+  else if Unicode then
+    CharStr := AsciiUnicodeText(Code)
+  else
+    CharStr := AsciiCodePageText(Code);
+  Result := Self;
 end;
 
-procedure StoreAsciiChart(P: TStreamable; S: TStream);
+class function TAsciiReport.Build: TStreamable;
 begin
-  TAsciiChart(Pointer(P)).Store(S);
+  Result := TAsciiReport.Create(streamableInit);
+end;
+
+constructor TAsciiReport.Create(AInit: TStreamableInit);
+begin
+  inherited Create(streamableInit);
+end;
+
+function TAsciiReport.StreamableName: ShortString;
+begin
+  Result := 'TAsciiReport';
+end;
+
+procedure TAsciiChart.Write(Os: opstream);
+begin
+  inherited Write(Os);
+  Os.WritePointer(Table);
+  Os.WritePointer(Report);
+end;
+
+function TAsciiChart.Read(Ip: ipstream): Pointer;
+begin
+  inherited Read(Ip);
+  Table := TAsciiTable(Ip.ReadPointer);
+  Report := TAsciiReport(Ip.ReadPointer);
+  Result := Self;
+end;
+
+class function TAsciiChart.Build: TStreamable;
+begin
+  Result := TAsciiChart.Create(streamableInit);
+end;
+
+constructor TAsciiChart.Create(AInit: TStreamableInit);
+begin
+  inherited Create(streamableInit);
+end;
+
+function TAsciiChart.StreamableName: ShortString;
+begin
+  Result := 'TAsciiChart';
 end;
 
 initialization
-  RAsciiTable.ObjType := 10010;
-  RAsciiTable.VmtLink := PtrUInt(System.TClass(TAsciiTable));
-  RAsciiTable.Load := @BuildAsciiTable;
-  RAsciiTable.Store := @StoreAsciiTable;
-  RAsciiReport.ObjType := 10011;
-  RAsciiReport.VmtLink := PtrUInt(System.TClass(TAsciiReport));
-  RAsciiReport.Load := @BuildAsciiReport;
-  RAsciiReport.Store := @StoreAsciiReport;
-  RAsciiChart.ObjType := 10012;
-  RAsciiChart.VmtLink := PtrUInt(System.TClass(TAsciiChart));
-  RAsciiChart.Load := @BuildAsciiChart;
-  RAsciiChart.Store := @StoreAsciiChart;
+  RAsciiTable := TStreamableClass.Create('TAsciiTable', @TAsciiTable.Build);
+  RAsciiReport := TStreamableClass.Create('TAsciiReport', @TAsciiReport.Build);
+  RAsciiChart := TStreamableClass.Create('TAsciiChart', @TAsciiChart.Build);
 end.

@@ -3,6 +3,7 @@ program t_window;
 uses TvCodePg, TvGeom, TvColors, TvCell, TvEvents, TvKeys, TvDrawBuf, TvScreen, TvObjs, TvViews,
   TvWindow;
 {$I testlib.inc}
+{$I strmlib.inc}
 
 function CommandsOf(const A: array of Integer): TCommandSet;
 var
@@ -153,7 +154,7 @@ var
   SW, SL: TWindow;
   SSb, SSb2: TScrollBar;
   SSc, SSc2: TScroller;
-  SM: TMemoryStream;
+  SM: TTestStream;
   I: Integer;
   Ev: TEvent;
   Min, Max: TPoint;
@@ -440,12 +441,6 @@ begin
   Check(Count = 1, 'Dispose removes a window from the desk');
   Desk.Free;
   { streams: a window with a frame, a scroll bar and a scroller that points to it }
-  RegisterType(RView);
-  RegisterType(RGroup);
-  RegisterType(RFrame);
-  RegisterType(RScrollBar);
-  RegisterType(RScroller);
-  RegisterType(RWindow);
   SW := TWindow.Create(R(0, 0, 30, 10), 'Hello', 3);
   SW.Flags := SW.Flags and not wfZoom;
   SSb := SW.StandardScrollBar(sbVertical or sbHandleKeyboard);
@@ -454,12 +449,11 @@ begin
   SSc.Limit.Y := 50;
   SSb.SetParams(3, 0, 40, 5, 1);
   SW.Insert(SSc);
-  SM := TMemoryStream.Create(0, 512);
+  SM := TTestStream.Create;
   SM.Put(TStreamable(Pointer(SW)));
-  Check(SM.Status = stOk, 'a window is stored');
-  SM.Seek(0);
+  SM.Rewind;
   SL := TWindow(Pointer(SM.Get));
-  Check((SL <> nil) and (SM.Status = stOk), 'a window is loaded');
+  Check(SL <> nil, 'a window is written and read');
   Check((SL.Title^ = 'Hello') and (SL.Number = 3) and (SL.Flags and wfZoom = 0), 'the title, the number and the flags');
   Check((SL.Frame <> nil) and (SL.Frame.Owner = TGroup(SL)), 'the frame is a view of the window');
   SSc2 := nil;

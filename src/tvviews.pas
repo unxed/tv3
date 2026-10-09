@@ -153,17 +153,14 @@ type
     UpdTicks: LongInt;
     UpTmr: TEventTimer;
     ClearPositionalEvents: Boolean;
-    constructor Create(const Bounds: TRect);
-    { Streams (the format is ours): a view is read back as it was stored, but not active, selected, focused,
-      exposed. Load is called by the function of the stream record of the type (RView...). }
-    constructor Load(S: TStream);
-    procedure Store(S: TStream); virtual;
-    { A pointer to another view of the same owner is stored as its number and made a pointer again when the
-      owner has loaded all its views (the same for GetPeerViewPtr and GetSubViewPtr). P is a pointer variable. }
-    procedure GetSubViewPtr(S: TStream; var P);
-    procedure PutSubViewPtr(S: TStream; P: TView);
-    procedure GetPeerViewPtr(S: TStream; var P);
-    procedure PutPeerViewPtr(S: TStream; P: TView);
+    constructor Create(const Bounds: TRect); overload;
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    function Read(Ip: ipstream): Pointer; override;
+    procedure Write(Os: opstream); override;
+  public
     { Called by the program from time to time for the views that asked for it (DN: RegisterToBackground). }
     procedure Update; virtual;
     { Hides the view and removes it from its owner. }
@@ -280,15 +277,14 @@ type
     LockFlag: Byte;
     EndState: Word;
     Current: TView;
-    constructor Load(S: TStream);
-    procedure Store(S: TStream); override;
-    { Reads the number that PutSubViewPtr wrote and gives the view of this group (nil for 0). }
-    function ReadChildPtr(S: TStream): TView;
-    { As in Borland TV: the number that PutSubViewPtr wrote gives a view of THIS group at once (a group that loads its own fields after
-      "inherited Load" has all its views already; TView.GetSubViewPtr would only put the pointer into the list of fixups of an enclosing
-      group, which no longer waits for it). P is a pointer variable. }
-    procedure GetSubViewPtr(S: TStream; var P);
-    constructor Create(const Bounds: TRect);
+    constructor Create(const Bounds: TRect); overload;
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    function Read(Ip: ipstream): Pointer; override;
+    procedure Write(Os: opstream); override;
+  public
     destructor Destroy; override;
     function ExecView(P: TView): Word;
     function Execute: Word; override;
@@ -352,8 +348,8 @@ var
   ModalCount: Word = 0;
   { DN: the commands of the features that are not in the program are never enabled (TView.MenuEnabled) }
   CommandHiddenHook: function(Command: Word): Boolean = nil;
-  { stream records: RegisterType(RView) makes TView known to the streams }
-  RView, RGroup: TStreamRec;
+  { the stream classes of TView and TGroup }
+  RView, RGroup: TStreamableClass;
   { called at the start of the destructor of every view (DN: the view leaves the list of the views that
     are updated in the background) }
   ViewDoneHook: procedure(P: TView) = nil;
@@ -2680,202 +2676,135 @@ end;
 
 { --- Streams ------------------------------------------------------------------ }
 
-type
-  TViewStore = packed record
-    Origin, Size, Cursor: TPoint;
-    GrowMode, DragMode: Byte;
-    HelpCtx, State, Options, EventMask: Word;
-  end;
-
-  TFixup = record
-    Target: PPointer;
-    Index: Integer;
-  end;
-
+procedure TView.Write(Os: opstream);
 var
-  Fixups: array of TFixup;
-
-constructor TView.Load(S: TStream);
-var
-  R: TViewStore;
+  SaveState: Word;
 begin
-  inherited Create;
-  S.Read(R, SizeOf(R));
-  Origin := R.Origin;
-  Size := R.Size;
-  Cursor := R.Cursor;
-  GrowMode := R.GrowMode;
-  DragMode := R.DragMode;
-  HelpCtx := R.HelpCtx;
-  State := R.State;
-  Options := R.Options;
-  EventMask := R.EventMask;
+  SaveState := State and not (sfActive or sfSelected or sfFocused or sfExposed);
+  Os.WriteBytes(Origin, SizeOf(TPoint));
+  Os.WriteBytes(Size, SizeOf(TPoint));
+  Os.WriteBytes(Cursor, SizeOf(TPoint));
+  Os.WriteByte(GrowMode);
+  Os.WriteByte(DragMode);
+  Os.WriteWord(HelpCtx);
+  Os.WriteWord(SaveState);
+  Os.WriteWord(Options);
+  Os.WriteWord(EventMask);
+end;
+
+function TView.Read(Ip: ipstream): Pointer;
+begin
+  Ip.ReadBytes(Origin, SizeOf(TPoint));
+  Ip.ReadBytes(Size, SizeOf(TPoint));
+  Ip.ReadBytes(Cursor, SizeOf(TPoint));
+  GrowMode := Ip.ReadByte;
+  DragMode := Ip.ReadByte;
+  HelpCtx := Ip.ReadWord;
+  State := Ip.ReadWord;
+  Options := Ip.ReadWord;
+  EventMask := Ip.ReadWord;
   Owner := nil;
   Next := nil;
-  ResizeBalance.X := 0;
-  ResizeBalance.Y := 0;
+  Result := Self;
 end;
 
-procedure TView.Store(S: TStream);
-var
-  R: TViewStore;
+class function TView.Build: TStreamable;
 begin
-  R.Origin := Origin;
-  R.Size := Size;
-  R.Cursor := Cursor;
-  R.GrowMode := GrowMode;
-  R.DragMode := DragMode;
-  R.HelpCtx := HelpCtx;
-  R.State := State and not (sfActive or sfSelected or sfFocused or sfExposed);
-  R.Options := Options;
-  R.EventMask := EventMask;
-  S.Write(R, SizeOf(R));
+  Result := TView.Create(streamableInit);
 end;
 
-procedure TView.GetSubViewPtr(S: TStream; var P);
-var
-  Index: Word;
+constructor TView.Create(AInit: TStreamableInit);
 begin
-  S.Read(Index, SizeOf(Index));
-  Pointer(P) := nil;
-  if Index = 0 then
-    Exit;
-  SetLength(Fixups, Length(Fixups) + 1);
-  Fixups[High(Fixups)].Target := @Pointer(P);
-  Fixups[High(Fixups)].Index := Index;
+  inherited Create;
 end;
 
-procedure TView.PutSubViewPtr(S: TStream; P: TView);
-var
-  Index: Word;
+function TView.StreamableName: ShortString;
 begin
-  if (P = nil) or (P.Owner = nil) then
-    Index := 0
-  else
-    Index := P.Owner.IndexOf(P);
-  S.Write(Index, SizeOf(Index));
-end;
-
-procedure TView.GetPeerViewPtr(S: TStream; var P);
-begin
-  GetSubViewPtr(S, P);
-end;
-
-procedure TView.PutPeerViewPtr(S: TStream; P: TView);
-begin
-  PutSubViewPtr(S, P);
+  Result := 'TView';
 end;
 
 procedure TView.Update;
 begin
 end;
 
-constructor TGroup.Load(S: TStream);
-var
-  Base, I: Integer;
-  Count: Word;
-  P: TView;
-begin
-  inherited Load(S);
-  Last := nil;
-  Current := nil;
-  Phase := phFocused;
-  Buffer := nil;
-  LockFlag := 0;
-  EndState := 0;
-  Clip := GetExtent;
-  Base := Length(Fixups);
-  S.Read(Count, SizeOf(Count));
-  for I := 1 to Count do
-  begin
-    P := TView(S.Get);
-    if P <> nil then
-      InsertView(P, nil);
-  end;
-  { as in Borland (SetCurrent(V, NormalSelect)): the current view is selected, else it does not take the keys (a dialog loaded from a
-    resource: the input line had the focus but not sfSelected) }
-  SetCurrent(ReadChildPtr(S), NormalSelect);
-  { the views of this group that pointed to each other get their pointers }
-  for I := Base to High(Fixups) do
-    if (Fixups[I].Index >= 1) and (Fixups[I].Index <= Count) then
-      Fixups[I].Target^ := At(Fixups[I].Index);
-  SetLength(Fixups, Base);
-  Awaken;
-end;
-
-function TGroup.ReadChildPtr(S: TStream): TView;
+procedure TGroup.Write(Os: opstream);
 var
   Index: Word;
-begin
-  S.Read(Index, SizeOf(Index));
-  if Index = 0 then
-    Result := nil
-  else
-    Result := At(Index);
-end;
-
-procedure TGroup.GetSubViewPtr(S: TStream; var P);
-begin
-  Pointer(P) := ReadChildPtr(S);
-end;
-
-procedure TGroup.Store(S: TStream);
-var
-  Count: Word;
+  OwnerSave: TGroup;
+  ACount: Integer;
   P: TView;
 begin
-  inherited Store(S);
-  Count := 0;
+  inherited Write(Os);
+  OwnerSave := Owner;
+  Owner := Self;
+  ACount := IndexOf(Last);
+  Os.WriteBytes(ACount, SizeOf(Integer));
   if Last <> nil then
   begin
-    P := Last;
+    P := Last.Next;
     repeat
-      Inc(Count);
-      P := P.Next;
-    until P = Last;
-  end;
-  S.Write(Count, SizeOf(Count));
-  if Last <> nil then
-  begin
-    P := Last.Next;                   { the first view: the lowest }
-    repeat
-      S.Put(TStreamable(Pointer(P)));
+      Os.WritePointer(P);
       P := P.Next;
     until P = Last.Next;
   end;
-  PutSubViewPtr(S, Current);
+  if Current = nil then
+    Index := 0
+  else
+    Index := IndexOf(Current);
+  Os.WriteWord(Index);
+  Owner := OwnerSave;
 end;
 
-{ the stream records of the types (the numbers are those of Turbo Vision) }
-function BuildView(S: TStream): TStreamable;
+function TGroup.Read(Ip: ipstream): Pointer;
+var
+  Index: Word;
+  OwnerSave: TGroup;
+  ACount, I: Integer;
+  TV, ACurrent: TView;
 begin
-  Result := TStreamable(Pointer(TView.Load(S)));
+  inherited Read(Ip);
+  Clip := GetExtent;
+  OwnerSave := Owner;
+  Owner := Self;
+  Last := nil;
+  Phase := phFocused;
+  Current := nil;
+  Buffer := nil;
+  LockFlag := 0;
+  EndState := 0;
+  Ip.ReadBytes(ACount, SizeOf(Integer));
+  for I := 0 to ACount - 1 do
+  begin
+    TV := TView(Ip.ReadPointer);
+    if TV <> nil then
+      InsertView(TV, nil);
+  end;
+  Owner := OwnerSave;
+  Index := Ip.ReadWord;
+  ACurrent := At(Index);
+  SetCurrent(ACurrent, normalSelect);
+  Awaken;
+  Result := Self;
 end;
 
-procedure StoreView(P: TStreamable; S: TStream);
+class function TGroup.Build: TStreamable;
 begin
-  TView(Pointer(P)).Store(S);
+  Result := TGroup.Create(streamableInit);
 end;
 
-function BuildGroup(S: TStream): TStreamable;
+constructor TGroup.Create(AInit: TStreamableInit);
 begin
-  Result := TStreamable(Pointer(TGroup.Load(S)));
+  inherited Create(streamableInit);
 end;
 
-procedure StoreGroup(P: TStreamable; S: TStream);
+function TGroup.StreamableName: ShortString;
 begin
-  TGroup(Pointer(P)).Store(S);
+  Result := 'TGroup';
 end;
 
 initialization
-  RView.ObjType := 1;
-  RView.VmtLink := PtrUInt(System.TClass(TView));
-  RView.Load := @BuildView;
-  RView.Store := @StoreView;
-  RGroup.ObjType := 6;
-  RGroup.VmtLink := PtrUInt(System.TClass(TGroup));
-  RGroup.Load := @BuildGroup;
-  RGroup.Store := @StoreGroup;
+  RView := TStreamableClass.Create('TView', @TView.Build);
+  RGroup := TStreamableClass.Create('TGroup', @TGroup.Build);
   InitCommands;
   TView.ErrorAttr := TColorAttr(LongInt($CF));
 end.

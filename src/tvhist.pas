@@ -40,8 +40,8 @@ function HistoryStr(Id: Byte; Index: Integer): ShortString;
   string of every record). Load replaces the history and makes HistorySize big enough for it. }
 { drops the strings that end with the character (DN: the strings that end with a blank are not kept) }
 procedure HistoryRemoveEndingWith(C: Char);
-procedure HistoryStore(S: TStream);
-procedure HistoryLoad(S: TStream);
+procedure HistoryStore(Os: opstream);
+procedure HistoryLoad(Ip: ipstream);
 
 const
   HistoryPalette = #$16#$17;
@@ -76,8 +76,13 @@ type
     Link: TInputLine;
     HistoryId: Word;
     constructor Create(const Bounds: TRect; ALink: TInputLine; AHistoryId: Word);
-    constructor Load(S: TStream);
-    procedure Store(S: TStream); override;
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    function Read(Ip: ipstream): Pointer; override;
+    procedure Write(Os: opstream); override;
+  public
     destructor Destroy; override;
     procedure Draw; override;
     function GetPalette: TPalette; override;
@@ -88,7 +93,7 @@ type
 
 var
   { stream records (see RView of TvViews) }
-  RHistory: TStreamRec;
+  RHistory: TStreamableClass;
 
 implementation
 
@@ -126,34 +131,38 @@ begin
   Used := 0;
 end;
 
-procedure HistoryStore(S: TStream);
+procedure HistoryStore(Os: opstream);
 var
   I: Integer;
 begin
-  S.Write(RecCount, SizeOf(RecCount));
+  Os.WriteBytes(RecCount, SizeOf(RecCount));
   for I := 0 to RecCount - 1 do
   begin
-    S.Write(Recs[I].Id, 1);
-    S.WriteStr(@Recs[I].Str);
+    Os.WriteByte(Recs[I].Id);
+    Os.WriteString(Recs[I].Str);
   end;
 end;
 
-procedure HistoryLoad(S: TStream);
+procedure HistoryLoad(Ip: ipstream);
 var
   I, N: Integer;
   Id: Byte;
   T: ShortString;
+  P: PStr;
 begin
-  S.Read(N, SizeOf(N));
-  if (S.Status <> stOK) or (N < 0) or (N > 65535) then
+  N := -1;
+  Ip.ReadBytes(N, SizeOf(N));
+  if (N < 0) or (N > 65535) then
     Exit;
   ClearHistory;
   for I := 1 to N do
   begin
-    S.Read(Id, 1);
-    S.ReadStrV(T);
-    if S.Status <> stOK then
+    Id := Ip.ReadByte;
+    P := Ip.ReadString;
+    if P = nil then
       Break;
+    T := P^;
+    DisposeStr(P);
     if RecCount >= Length(Recs) then
       SetLength(Recs, Length(Recs) * 2 + 16);
     Recs[RecCount].Id := Id;
@@ -458,43 +467,38 @@ end;
 
 { --- Streams ------------------------------------------------------------------ }
 
-constructor THistory.Load(S: TStream);
-var
-  Id: Word;
+procedure THistory.Write(Os: opstream);
 begin
-  inherited Load(S);
-  S.Read(Id, 2);
-  HistoryId := Id;
-  { the input line is a view of the same owner }
-  GetPeerViewPtr(S, Link);
+  inherited Write(Os);
+  Os.WritePointer(Link);
+  Os.WriteWord(HistoryId);
 end;
 
-procedure THistory.Store(S: TStream);
-var
-  Id: Word;
+function THistory.Read(Ip: ipstream): Pointer;
 begin
-  inherited Store(S);
-  Id := HistoryId;
-  S.Write(Id, 2);
-  PutPeerViewPtr(S, Link);
+  inherited Read(Ip);
+  Link := TInputLine(Ip.ReadPointer);
+  HistoryId := Ip.ReadWord;
+  Result := Self;
 end;
 
-function BuildHistory(S: TStream): TStreamable;
+class function THistory.Build: TStreamable;
 begin
-  Result := TStreamable(Pointer(THistory.Load(S)));
+  Result := THistory.Create(streamableInit);
 end;
 
-procedure StoreHistory(P: TStreamable; S: TStream);
+constructor THistory.Create(AInit: TStreamableInit);
 begin
-  THistory(Pointer(P)).Store(S);
+  inherited Create(streamableInit);
 end;
 
+function THistory.StreamableName: ShortString;
+begin
+  Result := 'THistory';
+end;
 
 initialization
-  RHistory.ObjType := 22;
-  RHistory.VmtLink := PtrUInt(System.TClass(THistory));
-  RHistory.Load := @BuildHistory;
-  RHistory.Store := @StoreHistory;
+  RHistory := TStreamableClass.Create('THistory', @THistory.Build);
   ClearHistory;
 finalization
   DoneHistory;

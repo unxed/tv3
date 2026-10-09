@@ -62,7 +62,11 @@ type
     title, 5 = icons }
   TFrame = class(TView)
     constructor Create(const Bounds: TRect);
-    constructor Load(S: TStream);
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+  public
     procedure Draw; override;
     function GetPalette: TPalette; override;
     procedure HandleEvent(var Event: TEvent); override;
@@ -85,8 +89,13 @@ type
     Step: LongInt;
     ForceScroll: Boolean;
     constructor Create(const Bounds: TRect);
-    constructor Load(S: TStream);
-    procedure Store(S: TStream); override;
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    function Read(Ip: ipstream): Pointer; override;
+    procedure Write(Os: opstream); override;
+  public
     procedure Draw; override;
     function GetPalette: TPalette; override;
     procedure HandleEvent(var Event: TEvent); override;
@@ -111,8 +120,13 @@ type
     VScrollBar: TScrollBar;
     Limit: TPoint;
     constructor Create(const Bounds: TRect; AHScrollBar, AVScrollBar: TScrollBar);
-    constructor Load(S: TStream);
-    procedure Store(S: TStream); override;
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    function Read(Ip: ipstream): Pointer; override;
+    procedure Write(Os: opstream); override;
+  public
     destructor Destroy; override;
     procedure ChangeBounds(const Bounds: TRect); override;
     function GetPalette: TPalette; override;
@@ -136,8 +150,13 @@ type
     Frame: TFrame;
     Title: PStr;   { as in Borland TV: a heap string (NewStr/DisposeStr), nil = none; DN changes it directly }
     constructor Create(const Bounds: TRect; const ATitle: ShortString; ANumber: Integer);
-    constructor Load(S: TStream);
-    procedure Store(S: TStream); override;
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    function Read(Ip: ipstream): Pointer; override;
+    procedure Write(Os: opstream); override;
+  public
     destructor Destroy; override;
     procedure Close; virtual;
     function GetPalette: TPalette; override;
@@ -154,7 +173,7 @@ var
   { DN: called when a window with a number is destroyed (DN hands the numbers out itself: Views.GetNum) }
   WindowNumberFreeHook: procedure(Number: Integer) = nil;
   { stream records (see RView of TvViews) }
-  RFrame, RScrollBar, RScroller, RWindow: TStreamRec;
+  RFrame, RScrollBar, RScroller, RWindow: TStreamableClass;
 
 implementation
 
@@ -1111,144 +1130,151 @@ begin
     Locate(ZoomRect);
 end;
 
-
 { --- Streams ------------------------------------------------------------------ }
 
-constructor TFrame.Load(S: TStream);
+class function TFrame.Build: TStreamable;
 begin
-  inherited Load(S);
+  Result := TFrame.Create(streamableInit);
 end;
 
-constructor TScrollBar.Load(S: TStream);
+constructor TFrame.Create(AInit: TStreamableInit);
 begin
-  inherited Load(S);
-  S.Read(Value, SizeOf(Value));
-  S.Read(MinVal, SizeOf(MinVal));
-  S.Read(MaxVal, SizeOf(MaxVal));
-  S.Read(PgStep, SizeOf(PgStep));
-  S.Read(ArStep, SizeOf(ArStep));
-  S.Read(Chars, SizeOf(Chars));
+  inherited Create(streamableInit);
 end;
 
-procedure TScrollBar.Store(S: TStream);
+function TFrame.StreamableName: ShortString;
 begin
-  inherited Store(S);
-  S.Write(Value, SizeOf(Value));
-  S.Write(MinVal, SizeOf(MinVal));
-  S.Write(MaxVal, SizeOf(MaxVal));
-  S.Write(PgStep, SizeOf(PgStep));
-  S.Write(ArStep, SizeOf(ArStep));
-  S.Write(Chars, SizeOf(Chars));
+  Result := 'TFrame';
 end;
 
-constructor TScroller.Load(S: TStream);
+procedure TScrollBar.Write(Os: opstream);
 begin
-  inherited Load(S);
+  inherited Write(Os);
+  Os.WriteBytes(Value, SizeOf(Integer));
+  Os.WriteBytes(MinVal, SizeOf(Integer));
+  Os.WriteBytes(MaxVal, SizeOf(Integer));
+  Os.WriteBytes(PgStep, SizeOf(Integer));
+  Os.WriteBytes(ArStep, SizeOf(Integer));
+  Os.WriteBytes(Chars, SizeOf(Chars));
+end;
+
+function TScrollBar.Read(Ip: ipstream): Pointer;
+begin
+  inherited Read(Ip);
+  Ip.ReadBytes(Value, SizeOf(Integer));
+  Ip.ReadBytes(MinVal, SizeOf(Integer));
+  Ip.ReadBytes(MaxVal, SizeOf(Integer));
+  Ip.ReadBytes(PgStep, SizeOf(Integer));
+  Ip.ReadBytes(ArStep, SizeOf(Integer));
+  Ip.ReadBytes(Chars, SizeOf(TScrollChars));
+  Result := Self;
+end;
+
+class function TScrollBar.Build: TStreamable;
+begin
+  Result := TScrollBar.Create(streamableInit);
+end;
+
+constructor TScrollBar.Create(AInit: TStreamableInit);
+begin
+  inherited Create(streamableInit);
+end;
+
+function TScrollBar.StreamableName: ShortString;
+begin
+  Result := 'TScrollBar';
+end;
+
+procedure TScroller.Write(Os: opstream);
+begin
+  inherited Write(Os);
+  Os.WritePointer(HScrollBar);
+  Os.WritePointer(VScrollBar);
+  Os.WriteBytes(Delta, SizeOf(TPoint));
+  Os.WriteBytes(Limit, SizeOf(TPoint));
+end;
+
+function TScroller.Read(Ip: ipstream): Pointer;
+begin
+  inherited Read(Ip);
+  HScrollBar := TScrollBar(Ip.ReadPointer);
+  VScrollBar := TScrollBar(Ip.ReadPointer);
+  Ip.ReadBytes(Delta, SizeOf(TPoint));
+  Ip.ReadBytes(Limit, SizeOf(TPoint));
   DrawLock := 0;
-  GetPeerViewPtr(S, HScrollBar);
-  GetPeerViewPtr(S, VScrollBar);
   DrawFlag := False;
-  { the scroll position, then the limit }
-  S.Read(Delta, SizeOf(TPoint));
-  S.Read(Limit, SizeOf(TPoint));
+  Result := Self;
 end;
 
-procedure TScroller.Store(S: TStream);
+class function TScroller.Build: TStreamable;
+begin
+  Result := TScroller.Create(streamableInit);
+end;
+
+constructor TScroller.Create(AInit: TStreamableInit);
+begin
+  inherited Create(streamableInit);
+end;
+
+function TScroller.StreamableName: ShortString;
+begin
+  Result := 'TScroller';
+end;
+
+procedure TWindow.Write(Os: opstream);
 var
-  Bars: array[0..1] of TScrollBar;
-  I: Integer;
+  N: SmallInt;
 begin
-  inherited Store(S);
-  Bars[0] := HScrollBar;
-  Bars[1] := VScrollBar;
-  for I := Low(Bars) to High(Bars) do
-    PutPeerViewPtr(S, Bars[I]);
-  S.Write(Delta, SizeOf(TPoint));
-  S.Write(Limit, SizeOf(TPoint));
+  inherited Write(Os);
+  Os.WriteByte(Flags);
+  Os.WriteBytes(ZoomRect, SizeOf(TRect));
+  N := Number;
+  Os.WriteBytes(N, SizeOf(SmallInt));
+  N := Palette;
+  Os.WriteBytes(N, SizeOf(SmallInt));
+  Os.WritePointer(Frame);
+  Os.WriteString(Title);
 end;
 
-constructor TWindow.Load(S: TStream);
+function TWindow.Read(Ip: ipstream): Pointer;
+var
+  N: SmallInt;
 begin
-  inherited Load(S);
-  S.Read(Flags, SizeOf(Flags));
-  S.Read(ZoomRect, SizeOf(ZoomRect));
-  S.Read(Number, SizeOf(Number));
-  S.Read(Palette, SizeOf(Palette));
-  Frame := TFrame(ReadChildPtr(S));
-  Title := S.ReadStr;
+  inherited Read(Ip);
+  Flags := Ip.ReadByte;
+  Ip.ReadBytes(ZoomRect, SizeOf(TRect));
+  Ip.ReadBytes(N, SizeOf(SmallInt));
+  Number := N;
+  Ip.ReadBytes(N, SizeOf(SmallInt));
+  Palette := N;
+  Frame := TFrame(Ip.ReadPointer);
+  Title := Ip.ReadString;
+  Result := Self;
 end;
 
-procedure TWindow.Store(S: TStream);
+class function TWindow.Build: TStreamable;
 begin
-  inherited Store(S);
-  S.Write(Flags, SizeOf(Flags));
-  S.Write(ZoomRect, SizeOf(ZoomRect));
-  S.Write(Number, SizeOf(Number));
-  S.Write(Palette, SizeOf(Palette));
-  PutSubViewPtr(S, Frame);
-  S.WriteStr(Title);
+  Result := TWindow.Create(streamableInit);
+end;
+
+constructor TWindow.Create(AInit: TStreamableInit);
+begin
+  inherited Create(streamableInit);
+end;
+
+function TWindow.StreamableName: ShortString;
+begin
+  Result := 'TWindow';
 end;
 
 var
   FrameI: Integer;
 
-function BuildFrame(S: TStream): TStreamable;
-begin
-  Result := TStreamable(Pointer(TFrame.Load(S)));
-end;
-
-procedure StoreFrame(P: TStreamable; S: TStream);
-begin
-  TFrame(Pointer(P)).Store(S);
-end;
-
-function BuildScrollBar(S: TStream): TStreamable;
-begin
-  Result := TStreamable(Pointer(TScrollBar.Load(S)));
-end;
-
-procedure StoreScrollBar(P: TStreamable; S: TStream);
-begin
-  TScrollBar(Pointer(P)).Store(S);
-end;
-
-function BuildScroller(S: TStream): TStreamable;
-begin
-  Result := TStreamable(Pointer(TScroller.Load(S)));
-end;
-
-procedure StoreScroller(P: TStreamable; S: TStream);
-begin
-  TScroller(Pointer(P)).Store(S);
-end;
-
-function BuildWindow(S: TStream): TStreamable;
-begin
-  Result := TStreamable(Pointer(TWindow.Load(S)));
-end;
-
-procedure StoreWindow(P: TStreamable; S: TStream);
-begin
-  TWindow(Pointer(P)).Store(S);
-end;
-
 initialization
-  RFrame.ObjType := 2;
-  RFrame.VmtLink := PtrUInt(System.TClass(TFrame));
-  RFrame.Load := @BuildFrame;
-  RFrame.Store := @StoreFrame;
-  RScrollBar.ObjType := 3;
-  RScrollBar.VmtLink := PtrUInt(System.TClass(TScrollBar));
-  RScrollBar.Load := @BuildScrollBar;
-  RScrollBar.Store := @StoreScrollBar;
-  RScroller.ObjType := 4;
-  RScroller.VmtLink := PtrUInt(System.TClass(TScroller));
-  RScroller.Load := @BuildScroller;
-  RScroller.Store := @StoreScroller;
-  RWindow.ObjType := 7;
-  RWindow.VmtLink := PtrUInt(System.TClass(TWindow));
-  RWindow.Load := @BuildWindow;
-  RWindow.Store := @StoreWindow;
+  RFrame := TStreamableClass.Create('TFrame', @TFrame.Build);
+  RScrollBar := TStreamableClass.Create('TScrollBar', @TScrollBar.Build);
+  RScroller := TStreamableClass.Create('TScroller', @TScroller.Build);
+  RWindow := TStreamableClass.Create('TWindow', @TWindow.Build);
   for FrameI := 0 to High(FramePassive) do
   begin
     FrameInit[FrameI] := FramePassive[FrameI];

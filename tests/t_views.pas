@@ -2,6 +2,7 @@ program t_views;
 {$I ../src/tvdefs.inc}
 uses TvGeom, TvColors, TvCell, TvEvents, TvKeys, TvDrawBuf, TvScreen, TvObjs, TvViews;
 {$I testlib.inc}
+{$I strmlib.inc}
 
 function CommandsOf(const A: array of Integer): TCommandSet;
 var
@@ -23,13 +24,17 @@ type
     Ch: Byte;
     Col: Byte;
     Peer: TView;
-    constructor Create(const Bounds: TRect; ACh: Char; ACol: Byte);
-    constructor Load(S: TStream);
-    procedure Store(S: TStream); override;
+    constructor Create(const Bounds: TRect; ACh: Char; ACol: Byte); overload;
+    class function Build: TStreamable; static;
     destructor Destroy; override;
     procedure Draw; override;
     function GetPalette: TPalette; override;
     procedure HandleEvent(var Event: TEvent); override;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    function Read(Ip: ipstream): Pointer; override;
+    procedure Write(Os: opstream); override;
   end;
 
 var
@@ -44,34 +49,40 @@ begin
   Col := ACol;
 end;
 
-constructor TFill.Load(S: TStream);
+class function TFill.Build: TStreamable;
 begin
-  inherited Load(S);
-  S.Read(Ch, 1);
-  S.Read(Col, 1);
-  GetPeerViewPtr(S, Peer);
+  Result := TFill.Create(streamableInit);
 end;
 
-procedure TFill.Store(S: TStream);
+constructor TFill.Create(AInit: TStreamableInit);
 begin
-  inherited Store(S);
-  S.Write(Ch, 1);
-  S.Write(Col, 1);
-  PutPeerViewPtr(S, Peer);
+  inherited Create(streamableInit);
 end;
 
-function BuildFill(S: TStream): TStreamable;
+function TFill.StreamableName: ShortString;
 begin
-  Result := TStreamable(Pointer(TFill.Load(S)));
+  Result := 'TFill';
 end;
 
-procedure StoreFill(P: TStreamable; S: TStream);
+function TFill.Read(Ip: ipstream): Pointer;
 begin
-  TFill(Pointer(P)).Store(S);
+  inherited Read(Ip);
+  Ch := Ip.ReadByte;
+  Col := Ip.ReadByte;
+  Peer := TView(Ip.ReadPointer);
+  Result := Self;
+end;
+
+procedure TFill.Write(Os: opstream);
+begin
+  inherited Write(Os);
+  Os.WriteByte(Ch);
+  Os.WriteByte(Col);
+  Os.WritePointer(Peer);
 end;
 
 var
-  RFill: TStreamRec;
+  RFill: TStreamableClass;
 
 destructor TFill.Destroy;
 begin
@@ -171,7 +182,7 @@ var
   Leg: TLeg;
   GS, GL: TGroup;
   SA, SB, SC: TFill;
-  M: TMemoryStream;
+  M: TTestStream;
   Count: Integer;
 
 procedure CountViews(P: TView; Args: Pointer);
@@ -424,12 +435,7 @@ begin
   V1.Free;
 
   { streams: a group with views that point to each other }
-  RFill.ObjType := 4100;
-  RFill.VmtLink := PtrUInt(System.TClass(TFill));
-  RFill.Load := @BuildFill;
-  RFill.Store := @StoreFill;
-  RegisterType(RFill);
-  RegisterType(RGroup);
+  RFill := TStreamableClass.Create('TFill', @TFill.Build);
   GS := TGroup.Create(R(0, 0, 20, 8));
   SA := TFill.Create(R(0, 0, 5, 2), 'a', $17);
   SB := TFill.Create(R(5, 0, 10, 2), 'b', $27);
@@ -440,12 +446,11 @@ begin
   SB.Peer := SC;
   SA.Peer := SB;
   GS.Current := SB;
-  M := TMemoryStream.Create(0, 256);
-  M.Put(TStreamable(Pointer(GS)));
-  Check(M.Status = stOk, 'a group is stored');
-  M.Seek(0);
+  M := TTestStream.Create;
+  M.Put(GS);
+  M.Rewind;
   GL := TGroup(M.Get);
-  Check((GL <> nil) and (M.Status = stOk), 'a group is loaded');
+  Check(GL <> nil, 'a group is written and read');
   Check((GL.IndexOf(GL.At(1)) = 1) and (GL.At(3) <> nil), 'three views in the group');
   { At(1) is the view that was inserted last (the top one) }
   Check((TFill(GL.At(1)).Ch = Ord('c')) and (TFill(GL.At(2)).Ch = Ord('b')) and

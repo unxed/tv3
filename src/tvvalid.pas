@@ -39,9 +39,14 @@ type
   TValidator = class(TStreamable)
     Status: Word;
     Options: Word;
-    constructor Create;
-    constructor Load(S: TStream);
-    procedure Store(S: TStream);
+    constructor Create; overload;
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    function Read(Ip: ipstream): Pointer; override;
+    procedure Write(Os: opstream); override;
+  public
     procedure Error; virtual;
     function IsValidInput(var S: ShortString; SuppressFill: Boolean): Boolean; virtual;
     function IsValid(const S: ShortString): Boolean; virtual;
@@ -52,8 +57,13 @@ type
   TPXPictureValidator = class(TValidator)
     Pic: PStr;
     constructor Create(const APic: ShortString; AutoFill: Boolean);
-    constructor Load(S: TStream);
-    procedure Store(S: TStream);
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    function Read(Ip: ipstream): Pointer; override;
+    procedure Write(Os: opstream); override;
+  public
     destructor Destroy; override;
     procedure Error; override;
     function IsValidInput(var S: ShortString; SuppressFill: Boolean): Boolean; override;
@@ -80,8 +90,13 @@ type
     constructor Create(const AValidChars: ShortString); overload;
     { as in the Pascal Turbo Vision: the valid characters as a set (the characters #1..#255 of it) }
     constructor Create(const AValidChars: TCharSet); overload;
-    constructor Load(S: TStream);
-    procedure Store(S: TStream);
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    function Read(Ip: ipstream): Pointer; override;
+    procedure Write(Os: opstream); override;
+  public
     destructor Destroy; override;
     procedure Error; override;
     function IsValidInput(var S: ShortString; SuppressFill: Boolean): Boolean; override;
@@ -91,14 +106,24 @@ type
   TRangeValidator = class(TFilterValidator)
     Min, Max: LongInt;
     constructor Create(AMin, AMax: LongInt);
-    constructor Load(S: TStream);
-    procedure Store(S: TStream);
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    function Read(Ip: ipstream): Pointer; override;
+    procedure Write(Os: opstream); override;
+  public
     procedure Error; override;
     function IsValid(const S: ShortString): Boolean; override;
     function Transfer(var S: ShortString; Buffer: Pointer; Flag: TVTransfer): Word; override;
   end;
 
   TLookupValidator = class(TValidator)
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+  public
     function IsValid(const S: ShortString): Boolean; override;
     function Lookup(const S: ShortString): Boolean; virtual;
   end;
@@ -106,18 +131,22 @@ type
   TStringLookupValidator = class(TLookupValidator)
     Strings: TStringCollection;
     constructor Create(AStrings: TStringCollection);
-    constructor Load(S: TStream);
-    procedure Store(S: TStream);
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    function Read(Ip: ipstream): Pointer; override;
+    procedure Write(Os: opstream); override;
+  public
     destructor Destroy; override;
     procedure Error; override;
     function Lookup(const S: ShortString): Boolean; override;
     procedure NewStringList(AStrings: TStringCollection);
   end;
 
-
 var
-  { stream records (the numbers of Turbo Vision) }
-  RPXPictureValidator, RFilterValidator, RRangeValidator, RStringLookupValidator: TStreamRec;
+  { the stream classes }
+  RValidator, RFilterValidator, RRangeValidator, RPXPictureValidator, RLookupValidator, RStringLookupValidator: TStreamableClass;
   ValidPictureError: ShortString = 'Error in picture format.'#10' %s';
   ValidFilterError: ShortString = 'Invalid character in input';
   ValidRangeError: ShortString = 'Value not in the range %d to %d';
@@ -784,129 +813,170 @@ end;
 
 { --- streams ----------------------------------------------------------------- }
 
-constructor TValidator.Load(S: TStream);
+procedure TValidator.Write(Os: opstream);
 begin
-  S.Read(Options, SizeOf(Options));
+  Os.WriteWord(Options);
+end;
+
+function TValidator.Read(Ip: ipstream): Pointer;
+begin
+  Options := Ip.ReadWord;
   Status := 0;
+  Result := Self;
 end;
 
-procedure TValidator.Store(S: TStream);
+class function TValidator.Build: TStreamable;
 begin
-  S.Write(Options, SizeOf(Options));
+  Result := TValidator.Create(streamableInit);
 end;
 
-constructor TPXPictureValidator.Load(S: TStream);
+constructor TValidator.Create(AInit: TStreamableInit);
 begin
-  inherited Load(S);
-  Pic := S.ReadStr;
+  inherited Create;
 end;
 
-procedure TPXPictureValidator.Store(S: TStream);
+function TValidator.StreamableName: ShortString;
 begin
-  inherited Store(S);
-  S.WriteStr(Pic);
+  Result := 'TValidator';
 end;
 
-constructor TFilterValidator.Load(S: TStream);
+procedure TPXPictureValidator.Write(Os: opstream);
 begin
-  inherited Load(S);
-  ValidChars := S.ReadStr;
+  inherited Write(Os);
+  Os.WriteString(Pic);
 end;
 
-procedure TFilterValidator.Store(S: TStream);
+function TPXPictureValidator.Read(Ip: ipstream): Pointer;
 begin
-  inherited Store(S);
-  S.WriteStr(ValidChars);
+  inherited Read(Ip);
+  Pic := Ip.ReadString;
+  Index := 0;
+  Jndex := 0;
+  Result := Self;
 end;
 
-constructor TRangeValidator.Load(S: TStream);
-var
-  Limits: array[0..1] of LongInt;
+class function TPXPictureValidator.Build: TStreamable;
 begin
-  inherited Load(S);
-  S.Read(Limits, SizeOf(Limits));
-  Min := Limits[0];
-  Max := Limits[1];
+  Result := TPXPictureValidator.Create(streamableInit);
 end;
 
-procedure TRangeValidator.Store(S: TStream);
-var
-  Limits: array[0..1] of LongInt;
+constructor TPXPictureValidator.Create(AInit: TStreamableInit);
 begin
-  inherited Store(S);
-  Limits[0] := Min;
-  Limits[1] := Max;
-  S.Write(Limits, SizeOf(Limits));
+  inherited Create(streamableInit);
 end;
 
-constructor TStringLookupValidator.Load(S: TStream);
+function TPXPictureValidator.StreamableName: ShortString;
 begin
-  inherited Load(S);
-  Strings := TStringCollection(Pointer(S.Get));
+  Result := 'TPXPictureValidator';
 end;
 
-procedure TStringLookupValidator.Store(S: TStream);
+procedure TFilterValidator.Write(Os: opstream);
 begin
-  inherited Store(S);
-  S.Put(TStreamable(Pointer(Strings)));
+  inherited Write(Os);
+  Os.WriteString(ValidChars);
 end;
 
-function BuildPXPicture(S: TStream): TStreamable;
+function TFilterValidator.Read(Ip: ipstream): Pointer;
 begin
-  Result := TStreamable(Pointer(TPXPictureValidator.Load(S)));
+  inherited Read(Ip);
+  ValidChars := Ip.ReadString;
+  Result := Self;
 end;
 
-procedure StorePXPicture(P: TStreamable; S: TStream);
+class function TFilterValidator.Build: TStreamable;
 begin
-  TPXPictureValidator(Pointer(P)).Store(S);
+  Result := TFilterValidator.Create(streamableInit);
 end;
 
-function BuildFilter(S: TStream): TStreamable;
+constructor TFilterValidator.Create(AInit: TStreamableInit);
 begin
-  Result := TStreamable(Pointer(TFilterValidator.Load(S)));
+  inherited Create(streamableInit);
 end;
 
-procedure StoreFilter(P: TStreamable; S: TStream);
+function TFilterValidator.StreamableName: ShortString;
 begin
-  TFilterValidator(Pointer(P)).Store(S);
+  Result := 'TFilterValidator';
 end;
 
-function BuildRange(S: TStream): TStreamable;
+procedure TRangeValidator.Write(Os: opstream);
 begin
-  Result := TStreamable(Pointer(TRangeValidator.Load(S)));
+  inherited Write(Os);
+  Os.WriteBytes(Min, SizeOf(LongInt));
+  Os.WriteBytes(Max, SizeOf(LongInt));
 end;
 
-procedure StoreRange(P: TStreamable; S: TStream);
+function TRangeValidator.Read(Ip: ipstream): Pointer;
 begin
-  TRangeValidator(Pointer(P)).Store(S);
+  inherited Read(Ip);
+  Ip.ReadBytes(Min, SizeOf(LongInt));
+  Ip.ReadBytes(Max, SizeOf(LongInt));
+  Result := Self;
 end;
 
-function BuildStringLookup(S: TStream): TStreamable;
+class function TRangeValidator.Build: TStreamable;
 begin
-  Result := TStreamable(Pointer(TStringLookupValidator.Load(S)));
+  Result := TRangeValidator.Create(streamableInit);
 end;
 
-procedure StoreStringLookup(P: TStreamable; S: TStream);
+constructor TRangeValidator.Create(AInit: TStreamableInit);
 begin
-  TStringLookupValidator(Pointer(P)).Store(S);
+  inherited Create(streamableInit);
+end;
+
+function TRangeValidator.StreamableName: ShortString;
+begin
+  Result := 'TRangeValidator';
+end;
+
+class function TLookupValidator.Build: TStreamable;
+begin
+  Result := TLookupValidator.Create(streamableInit);
+end;
+
+constructor TLookupValidator.Create(AInit: TStreamableInit);
+begin
+  inherited Create(streamableInit);
+end;
+
+function TLookupValidator.StreamableName: ShortString;
+begin
+  Result := 'TLookupValidator';
+end;
+
+procedure TStringLookupValidator.Write(Os: opstream);
+begin
+  inherited Write(Os);
+  Os.WritePointer(Strings);
+end;
+
+function TStringLookupValidator.Read(Ip: ipstream): Pointer;
+begin
+  inherited Read(Ip);
+  Strings := TStringCollection(Ip.ReadPointer);
+  Result := Self;
+end;
+
+class function TStringLookupValidator.Build: TStreamable;
+begin
+  Result := TStringLookupValidator.Create(streamableInit);
+end;
+
+constructor TStringLookupValidator.Create(AInit: TStreamableInit);
+begin
+  inherited Create(streamableInit);
+end;
+
+function TStringLookupValidator.StreamableName: ShortString;
+begin
+  Result := 'TStringLookupValidator';
 end;
 
 initialization
-  RPXPictureValidator.ObjType := 80;
-  RPXPictureValidator.VmtLink := PtrUInt(System.TClass(TPXPictureValidator));
-  RPXPictureValidator.Load := @BuildPXPicture;
-  RPXPictureValidator.Store := @StorePXPicture;
-  RFilterValidator.ObjType := 81;
-  RFilterValidator.VmtLink := PtrUInt(System.TClass(TFilterValidator));
-  RFilterValidator.Load := @BuildFilter;
-  RFilterValidator.Store := @StoreFilter;
-  RRangeValidator.ObjType := 82;
-  RRangeValidator.VmtLink := PtrUInt(System.TClass(TRangeValidator));
-  RRangeValidator.Load := @BuildRange;
-  RRangeValidator.Store := @StoreRange;
-  RStringLookupValidator.ObjType := 83;
-  RStringLookupValidator.VmtLink := PtrUInt(System.TClass(TStringLookupValidator));
-  RStringLookupValidator.Load := @BuildStringLookup;
-  RStringLookupValidator.Store := @StoreStringLookup;
+  RValidator := TStreamableClass.Create('TValidator', @TValidator.Build);
+  RLookupValidator := TStreamableClass.Create('TLookupValidator', @TLookupValidator.Build);
+  RPXPictureValidator := TStreamableClass.Create('TPXPictureValidator', @TPXPictureValidator.Build);
+  RFilterValidator := TStreamableClass.Create('TFilterValidator', @TFilterValidator.Build);
+  RRangeValidator := TStreamableClass.Create('TRangeValidator', @TRangeValidator.Build);
+  RStringLookupValidator := TStreamableClass.Create('TStringLookupValidator', @TStringLookupValidator.Build);
 
 end.

@@ -54,8 +54,11 @@ type
     { used by DN: the controls of a dialog by number (the loader of its resources fills them; nil = none) }
     DirectLink: array[1..9] of TView;
     constructor Create(const Bounds: TRect; const ATitle: ShortString);
-    constructor Load(S: TStream);
-    procedure Store(S: TStream); override;
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+  public
     function GetPalette: TPalette; override;
     procedure HandleEvent(var Event: TEvent); override;
     function Valid(Command: Word): Boolean; override;
@@ -66,8 +69,13 @@ type
   TStaticText = class(TView)
     Text: PStr;
     constructor Create(const Bounds: TRect; const AText: ShortString);
-    constructor Load(S: TStream);
-    procedure Store(S: TStream); override;
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    function Read(Ip: ipstream): Pointer; override;
+    procedure Write(Os: opstream); override;
+  public
     destructor Destroy; override;
     procedure Draw; override;
     function GetPalette: TPalette; override;
@@ -80,8 +88,13 @@ type
     Link: TView;
     Light: Boolean;
     constructor Create(const Bounds: TRect; const AText: ShortString; ALink: TView);
-    constructor Load(S: TStream);
-    procedure Store(S: TStream); override;
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    function Read(Ip: ipstream): Pointer; override;
+    procedure Write(Os: opstream); override;
+  public
     destructor Destroy; override;
     procedure Draw; override;
     function GetPalette: TPalette; override;
@@ -100,8 +113,13 @@ type
     AnimationTimer: TTimerId;
     constructor Create(const Bounds: TRect; const ATitle: ShortString; ACommand: Word;
       AFlags: Word);
-    constructor Load(S: TStream);
-    procedure Store(S: TStream); override;
+    class function Build: TStreamable; static;
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    function Read(Ip: ipstream): Pointer; override;
+    procedure Write(Os: opstream); override;
+  public
     destructor Destroy; override;
     procedure Draw; override;
     procedure DrawState(Down: Boolean);
@@ -117,7 +135,7 @@ type
 
 var
   { stream records (see RView of TvViews) }
-  RDialog, RStaticText, RLabel, RButton: TStreamRec;
+  RDialog, RStaticText, RLabel, RButton: TStreamableClass;
 
 var
   { UX guidelines of vtui, tier 2: an arrow key that has nowhere to go inside a group or a list (Up on the first item, Down on the last) passes the focus to the
@@ -731,50 +749,6 @@ end;
 
 { --- Streams ------------------------------------------------------------------ }
 
-{ DirectLink (DN) follows the views of the group in the stream: the numbers of the controls in the dialog (0 = none) }
-constructor TDialog.Load(S: TStream);
-var
-  I: Integer;
-begin
-  inherited Load(S);
-  for I := 1 to 9 do
-    DirectLink[I] := ReadChildPtr(S);
-end;
-
-procedure TDialog.Store(S: TStream);
-var
-  I: Integer;
-begin
-  inherited Store(S);
-  for I := 1 to 9 do
-    PutSubViewPtr(S, DirectLink[I]);
-end;
-
-constructor TStaticText.Load(S: TStream);
-begin
-  inherited Load(S);
-  Text := S.ReadStr;
-end;
-
-procedure TStaticText.Store(S: TStream);
-begin
-  inherited Store(S);
-  S.WriteStr(Text);
-end;
-
-constructor TLabel.Load(S: TStream);
-begin
-  inherited Load(S);
-  GetPeerViewPtr(S, Link);
-  Light := False;
-end;
-
-procedure TLabel.Store(S: TStream);
-begin
-  inherited Store(S);
-  PutPeerViewPtr(S, Link);
-end;
-
 type
   { what a button stores after its title }
   TButtonFields = packed record
@@ -783,93 +757,128 @@ type
     Def: LongInt;
   end;
 
-constructor TButton.Load(S: TStream);
-var
-  F: TButtonFields;
+class function TDialog.Build: TStreamable;
 begin
-  inherited Load(S);
-  Title := S.ReadStr;
-  S.Read(F, SizeOf(F));
-  Command := F.Cmd;
-  Flags := F.Flg;
-  AmDefault := F.Def <> 0;
+  Result := TDialog.Create(streamableInit);
+end;
+
+constructor TDialog.Create(AInit: TStreamableInit);
+begin
+  inherited Create(streamableInit);
+end;
+
+function TDialog.StreamableName: ShortString;
+begin
+  Result := 'TDialog';
+end;
+
+procedure TStaticText.Write(Os: opstream);
+begin
+  inherited Write(Os);
+  Os.WriteString(Text);
+end;
+
+function TStaticText.Read(Ip: ipstream): Pointer;
+begin
+  inherited Read(Ip);
+  Text := Ip.ReadString;
+  Result := Self;
+end;
+
+class function TStaticText.Build: TStreamable;
+begin
+  Result := TStaticText.Create(streamableInit);
+end;
+
+constructor TStaticText.Create(AInit: TStreamableInit);
+begin
+  inherited Create(streamableInit);
+end;
+
+function TStaticText.StreamableName: ShortString;
+begin
+  Result := 'TStaticText';
+end;
+
+procedure TLabel.Write(Os: opstream);
+begin
+  inherited Write(Os);
+  Os.WritePointer(Link);
+end;
+
+function TLabel.Read(Ip: ipstream): Pointer;
+begin
+  inherited Read(Ip);
+  Link := TView(Ip.ReadPointer);
+  Light := False;
+  Result := Self;
+end;
+
+class function TLabel.Build: TStreamable;
+begin
+  Result := TLabel.Create(streamableInit);
+end;
+
+constructor TLabel.Create(AInit: TStreamableInit);
+begin
+  inherited Create(streamableInit);
+end;
+
+function TLabel.StreamableName: ShortString;
+begin
+  Result := 'TLabel';
+end;
+
+procedure TButton.Write(Os: opstream);
+var
+  Temp: Integer;
+begin
+  inherited Write(Os);
+  Os.WriteString(Title);
+  Os.WriteWord(Command);
+  Os.WriteByte(Flags);
+  Temp := Ord(AmDefault);
+  Os.WriteBytes(Temp, SizeOf(Integer));
+end;
+
+function TButton.Read(Ip: ipstream): Pointer;
+var
+  Temp: Integer;
+begin
+  inherited Read(Ip);
+  Title := Ip.ReadString;
+  Command := Ip.ReadWord;
+  Flags := Ip.ReadByte;
+  Ip.ReadBytes(Temp, SizeOf(Integer));
+  AmDefault := Temp <> 0;
   if CommandEnabled(Command) then
     State := State and not sfDisabled
   else
     State := State or sfDisabled;
   AnimationTimer := nil;
+  Result := Self;
 end;
 
-procedure TButton.Store(S: TStream);
-var
-  F: TButtonFields;
+class function TButton.Build: TStreamable;
 begin
-  inherited Store(S);
-  S.WriteStr(Title);
-  F.Cmd := Command;
-  F.Flg := Flags;
-  F.Def := Ord(AmDefault);
-  S.Write(F, SizeOf(F));
+  Result := TButton.Create(streamableInit);
 end;
 
-function BuildDialog(S: TStream): TStreamable;
+constructor TButton.Create(AInit: TStreamableInit);
 begin
-  Result := TStreamable(Pointer(TDialog.Load(S)));
+  inherited Create(streamableInit);
 end;
 
-procedure StoreDialog(P: TStreamable; S: TStream);
+function TButton.StreamableName: ShortString;
 begin
-  TDialog(Pointer(P)).Store(S);
+  Result := 'TButton';
 end;
-
-function BuildStaticText(S: TStream): TStreamable;
-begin
-  Result := TStreamable(Pointer(TStaticText.Load(S)));
-end;
-
-procedure StoreStaticText(P: TStreamable; S: TStream);
-begin
-  TStaticText(Pointer(P)).Store(S);
-end;
-
-function BuildLabel(S: TStream): TStreamable;
-begin
-  Result := TStreamable(Pointer(TLabel.Load(S)));
-end;
-
-procedure StoreLabel(P: TStreamable; S: TStream);
-begin
-  TLabel(Pointer(P)).Store(S);
-end;
-
-function BuildButton(S: TStream): TStreamable;
-begin
-  Result := TStreamable(Pointer(TButton.Load(S)));
-end;
-
-procedure StoreButton(P: TStreamable; S: TStream);
-begin
-  TButton(Pointer(P)).Store(S);
-end;
-
 
 initialization
-  RDialog.ObjType := 10;
-  RDialog.VmtLink := PtrUInt(System.TClass(TDialog));
-  RDialog.Load := @BuildDialog;
-  RDialog.Store := @StoreDialog;
-  RStaticText.ObjType := 18;
-  RStaticText.VmtLink := PtrUInt(System.TClass(TStaticText));
-  RStaticText.Load := @BuildStaticText;
-  RStaticText.Store := @StoreStaticText;
-  RLabel.ObjType := 19;
-  RLabel.VmtLink := PtrUInt(System.TClass(TLabel));
-  RLabel.Load := @BuildLabel;
-  RLabel.Store := @StoreLabel;
-  RButton.ObjType := 12;
-  RButton.VmtLink := PtrUInt(System.TClass(TButton));
-  RButton.Load := @BuildButton;
-  RButton.Store := @StoreButton;
+  RDialog := TStreamableClass.Create('TDialog', @TDialog.Build);
+  RStaticText := TStreamableClass.Create('TStaticText', @TStaticText.Build);
+  RLabel := TStreamableClass.Create('TLabel', @TLabel.Build);
+  RButton := TStreamableClass.Create('TButton', @TButton.Build);
   GrayDialog := RangePalette($20);
   BlueDialog := RangePalette($40);
   CyanDialog := RangePalette($60);
