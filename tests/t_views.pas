@@ -378,32 +378,32 @@ begin
   V1.Free;
 
   { commands }
-  Check(not CommandEnabled(cmZoom), 'zoom is disabled at the start');
-  Check(CommandEnabled(cmQuit) and CommandEnabled(cmOK), 'the others are enabled');
-  Check(CommandEnabled(1000) and CommandEnabled(40000), 'commands above 255 are always enabled');
-  CommandSetChanged := False;
-  EnableCommand(cmZoom);
-  Check(CommandEnabled(cmZoom) and CommandSetChanged, 'EnableCommand marks the set as changed');
-  CommandSetChanged := False;
-  EnableCommand(cmZoom);
-  Check(not CommandSetChanged, 'enabling an enabled command changes nothing');
+  Check(not TView.CommandEnabled(cmZoom), 'zoom is disabled at the start');
+  Check(TView.CommandEnabled(cmQuit) and TView.CommandEnabled(cmOK), 'the others are enabled');
+  Check(TView.CommandEnabled(1000) and TView.CommandEnabled(40000), 'commands above 255 are always enabled');
+  TView.CommandSetChanged := False;
+  TView.EnableCommand(cmZoom);
+  Check(TView.CommandEnabled(cmZoom) and TView.CommandSetChanged, 'EnableCommand marks the set as changed');
+  TView.CommandSetChanged := False;
+  TView.EnableCommand(cmZoom);
+  Check(not TView.CommandSetChanged, 'enabling an enabled command changes nothing');
   Cmds := [cmZoom, cmQuit];
-  DisableCommands(Cmds);
-  Check(not CommandEnabled(cmZoom) and not CommandEnabled(cmQuit), 'DisableCommands');
-  GetCommands(Cmds);
-  EnableCommands([cmQuit, cmClose]);
-  Check(CommandEnabled(cmQuit) and CommandEnabled(cmClose), 'EnableCommands');
-  SetCommands(Cmds);
-  Check(not CommandEnabled(cmClose) and not CommandEnabled(cmQuit), 'SetCommands restores a saved set');
-  SetCmdState([cmQuit], True);
-  Check(CommandEnabled(cmQuit), 'SetCmdState enable');
+  TView.DisableCommands(Cmds);
+  Check(not TView.CommandEnabled(cmZoom) and not TView.CommandEnabled(cmQuit), 'DisableCommands');
+  TView.GetCommands(Cmds);
+  TView.EnableCommands([cmQuit, cmClose]);
+  Check(TView.CommandEnabled(cmQuit) and TView.CommandEnabled(cmClose), 'EnableCommands');
+  TView.SetCommands(Cmds);
+  Check(not TView.CommandEnabled(cmClose) and not TView.CommandEnabled(cmQuit), 'SetCommands restores a saved set');
+  TView.SetCmdState([cmQuit], True);
+  Check(TView.CommandEnabled(cmQuit), 'SetCmdState enable');
 
   { colors }
   V1 := TFill.Create(R(0, 0, 2, 1), 'c', $07);
   V1.Options := 0;
   Check(AttrAsBIOSByte(V1.MapColor(1)) = $07, 'color 1 through the palette of the view');
-  Check(AttrEq(V1.MapColor(2), ErrorAttr), 'a color beyond the palette is the error color');
-  Check(AttrEq(V1.MapColor(0), ErrorAttr), 'color 0 is the error color');
+  Check(AttrEq(V1.MapColor(2), TView.ErrorAttr), 'a color beyond the palette is the error color');
+  Check(AttrEq(V1.MapColor(0), TView.ErrorAttr), 'color 0 is the error color');
   Check(PaletteSize(MakePalette(#1#2#3)) = 3, 'palette size');
   Check(V1.GetColorW(1) = $0007, 'GetColorW: the BIOS attribute of the color');
   V1.Free;

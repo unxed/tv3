@@ -147,13 +147,19 @@ type
     function MouseInView(Mouse: TPoint): Boolean;
     function ContainsMouse(var Event: TEvent): Boolean;
     procedure Locate(var Bounds: TRect);
-    { the command set as methods (Turbo Vision 2.0 has them; the unit procedures of the same names do the work) }
-    procedure DisableCommands(const Commands: TCommandSet);
-    procedure EnableCommands(const Commands: TCommandSet);
-    procedure DisableCommand(Command: Word);
-    procedure EnableCommand(Command: Word);
-    procedure GetCommands(out Commands: TCommandSet);
-    procedure SetCommands(const Commands: TCommandSet);
+    { the commands that are enabled (commands above 255 are always enabled) }
+    class var CurCommandSet: TCommandSet;
+    class var CommandSetChanged: Boolean;
+    class var ShowMarkers: Boolean;
+    class var ErrorAttr: TColorAttr;
+    class function CommandEnabled(Command: Word): Boolean; static;
+    class procedure DisableCommands(const Commands: TCommandSet); static;
+    class procedure EnableCommands(const Commands: TCommandSet); static;
+    class procedure DisableCommand(Command: Word); static;
+    class procedure EnableCommand(Command: Word); static;
+    class procedure GetCommands(out Commands: TCommandSet); static;
+    class procedure SetCommands(const Commands: TCommandSet); static;
+    class procedure SetCmdState(const Commands: TCommandSet; Enable: Boolean); static;
     { as CommandEnabled, but a command that the program has switched off for good (CommandHiddenHook) is not enabled }
     function MenuEnabled(Command: Word): Boolean;
     procedure DragView(var Event: TEvent; Mode: Byte; var Limits: TRect;
@@ -309,21 +315,6 @@ var
   UxWheelUnderCursor: Boolean = True;
   { the view being run modally by ExecView, if any }
   TheTopView: TView = nil;
-  { the commands that are enabled; commands above 255 are always enabled }
-  CurCommandSet: TCommandSet;
-  CommandSetChanged: Boolean = False;
-  ShowMarkers: Boolean = False;
-  ErrorAttr: TColorAttr;
-
-{ Commands (static members of TView in the C++ original). }
-function CommandEnabled(Command: Word): Boolean;
-procedure DisableCommands(const Commands: TCommandSet);
-procedure EnableCommands(const Commands: TCommandSet);
-procedure DisableCommand(Command: Word);
-procedure EnableCommand(Command: Word);
-procedure GetCommands(out Commands: TCommandSet);
-procedure SetCommands(const Commands: TCommandSet);
-procedure SetCmdState(const Commands: TCommandSet; Enable: Boolean);
 
 { Palettes. MakePalette builds a palette from a string of color indices, as the
   Pascal Turbo Vision's palette strings. }
@@ -355,34 +346,34 @@ procedure InitCommands;
 var
   I: Integer;
 begin
-  CurCommandSet := [];
+  TView.CurCommandSet := [];
   for I := 0 to 255 do
-    Include(CurCommandSet, I);
-  Exclude(CurCommandSet, cmZoom);
-  Exclude(CurCommandSet, cmClose);
-  Exclude(CurCommandSet, cmResize);
-  Exclude(CurCommandSet, cmNext);
-  Exclude(CurCommandSet, cmPrev);
+    Include(TView.CurCommandSet, I);
+  Exclude(TView.CurCommandSet, cmZoom);
+  Exclude(TView.CurCommandSet, cmClose);
+  Exclude(TView.CurCommandSet, cmResize);
+  Exclude(TView.CurCommandSet, cmNext);
+  Exclude(TView.CurCommandSet, cmPrev);
 end;
 
-function CommandEnabled(Command: Word): Boolean;
+class function TView.CommandEnabled(Command: Word): Boolean;
 begin
   Result := (Command > 255) or (Byte(Command) in CurCommandSet);
 end;
 
-procedure DisableCommands(const Commands: TCommandSet);
+class procedure TView.DisableCommands(const Commands: TCommandSet);
 begin
   CommandSetChanged := CommandSetChanged or ((CurCommandSet * Commands) <> []);
   CurCommandSet := CurCommandSet - Commands;
 end;
 
-procedure EnableCommands(const Commands: TCommandSet);
+class procedure TView.EnableCommands(const Commands: TCommandSet);
 begin
   CommandSetChanged := CommandSetChanged or ((CurCommandSet * Commands) <> Commands);
   CurCommandSet := CurCommandSet + Commands;
 end;
 
-procedure DisableCommand(Command: Word);
+class procedure TView.DisableCommand(Command: Word);
 begin
   if Command > 255 then
     Exit;
@@ -390,7 +381,7 @@ begin
   Exclude(CurCommandSet, Byte(Command));
 end;
 
-procedure EnableCommand(Command: Word);
+class procedure TView.EnableCommand(Command: Word);
 begin
   if Command > 255 then
     Exit;
@@ -398,18 +389,18 @@ begin
   Include(CurCommandSet, Byte(Command));
 end;
 
-procedure GetCommands(out Commands: TCommandSet);
+class procedure TView.GetCommands(out Commands: TCommandSet);
 begin
   Commands := CurCommandSet;
 end;
 
-procedure SetCommands(const Commands: TCommandSet);
+class procedure TView.SetCommands(const Commands: TCommandSet);
 begin
   CommandSetChanged := CommandSetChanged or (CurCommandSet <> Commands);
   CurCommandSet := Commands;
 end;
 
-procedure SetCmdState(const Commands: TCommandSet; Enable: Boolean);
+class procedure TView.SetCmdState(const Commands: TCommandSet; Enable: Boolean);
 begin
   if Enable then
     EnableCommands(Commands)
@@ -1016,36 +1007,6 @@ end;
 function TView.DataSize: Integer;
 begin
   Result := 0;
-end;
-
-procedure TView.DisableCommands(const Commands: TCommandSet);
-begin
-  TvViews.DisableCommands(Commands);
-end;
-
-procedure TView.EnableCommands(const Commands: TCommandSet);
-begin
-  TvViews.EnableCommands(Commands);
-end;
-
-procedure TView.DisableCommand(Command: Word);
-begin
-  TvViews.DisableCommand(Command);
-end;
-
-procedure TView.EnableCommand(Command: Word);
-begin
-  TvViews.EnableCommand(Command);
-end;
-
-procedure TView.GetCommands(out Commands: TCommandSet);
-begin
-  TvViews.GetCommands(Commands);
-end;
-
-procedure TView.SetCommands(const Commands: TCommandSet);
-begin
-  TvViews.SetCommands(Commands);
 end;
 
 function TView.MenuEnabled(Command: Word): Boolean;
@@ -2780,5 +2741,5 @@ initialization
   RGroup.Load := @BuildGroup;
   RGroup.Store := @StoreGroup;
   InitCommands;
-  ErrorAttr := AttrFromBIOS($CF);
+  TView.ErrorAttr := AttrFromBIOS($CF);
 end.

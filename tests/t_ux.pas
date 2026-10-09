@@ -167,19 +167,19 @@ begin
   UxNavBoundary := True;
 
   { Enter with no default button presses the first button that can act }
-  DeskTop.Delete(Dlg2);
+  TProgram.DeskTop.Delete(Dlg2);
   MemClear;
   MemKey(kbEnter);
-  Check(DeskTop.ExecView(Dlg2) = cmYes, 'Enter with no default button presses the first one');
+  Check(TProgram.DeskTop.ExecView(Dlg2) = cmYes, 'Enter with no default button presses the first one');
   UxEnterButton := False;
   MemClear;
   MemKey(kbEnter);
   MemKey(kbEsc);
-  Check(DeskTop.ExecView(Dlg2) = cmCancel, 'UxEnterButton = False: Enter does nothing, Esc closes');
+  Check(TProgram.DeskTop.ExecView(Dlg2) = cmCancel, 'UxEnterButton = False: Enter does nothing, Esc closes');
   UxEnterButton := True;
   MemClear;
   MemKey(kbEsc);
-  Check(DeskTop.ExecView(Dlg2) = cmCancel, 'Esc closes the dialog');
+  Check(TProgram.DeskTop.ExecView(Dlg2) = cmCancel, 'Esc closes the dialog');
   Dlg2.Free;
 
   { a list of two columns: Left on the first item and Right on the last one leave it, Up and Down in the middle stay }
@@ -203,7 +203,7 @@ begin
   Lb.FocusItem(8);
   Key(Dlg2, kbRight);
   Check(Dlg2.Current = Post, 'Right on the last item leaves the list');
-  DeskTop.Delete(Dlg2);
+  TProgram.DeskTop.Delete(Dlg2);
   Dlg2.Free;
 
   { tier 3: Alt+letter always, a plain letter when no text field has the focus }
@@ -217,16 +217,16 @@ begin
   Rad.Select;
   MemClear;
   MemKey(Ord('g'));
-  Check(DeskTop.ExecView(Dlg2) = cmYes, 'a plain letter presses the button when no field is focused');
+  Check(TProgram.DeskTop.ExecView(Dlg2) = cmYes, 'a plain letter presses the button when no field is focused');
   Pre.Select;
   MemClear;
   MemKey(Ord('g'));
   MemKey(kbEnter);
-  Check((DeskTop.ExecView(Dlg2) = cmNo) and (Pre.Data^ = 'g'), 'in a text field the letter is typed and Enter presses the default button');
+  Check((TProgram.DeskTop.ExecView(Dlg2) = cmNo) and (Pre.Data^ = 'g'), 'in a text field the letter is typed and Enter presses the default button');
   Pre.Select;
   MemClear;
   MemKey(kbAltG, kbAltShift);
-  Check(DeskTop.ExecView(Dlg2) = cmYes, 'Alt+letter presses the button also from a text field');
+  Check(TProgram.DeskTop.ExecView(Dlg2) = cmYes, 'Alt+letter presses the button also from a text field');
   Dlg2.Free;
 
   { tier 0: Ctrl+Tab and Ctrl+Shift+Tab walk through the windows of the desktop }
@@ -235,18 +235,18 @@ begin
   Dlg.Free;
   App.InsertWindow(W1);
   App.InsertWindow(W2);
-  Check(DeskTop.Current = W2, 'the last window inserted is the current one');
+  Check(TProgram.DeskTop.Current = W2, 'the last window inserted is the current one');
   MakeKeyEvent(Ev, kbCtrlTab, kbCtrlShift);
   App.HandleEvent(Ev);
-  Check(DeskTop.Current = W1, 'Ctrl+Tab goes to the next window');
+  Check(TProgram.DeskTop.Current = W1, 'Ctrl+Tab goes to the next window');
   Check(Ev.What = evNothing, '... and the key is taken');
   MakeKeyEvent(Ev, kbCtrlTab, kbCtrlShift or kbShift);
   App.HandleEvent(Ev);
-  Check(DeskTop.Current = W2, 'Ctrl+Shift+Tab goes to the previous window');
+  Check(TProgram.DeskTop.Current = W2, 'Ctrl+Shift+Tab goes to the previous window');
   UxCtrlTab := False;
   MakeKeyEvent(Ev, kbCtrlTab, kbCtrlShift);
   App.HandleEvent(Ev);
-  Check(DeskTop.Current = W2, 'UxCtrlTab = False: the key is left to the application');
+  Check(TProgram.DeskTop.Current = W2, 'UxCtrlTab = False: the key is left to the application');
   UxCtrlTab := True;
 
   App.Free;

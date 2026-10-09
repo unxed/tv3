@@ -134,7 +134,7 @@ begin
   Desk.Options := 0;
   Desk.Buffer := ScreenBuffer;
   Desk.State := sfVisible or sfSelected or sfFocused or sfModal or sfExposed;
-  EnableCommands([cmHelp, cmQuit, cmSave]);
+  TView.EnableCommands([cmHelp, cmQuit, cmSave]);
   Used0 := GetFPCHeapStatus.CurrHeapUsed;
 
   Line := THintLine.Create(R(0, Y, W, H), Defs);
@@ -161,7 +161,7 @@ begin
   Line.HandleEvent(Ev);
   Check(Ev.What = evKeyDown, 'a key of another help context is not handled');
   { disabled commands }
-  DisableCommand(cmQuit);
+  TView.DisableCommand(cmQuit);
   ClearEvent(Ev);
   Ev.What := evBroadcast;
   Ev.Command := cmCommandSetChanged;
@@ -171,7 +171,7 @@ begin
   MakeKeyEvent(Ev, kbAltX, kbAltShift);
   Line.HandleEvent(Ev);
   Check(Ev.What = evKeyDown, 'the key of a disabled item is not handled');
-  EnableCommand(cmQuit);
+  TView.EnableCommand(cmQuit);
 
   { mouse: press and release on an item }
   Desk.QCount := 1; Desk.QPos := 0;

@@ -171,12 +171,12 @@ begin
 
   { --- window and frame ---------------------------------------------------- }
   { the commands of a window are enabled while it is selected }
-  DisableCommands([cmClose, cmZoom, cmResize, cmNext, cmPrev]);
-  Check(not CommandEnabled(cmClose) and not CommandEnabled(cmZoom), 'window commands disabled');
+  TView.DisableCommands([cmClose, cmZoom, cmResize, cmNext, cmPrev]);
+  Check(not TView.CommandEnabled(cmClose) and not TView.CommandEnabled(cmZoom), 'window commands disabled');
   Win := TWindow.Create(R(2, 1, 22, 9), 'Hi', 1);
   Desk.Insert(Win);
-  Check(CommandEnabled(cmClose) and CommandEnabled(cmZoom) and CommandEnabled(cmResize) and
-    CommandEnabled(cmNext) and CommandEnabled(cmPrev), 'a selected window enables its commands');
+  Check(TView.CommandEnabled(cmClose) and TView.CommandEnabled(cmZoom) and TView.CommandEnabled(cmResize) and
+    TView.CommandEnabled(cmNext) and TView.CommandEnabled(cmPrev), 'a selected window enables its commands');
   Check(Win.Frame <> nil, 'the window has a frame');
   Check(Win.Last = TView(Win.Frame), 'the frame is the only (bottom) subview');
   Check(Bit(Win, sfSelected or sfActive), 'a new window is selected and active');
@@ -307,20 +307,20 @@ begin
   Check((Bar.ScrollStep(sbDownArrow) = 1) and (Bar.ScrollStep(sbUpArrow) = -1) and
     (Bar.ScrollStep(sbPageDown) = 4) and (Bar.ScrollStep(sbPageUp) = -4), 'ScrollStep');
   Check((Bar.Step = -4) and not Bar.ForceScroll, 'DN extensions: Step is the last step of ScrollStep, ForceScroll is off');
-  EnableCommands([cmZoom]);
+  TView.EnableCommands([cmZoom]);
   Bar.DisableCommands([cmZoom]);
-  Check(not (cmZoom in CurCommandSet), 'DN extensions: DisableCommands as a method of a view');
+  Check(not (cmZoom in TView.CurCommandSet), 'DN extensions: DisableCommands as a method of a view');
   Bar.EnableCommand(cmZoom);
-  Check(cmZoom in CurCommandSet, 'DN extensions: EnableCommand as a method of a view');
+  Check(cmZoom in TView.CurCommandSet, 'DN extensions: EnableCommand as a method of a view');
   Check(Bar.MenuEnabled(cmZoom) and Bar.MenuEnabled(3000), 'DN extensions: MenuEnabled follows the command set (above 255 always)');
   CommandHiddenHook := @HideZoom;
   Check(not Bar.MenuEnabled(cmZoom) and Bar.MenuEnabled(cmClose), 'DN extensions: a hidden command is not enabled');
   CommandHiddenHook := nil;
   Bar.GetCommands(SaveCmds);
   Bar.SetCommands([cmClose]);
-  Check((cmClose in CurCommandSet) and not (cmZoom in CurCommandSet), 'DN extensions: SetCommands as a method of a view');
+  Check((cmClose in TView.CurCommandSet) and not (cmZoom in TView.CurCommandSet), 'DN extensions: SetCommands as a method of a view');
   Bar.SetCommands(SaveCmds);
-  Check(cmZoom in CurCommandSet, 'DN extensions: GetCommands saved the set');
+  Check(cmZoom in TView.CurCommandSet, 'DN extensions: GetCommands saved the set');
 
   { keys }
   FillChar(Ev, SizeOf(Ev), 0);

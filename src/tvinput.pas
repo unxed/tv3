@@ -775,7 +775,7 @@ begin
   Dlg.Insert(TButton.Create(R, MsgBoxText.CancelText, cmCancel, bfNormal));
   Dlg.SelectNext(False);
   Dlg.SetData(S);
-  Result := Application.ExecView(Dlg);
+  Result := TProgram.Application.ExecView(Dlg);
   if Result <> cmCancel then
     Dlg.GetData(S);
   Dlg.Free;
@@ -787,8 +787,8 @@ var
   X, Y: Integer;
 begin
   { 60 by 8 in the middle of the desktop }
-  X := (DeskTop.Size.X - 60) div 2;
-  Y := (DeskTop.Size.Y - 8) div 2;
+  X := (TProgram.DeskTop.Size.X - 60) div 2;
+  Y := (TProgram.DeskTop.Size.Y - 8) div 2;
   R.Assign(X, Y, X + 60, Y + 8);
   Result := InputBoxRect(R, Title, ALabel, S, Limit);
 end;

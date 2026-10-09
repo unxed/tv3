@@ -151,6 +151,17 @@ type
     procedure KillTimer(Id: TTimerId); override;
     procedure Suspend; virtual;
     procedure Resume; virtual;
+  public
+    class var Application: TProgram;
+    class var StatusLine: TStatusLine;
+    class var MenuBar: TMenuBar;
+    class var DeskTop: TDeskTop;
+    { the palette of the program: apColor, apBlackWhite, apMonochrome }
+    class var AppPalette: Integer;
+    { how long the program waits for an event before it calls Idle, in ms (-1: until something happens) }
+    class var EventTimeoutMs: Integer;
+  protected
+    class var Pending: TEvent;
   end;
 
   TApplication = class(TProgram)
@@ -167,17 +178,9 @@ type
   end;
 
 var
-  Application: TProgram = nil;
-  StatusLine: TStatusLine = nil;
-  MenuBar: TMenuBar = nil;
-  DeskTop: TDeskTop = nil;
-  AppPalette: Integer = apColor;
   { DN: the palettes of the program by AppPalette (apColor, apBlackWhite, apMonochrome) as strings of attributes; the
     program can change them (the colors dialog); they start as the palettes of Turbo Vision }
   SystemColors: array[0..2] of ShortString;
-  { how long the program waits for an event before it calls Idle, in ms (-1: until
-    something happens) }
-  EventTimeoutMs: Integer = 20;
 
 implementation
 
@@ -187,7 +190,6 @@ const
 {$I tvapppal.inc}
 
 var
-  Pending: TEvent;
   TimerQueue: TTimerQueue;
 
 { --- TBackground ------------------------------------------------------------- }
@@ -729,11 +731,11 @@ var
 begin
   TimerTimeout := TimerQueue.TimeUntilNextTimeout;
   if TimerTimeout < 0 then
-    Exit(EventTimeoutMs);
-  if EventTimeoutMs < 0 then
+    Exit(TProgram.EventTimeoutMs);
+  if TProgram.EventTimeoutMs < 0 then
     Exit(TimerTimeout);
-  if EventTimeoutMs < TimerTimeout then
-    Result := EventTimeoutMs
+  if TProgram.EventTimeoutMs < TimerTimeout then
+    Result := TProgram.EventTimeoutMs
   else
     Result := TimerTimeout;
 end;
@@ -1083,7 +1085,9 @@ initialization
   SystemColors[apColor] := AppColorPalette;
   SystemColors[apBlackWhite] := AppBlackWhitePalette;
   SystemColors[apMonochrome] := AppMonochromePalette;
-  Pending.What := evNothing;
+  TProgram.AppPalette := apColor;
+  TProgram.EventTimeoutMs := 20;
+  TProgram.Pending.What := evNothing;
   TimerQueue := TTimerQueue.Create(nil);
 
 finalization

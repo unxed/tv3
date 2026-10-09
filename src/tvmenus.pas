@@ -185,7 +185,7 @@ begin
   Result^.Next := Next;
   Result^.Name := NewStr(Name);
   Result^.Command := 0;
-  Result^.Disabled := not CommandEnabled(0);
+  Result^.Disabled := not TView.CommandEnabled(0);
   Result^.KeyCode := KeyMake(kbNoKey);
   Result^.HelpCtx := AHelpCtx;
   Result^.SubMenu := SubMenu;
@@ -198,7 +198,7 @@ begin
   Result^.Next := Next;
   Result^.Name := NewStr(Name);
   Result^.Command := ACommand;
-  Result^.Disabled := not CommandEnabled(ACommand);
+  Result^.Disabled := not TView.CommandEnabled(ACommand);
   Result^.KeyCode := KeyMake(AKeyCode);
   Result^.HelpCtx := AHelpCtx;
   if Param = '' then
@@ -296,7 +296,7 @@ end;
 { an entry whose command can be given now }
 function Usable(P: PMenuItem): Boolean;
 begin
-  Result := Assigned(P) and CommandEnabled(P^.Command);
+  Result := Assigned(P) and TView.CommandEnabled(P^.Command);
 end;
 
 procedure SetCommand(var Event: TEvent; Command: Word);

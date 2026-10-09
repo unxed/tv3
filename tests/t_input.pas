@@ -196,7 +196,7 @@ begin
   L.SelectAll(True);
   Cmd(L, cmCut);
   Check((L.Data^ = '') and (ClipIs('NNline one')), 'cmCut removes the selection and copies it');
-  Check(CommandEnabled(cmPaste), 'paste is enabled while a line is active');
+  Check(TView.CommandEnabled(cmPaste), 'paste is enabled while a line is active');
 
   { an OEM line }
   InputLineOem := True;

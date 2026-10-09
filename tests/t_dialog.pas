@@ -98,7 +98,7 @@ begin
   MemClear;
   MemKey(kbEnter);
   MemClock := 0;
-  Res := DeskTop.ExecView(Dlg);
+  Res := TProgram.DeskTop.ExecView(Dlg);
   Check(Res = cmOK, 'Enter: the default button is pressed, cmOK ends the dialog');
   Check(MemClock >= 100, 'the button animation took its 100 ms');
   Check(Ok.AnimationTimer = nil, 'and the timer is gone');
@@ -106,39 +106,39 @@ begin
   { Esc cancels }
   MemClear;
   MemKey(kbEsc);
-  Check(DeskTop.ExecView(Dlg) = cmCancel, 'Esc: cmCancel');
+  Check(TProgram.DeskTop.ExecView(Dlg) = cmCancel, 'Esc: cmCancel');
   Check(ModalCount = 0, 'DN extensions: ModalCount is 0 again after ExecView');
 
   { a click on a button }
   MemClear;
   MemMouse(evMouseDown, 36, 14);
   MemMouse(evMouseUp, 36, 14);
-  Check(DeskTop.ExecView(Dlg) = cmCancel, 'a click on the Cancel button');
+  Check(TProgram.DeskTop.ExecView(Dlg) = cmCancel, 'a click on the Cancel button');
   { pressed on a button, released away from it: nothing happens, Esc ends it }
   MemClear;
   MemMouse(evMouseDown, 36, 14);
   MemMouse(evMouseUp, 11, 8);
   MemKey(kbEsc);
-  Check(DeskTop.ExecView(Dlg) = cmCancel, 'released away from the button: no command, Esc ends the dialog');
+  Check(TProgram.DeskTop.ExecView(Dlg) = cmCancel, 'released away from the button: no command, Esc ends the dialog');
   { Alt+O (the hot key of OK) }
   MemClear;
   MemKey(kbAltO, kbAltShift);
-  Check(DeskTop.ExecView(Dlg) = cmOK, 'the hot key of a button presses it');
+  Check(TProgram.DeskTop.ExecView(Dlg) = cmOK, 'the hot key of a button presses it');
   { Tab moves the focus, Space presses the focused button }
   MemClear;
   MemKey(kbTab);
   MemKey(Ord(' '));
-  Res := DeskTop.ExecView(Dlg);
+  Res := TProgram.DeskTop.ExecView(Dlg);
   Check((Res = cmCancel) or (Res = cmOK), 'Tab and Space');
   { a disabled button }
-  DeskTop.Insert(Dlg);
-  DisableCommand(cmCancel);
+  TProgram.DeskTop.Insert(Dlg);
+  TView.DisableCommand(cmCancel);
   Ev.What := evBroadcast;
   Ev.Command := cmCommandSetChanged;
   Dlg.HandleEvent(Ev);
   Check((Cancel.State and sfDisabled) <> 0, 'a button of a disabled command is disabled');
   Check(MemAttr(34, 14) = $78, 'a disabled button: dark gray on gray');
-  EnableCommand(cmCancel);
+  TView.EnableCommand(cmCancel);
   Dlg.HandleEvent(Ev);
   Check((Cancel.State and sfDisabled) = 0, 'and is enabled again');
   Dlg.Free;

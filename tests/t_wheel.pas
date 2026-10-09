@@ -34,7 +34,7 @@ begin
   E.What := evMouseWheel;
   E.Where := V.MakeGlobal(Point(X, Y));
   E.Wheel := Dir;
-  Application.HandleEvent(E);
+  TProgram.Application.HandleEvent(E);
 end;
 
 type
@@ -86,13 +86,13 @@ begin
   W2.Insert(S2);
   App.InsertWindow(W1);
   App.InsertWindow(W2);
-  Check(DeskTop.Current = W2, 'the second window has the focus');
+  Check(TProgram.DeskTop.Current = W2, 'the second window has the focus');
 
   Check(UxWheelUnderCursor, 'the switch is on by default');
   Wheel(S1, 5, 5, mwDown);
   Check(S1.Delta.Y = 3, 'the wheel over the unfocused window scrolls that window');
   Check(S2.Delta.Y = 0, '... and not the focused one');
-  Check(DeskTop.Current = W2, '... and does not move the focus');
+  Check(TProgram.DeskTop.Current = W2, '... and does not move the focus');
   Wheel(S1, 5, 5, mwUp);
   Check(S1.Delta.Y = 0, 'the wheel up scrolls back');
   Wheel(S2, 5, 5, mwDown);
@@ -113,7 +113,7 @@ begin
   W1.Insert(L);
   App.InsertWindow(W1);
   W2.Select;
-  Check(DeskTop.Current = W2, 'the focus is on the other window');
+  Check(TProgram.DeskTop.Current = W2, 'the focus is on the other window');
   Wheel(L, 3, 3, mwDown);
   Check(L.Focused = 3, 'the wheel over a list moves its cursor by three');
   Check(S2.Delta.Y = 6, '... the focused window did not scroll');

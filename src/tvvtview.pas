@@ -90,10 +90,10 @@ var
 
 begin
   Result := vcaBlock;
-  if (Application = nil) or (DeskTop = nil) then
+  if (TProgram.Application = nil) or (TProgram.DeskTop = nil) then
     Exit;
   R.Assign(0, 0, 58, 11);
-  R.Move((DeskTop.Size.X - 58) div 2, (DeskTop.Size.Y - 11) div 2);
+  R.Move((TProgram.DeskTop.Size.X - 58) div 2, (TProgram.DeskTop.Size.Y - 11) div 2);
   D := TDialog.Create(R, 'Clipboard access');
   R.Assign(3, 2, 55, 4);
   D.Insert(TStaticText.Create(R, 'Please choose how this terminal application may use clipboard'));
@@ -102,7 +102,7 @@ begin
   Button(4, 7, '~S~hare clipboard', cmYes);
   Button(30, 7, 'Share clipboard ~a~lways', cmOK);
   D.SelectNext(False);
-  Cmd := Application.ExecView(D);
+  Cmd := TProgram.Application.ExecView(D);
   D.Free;
   case Cmd of
     cmNo: Result := vcaRemote;
@@ -169,14 +169,14 @@ begin
   Timer := nil;
   if not Pty.Open(Size.X, Size.Y, Prog, Args, Cwd) then
     Ended := True
-  else if Application <> nil then
-    Timer := Application.SetTimer(20, 20);
+  else if TProgram.Application <> nil then
+    Timer := TProgram.Application.SetTimer(20, 20);
 end;
 
 destructor TVtView.Destroy;
 begin
-  if (Timer <> nil) and (Application <> nil) then
-    Application.KillTimer(Timer);
+  if (Timer <> nil) and (TProgram.Application <> nil) then
+    TProgram.Application.KillTimer(Timer);
   KeyUpEvents := False;
   Emu.Ext.Stop;
   ShowFKeys(False);
@@ -260,8 +260,8 @@ begin
   begin
     Ended := True;
     Emu.Ext.Stop;
-    if Application <> nil then
-      Message(Application, evBroadcast, cmVtEnded, Self);
+    if TProgram.Application <> nil then
+      Message(TProgram.Application, evBroadcast, cmVtEnded, Self);
   end;
 end;
 

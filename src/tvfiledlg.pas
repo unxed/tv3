@@ -560,21 +560,21 @@ begin
   SelectNext(False);
 
   { a larger default size on a larger screen }
-  if Application <> nil then
+  if TProgram.Application <> nil then
   begin
     Bounds := GetBounds;
-    Screen := Application.GetBounds;
-    if Application.Size.X > 90 then
+    Screen := TProgram.Application.GetBounds;
+    if TProgram.Application.Size.X > 90 then
       Bounds.Grow(15, 0)
-    else if Application.Size.X > 63 then
+    else if TProgram.Application.Size.X > 63 then
     begin
       Screen.Grow(-7, 0);
       Bounds.A.X := Screen.A.X;
       Bounds.B.X := Screen.B.X;
     end;
-    if Application.Size.Y > 34 then
+    if TProgram.Application.Size.Y > 34 then
       Bounds.Grow(0, 5)
-    else if Application.Size.Y > 25 then
+    else if TProgram.Application.Size.Y > 25 then
     begin
       Screen.Grow(0, -3);
       Bounds.A.Y := Screen.A.Y;

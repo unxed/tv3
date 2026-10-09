@@ -190,7 +190,7 @@ begin
   Desk.Buffer := ScreenBuffer;
   Desk.State := sfVisible or sfSelected or sfFocused or sfModal or sfExposed;
   Desk.Reset;
-  EnableCommands([cmOpen, cmSave, cmQuit, cmUndo]);
+  TView.EnableCommands([cmOpen, cmSave, cmQuit, cmUndo]);
   Used0 := GetFPCHeapStatus.CurrHeapUsed;
 
   { --- menu data ----------------------------------------------------------------- }
@@ -210,11 +210,11 @@ begin
   Check(M^.Items^.Next^.SubMenu^.Items^.Param = nil, 'an empty parameter is nil');
   DisposeMenu(M);
   Check(GetFPCHeapStatus.CurrHeapUsed = Used0, 'DisposeMenu frees everything');
-  DisableCommand(cmSave);
+  TView.DisableCommand(cmSave);
   M := FileMenu;
   Check(M^.Items^.Next^.Disabled and not M^.Items^.Disabled, 'an item of a disabled command is disabled');
   DisposeMenu(M);
-  EnableCommand(cmSave);
+  TView.EnableCommand(cmSave);
 
   { --- the menu bar ---------------------------------------------------------------- }
   Bar := TMenuBar.Create(R(0, 0, W, 1), MainMenu);
@@ -252,14 +252,14 @@ begin
   DisposeMenu(BM);
   Check(Desk.First = TView(Bar), 'the box is removed from the desk');
   { a box with submenus shows an arrow; disabled entries have their own color }
-  DisableCommand(cmSave);
+  TView.DisableCommand(cmSave);
   BM := FileMenu;
   Box := TMenuBox.Create(R(0, 1, W, H), BM, nil);
   Desk.Insert(Box);
   Check(AttrAt(4, 3) = $03, 'box: disabled entry color');
   Box.Free;
   DisposeMenu(BM);
-  EnableCommand(cmSave);
+  TView.EnableCommand(cmSave);
   Box := TMenuBox.Create(R(0, 1, W, H), Bar.Menu, nil);
   Desk.Insert(Box);
   Check((Box.Size.X = 13) and (Box.Size.Y = 4), 'box with submenu entries');
@@ -384,7 +384,7 @@ begin
   Check(Ev.What = evNothing, 'cmMenu is handled');
 
   { --- disabled commands ----------------------------------------------------------------- }
-  DisableCommand(cmSave);
+  TView.DisableCommand(cmSave);
   ClearEvent(Ev);
   Ev.What := evBroadcast;
   Ev.Command := cmCommandSetChanged;
@@ -398,18 +398,18 @@ begin
   Check(Bar.HotKey(KeyMake(kbF3)) <> nil, 'HotKey finds the entry of an enabled command');
   Check(Bar.FindItem('x') = nil, 'FindItem looks at the bar entries only (File, Edit)');
   Check(Bar.FindItem('e') = Bar.Menu^.Items^.Next, 'FindItem finds an entry by its hot letter');
-  EnableCommand(cmSave);
+  TView.EnableCommand(cmSave);
   ClearEvent(Ev);
   Ev.What := evBroadcast;
   Ev.Command := cmCommandSetChanged;
   Bar.HandleEvent(Ev);
   Check(not Bar.Menu^.Items^.SubMenu^.Items^.Next^.Disabled, 'and enables them again');
   { a disabled command is not chosen by Enter }
-  DisableCommand(cmQuit);
+  TView.DisableCommand(cmQuit);
   Desk.Reset;
   Desk.Key(kbDown); Desk.Key(kbEnd); Desk.Key(kbEnter);
   Check(Run(Bar) = 0, 'a disabled command is not returned');
-  EnableCommand(cmQuit);
+  TView.EnableCommand(cmQuit);
 
   { --- the mouse --------------------------------------------------------------------------- }
   { press on "Edit", release over its first entry }

@@ -31,12 +31,12 @@ begin
   MemClear;
   MemKey(kbEsc);
   Dlg := TFileDialog.Create('*.pas', 'Open', '~N~ame', fdOpenButton or fdHelpButton, 1);
-  Check(DeskTop.ExecView(Dlg) = cmCancel, 'the file dialog: Esc ends it');
+  Check(TProgram.DeskTop.ExecView(Dlg) = cmCancel, 'the file dialog: Esc ends it');
   Dlg.Free;
   MemClear;
   MemKey(kbEsc);
   Dlg := TChDirDialog.Create(cdNormal, 2);
-  Check(DeskTop.ExecView(Dlg) = cmCancel, 'the directory dialog: Esc ends it');
+  Check(TProgram.DeskTop.ExecView(Dlg) = cmCancel, 'the directory dialog: Esc ends it');
   Dlg.Free;
 
   Groups := nil;
@@ -44,7 +44,7 @@ begin
   Dlg := TColorDialog.Create(Pal, ColorGroup('Group', ColorItem('Item', 1, nil), nil));
   MemClear;
   MemKey(kbEsc);
-  Check(DeskTop.ExecView(Dlg) = cmCancel, 'the color dialog: Esc ends it');
+  Check(TProgram.DeskTop.ExecView(Dlg) = cmCancel, 'the color dialog: Esc ends it');
   Dlg.Free;
 
   App.Free;

@@ -106,7 +106,7 @@ begin
   end;
   Dialog.SelectNext(False);
 
-  Result := Application.ExecView(Dialog);
+  Result := TProgram.Application.ExecView(Dialog);
   Dialog.Free;
 end;
 
@@ -118,7 +118,7 @@ begin
   Width := TextWidthS(Text);
   if Width > (Result.B.X - 7) * (Result.B.Y - 6) then
     Result.B.Y := Width div (Result.B.X - 7) + 6 + 1;
-  Result.Move((DeskTop.Size.X - Result.B.X) div 2, (DeskTop.Size.Y - Result.B.Y) div 2);
+  Result.Move((TProgram.DeskTop.Size.X - Result.B.X) div 2, (TProgram.DeskTop.Size.Y - Result.B.Y) div 2);
 end;
 
 function MessageBox(const Msg: ShortString; AOptions: Word): Word;

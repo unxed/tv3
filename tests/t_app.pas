@@ -148,17 +148,17 @@ var
 begin
   Used0 := GetFPCHeapStatus.CurrHeapUsed;
   MemInit(60, 25);
-  Check(Application = nil, 'no application yet');
+  Check(TProgram.Application = nil, 'no application yet');
   App := TTestApp.Create;
-  Check(Application = App, 'Application is set');
-  Check((DeskTop <> nil) and (MenuBar <> nil) and (StatusLine <> nil), 'desktop, menu bar and status line exist');
+  Check(TProgram.Application = App, 'Application is set');
+  Check((TProgram.DeskTop <> nil) and (TProgram.MenuBar <> nil) and (TProgram.StatusLine <> nil), 'desktop, menu bar and status line exist');
   Check((App.State and (sfVisible or sfSelected or sfFocused or sfModal or sfExposed)) =
     (sfVisible or sfSelected or sfFocused or sfModal or sfExposed), 'the program is the modal top view');
   Check(App.Buffer = ScreenBuffer, 'the program draws into the screen buffer');
-  Check((DeskTop.Origin.Y = 1) and (DeskTop.Size.Y = 23) and (DeskTop.Size.X = 60), 'desktop bounds');
-  Check((MenuBar.Origin.Y = 0) and (MenuBar.Size.Y = 1), 'menu bar bounds');
-  Check((StatusLine.Origin.Y = 24) and (StatusLine.Size.Y = 1), 'status line bounds');
-  Check(DeskTop.Background <> nil, 'the desktop has a background');
+  Check((TProgram.DeskTop.Origin.Y = 1) and (TProgram.DeskTop.Size.Y = 23) and (TProgram.DeskTop.Size.X = 60), 'desktop bounds');
+  Check((TProgram.MenuBar.Origin.Y = 0) and (TProgram.MenuBar.Size.Y = 1), 'menu bar bounds');
+  Check((TProgram.StatusLine.Origin.Y = 24) and (TProgram.StatusLine.Size.Y = 1), 'status line bounds');
+  Check(TProgram.DeskTop.Background <> nil, 'the desktop has a background');
   Check(MemText(0, 0, 5) = '  File', 'menu bar text');
   Check(MemText(24, 0, 11) = ' Alt-X Exit ', 'status line text');
   Check(MemChar(0, 1) = '░', 'background pattern');
@@ -172,35 +172,35 @@ begin
   Check(MemAttr(0, 1) = $71, 'application palette: background');
   Check(MemAttr(0, 0) = $70, 'application palette: menu bar');
   Check(MemAttr(1, 24) = $74, 'application palette: status line hot key');
-  Check(AppPalette = apColor, 'color palette');
+  Check(TProgram.AppPalette = apColor, 'color palette');
 
   { windows }
   W1 := App.InsertWindow(NewWin(1, 2, 2));
   Check(W1 <> nil, 'InsertWindow returns the window');
-  Check((DeskTop.First = W1) and ((W1.State and sfActive) <> 0), 'the window is in front and active');
+  Check((TProgram.DeskTop.First = W1) and ((W1.State and sfActive) <> 0), 'the window is in front and active');
   Check(MemText(3, 2, 6) = '╔═[■]', 'the frame of the window is drawn');
   Check(MemAttr(2, 3) = $1F, 'active frame color');
   Check(MemIsShadow(22, 5) and MemIsShadow(23, 11) and not MemIsShadow(21, 5) and not MemIsShadow(22, 3), 'the shadow of the window');
   W2 := App.InsertWindow(NewWin(2, 10, 6));
-  Check(DeskTop.First = W2, 'the second window is in front');
+  Check(TProgram.DeskTop.First = W2, 'the second window is in front');
   MemKey(kbAlt1, kbAltShift);
   Pump(App);
-  Check(DeskTop.First = W1, 'Alt+1 selects window 1');
+  Check(TProgram.DeskTop.First = W1, 'Alt+1 selects window 1');
   MemKey(kbAlt2, kbAltShift);
   Pump(App);
-  Check(DeskTop.First = W2, 'Alt+2 selects window 2');
+  Check(TProgram.DeskTop.First = W2, 'Alt+2 selects window 2');
   MemKey(kbAlt9, kbAltShift);
   Pump(App);
-  Check(DeskTop.First = W2, 'Alt+9: no such window');
+  Check(TProgram.DeskTop.First = W2, 'Alt+9: no such window');
   Check(App.InsertWindow(nil) = nil, 'InsertWindow(nil) is nil');
 
   { next and previous window }
   Ev.What := evCommand; Ev.Command := cmNext; Ev.InfoPtr := nil;
   App.HandleEvent(Ev);
-  Check((DeskTop.First = W1) and (Ev.What = evNothing), 'cmNext selects the next window');
+  Check((TProgram.DeskTop.First = W1) and (Ev.What = evNothing), 'cmNext selects the next window');
   Ev.What := evCommand; Ev.Command := cmPrev; Ev.InfoPtr := nil;
   App.HandleEvent(Ev);
-  Check(DeskTop.First = W2, 'cmPrev puts the front window behind the others');
+  Check(TProgram.DeskTop.First = W2, 'cmPrev puts the front window behind the others');
 
   { tile and cascade }
   W3 := App.InsertWindow(NewWin(3, 20, 10));
@@ -229,16 +229,16 @@ begin
   { idle, commands, timers }
   Watch := TWatch.Create(R(0, 0, 1, 1));
   Watch.EventMask := evBroadcast;
-  DeskTop.Insert(Watch);
+  TProgram.DeskTop.Insert(Watch);
   App.Idles := 0;
-  CommandSetChanged := False;
-  DisableCommand(cmClose);
-  Check(CommandSetChanged, 'disabling a command sets CommandSetChanged');
+  TView.CommandSetChanged := False;
+  TView.DisableCommand(cmClose);
+  Check(TView.CommandSetChanged, 'disabling a command sets CommandSetChanged');
   App.Idle;
-  Check((Watch.SetChanged = 1) and not CommandSetChanged, 'Idle broadcasts cmCommandSetChanged once');
+  Check((Watch.SetChanged = 1) and not TView.CommandSetChanged, 'Idle broadcasts cmCommandSetChanged once');
   App.Idle;
   Check(Watch.SetChanged = 1, 'and not again');
-  EnableCommand(cmClose);
+  TView.EnableCommand(cmClose);
   { idle is called when there is no event }
   MemClear;
   App.Idles := 0;
@@ -258,7 +258,7 @@ begin
   App.GetEvent(Ev);
   Check((Ev.What = evKeyDown) and (Ev.KeyCode = kbF8), 'then the queue');
 
-  EventTimeoutMs := 20;
+  TProgram.EventTimeoutMs := 20;
   MemClear;
   MemClock := 1000;
   Id := App.SetTimer(100);
@@ -274,7 +274,7 @@ begin
   App.GetEvent(Ev);
   Check(Watch.TimerFired = 1, 'a one-shot timer fires once');
   { with no event timeout the program sleeps exactly until the timer }
-  EventTimeoutMs := -1;
+  TProgram.EventTimeoutMs := -1;
   MemClock := 5000;
   Watch.TimerFired := 0;
   Id := App.SetTimer(250);
@@ -283,7 +283,7 @@ begin
   Id := App.SetTimer(1000, 1000);
   App.KillTimer(Id);
   Check(True, 'KillTimer');
-  EventTimeoutMs := 20;
+  TProgram.EventTimeoutMs := 20;
   Watch.Free;
 
   { the status line gets keys and clicks before the others }
@@ -306,7 +306,7 @@ begin
   Res := App.ExecuteDialog(Dlg, @D);
   Check(Res = cmOK, 'ExecuteDialog returns the result of the dialog');
   Check(D = 99, 'and the data of the dialog (set before, read after)');
-  Check(DeskTop.First = W2, 'the dialog is gone');
+  Check(TProgram.DeskTop.First = W2, 'the dialog is gone');
 
   { the screen changes }
   OnSetVideoMode := @Resize;
@@ -317,9 +317,9 @@ begin
   Check(Ev.What = evNothing, 'cmScreenChanged is handled');
   Check((ScreenWidth = 80) and (ScreenHeight = 30), 'the screen was resized');
   Check((App.Size.X = 80) and (App.Size.Y = 30), 'the program has the new size');
-  Check((StatusLine.Origin.Y = 29) and (StatusLine.Size.X = 80), 'the status line moved to the bottom');
+  Check((TProgram.StatusLine.Origin.Y = 29) and (TProgram.StatusLine.Size.X = 80), 'the status line moved to the bottom');
   Check(MemText(29, 0, 11) = ' Alt-X Exit ', 'and is drawn there');
-  Check((DeskTop.Size.X = 80) and (DeskTop.Size.Y = 28), 'the desktop grew');
+  Check((TProgram.DeskTop.Size.X = 80) and (TProgram.DeskTop.Size.Y = 28), 'the desktop grew');
   Check(W2.Size.X > 60, 'the windows grow with the desktop (relative grow mode)');
   OnSetVideoMode := nil;
 
@@ -339,13 +339,13 @@ begin
     MemKey(kbF9);
     Check(MemPending = 5, 'TextEvent: five events are waiting');
     TE.Text[0] := 'x'; TE.TextLength := 1; TE.ControlKeyState := kbPaste;   { the event that the loop has just got }
-    Check(DeskTop.TextEvent(TE, TS), 'TextEvent: there is text');
+    Check(TProgram.DeskTop.TextEvent(TE, TS), 'TextEvent: there is text');
     Check(TS = 'xa'#$D0#$B6#10, 'TextEvent: the text of the first event and of the pasted ones that follow, in one string');
     Check(TE.What = evNothing, 'TextEvent: the event is cleared');
     Check(MemPending = 1, 'TextEvent: the typed letter was taken to see what it is, the next event (F9) is left');
     ClearEvent(TE);
     TE.What := evCommand; TE.Command := cmQuit;
-    Check(not DeskTop.TextEvent(TE, TS), 'TextEvent: no text in a command');
+    Check(not TProgram.DeskTop.TextEvent(TE, TS), 'TextEvent: no text in a command');
     MemClear;
   end;
 
@@ -359,12 +359,12 @@ begin
   Check(Length(SystemColors[apColor]) = PalLen(App), 'DN extensions: GetPalette is made of SystemColors');
   Save := SystemColors[apColor];
   SystemColors[apColor] := #1#2#3;
-  AppPalette := apColor;
+  TProgram.AppPalette := apColor;
   Check(PalLen(App) = 3, 'DN extensions: a changed SystemColors is the palette');
   SystemColors[apColor] := Save;
 
   App.Free;
-  Check((Application = nil) and (DeskTop = nil) and (StatusLine = nil) and (MenuBar = nil), 'Done clears the variables');
+  Check((TProgram.Application = nil) and (TProgram.DeskTop = nil) and (TProgram.StatusLine = nil) and (TProgram.MenuBar = nil), 'Done clears the variables');
   MemDone;
   Check(GetFPCHeapStatus.CurrHeapUsed = Used0, 'no memory is left behind');
   Finish;

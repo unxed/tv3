@@ -40,7 +40,7 @@ begin
   Check(MessageBox('A very long message that does not fit into one line of the box and must be wrapped over several lines, and one more sentence to make it really long.', mfOKButton) = cmOK,
     'a long message makes the box taller');
   { the box is gone from the desktop }
-  Check(DeskTop.First = DeskTop.Background, 'the desktop holds only its background after the boxes');
+  Check(TProgram.DeskTop.First = TProgram.DeskTop.Background, 'the desktop holds only its background after the boxes');
   MsgBoxText.OkText := 'O~K~';
   App.Free;
   MemDone;
