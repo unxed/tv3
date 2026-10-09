@@ -70,7 +70,7 @@ var
   Color: TColorAttr;
   Row, N: Integer;
 begin
-  Color := GetColor(1).Lo;
+  Color := GetColor(1)[0];
   Buf := TDrawBuffer.Create(Size.X);
   try
     for Row := 0 to Size.Y - 1 do

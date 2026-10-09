@@ -213,7 +213,7 @@ begin
   while Y < Size.Y do
   begin
     { a row: the items Y, Y + Size.Y, ... side by side }
-    B.MoveChar(0, 32, CNorm.Lo, Size.X);
+    B.MoveChar(0, 32, CNorm[0], Size.X);
     Col := 0;
     Item := Y;
     while Item < N do
@@ -227,7 +227,7 @@ begin
           C := CSel
         else
           C := CNorm;
-        B.MoveChar(X, Ord(' '), C.Lo, Size.X - X);
+        B.MoveChar(X, Ord(' '), C[0], Size.X - X);
         B.MoveCStrS(X, Icon, C);
         B.PutChar(X + 2, Ord(Marker[MultiMark(Item) + 1]));
         B.MoveCStrS(X + 5, ItemText(Strings, Item), C);

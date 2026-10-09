@@ -283,9 +283,9 @@ end;
 { a name of the menu bar or the status line: a blank on both sides }
 procedure PutLabel(B: TDrawBuffer; X: Integer; const S: ShortString; const Color: TAttrPair);
 begin
-  B.MoveChar(X, Ord(' '), Color.Lo, 1);
+  B.MoveChar(X, Ord(' '), Color[0], 1);
   B.MoveCStrS(X + 1, S, Color);
-  B.MoveChar(X + 1 + CStrLen(S), Ord(' '), Color.Lo, 1);
+  B.MoveChar(X + 1 + CStrLen(S), Ord(' '), Color[0], 1);
 end;
 
 function IsLine(P: PMenuItem): Boolean; inline;
@@ -915,7 +915,7 @@ begin
   C := GetMenuColors(Self);
   B := TDrawBuffer.Create(Size.X);
   try
-    B.MoveChar(0, Ord(' '), C.Normal.Lo, Size.X);
+    B.MoveChar(0, Ord(' '), C.Normal[0], Size.X);
     P := nil;
     if Menu <> nil then
       P := Menu^.Items;
@@ -1032,7 +1032,7 @@ begin
   C := GetMenuColors(Self);
   B := TDrawBuffer.Create(Size.X);
   try
-    FrameLine(B, 0, C.Normal.Lo, C.Normal.Lo);
+    FrameLine(B, 0, C.Normal[0], C.Normal[0]);
     WriteBuf(0, 0, Size.X, 1, B);
     Y := 0;
     P := nil;
@@ -1042,11 +1042,11 @@ begin
     begin
       Inc(Y);
       if IsLine(P) then
-        FrameLine(B, 15, C.Normal.Lo, C.Normal.Lo)
+        FrameLine(B, 15, C.Normal[0], C.Normal[0])
       else
       begin
         Color := ItemColor(C, not P^.Disabled, P = Current);
-        FrameLine(B, 10, C.Normal.Lo, Color.Lo);
+        FrameLine(B, 10, C.Normal[0], Color[0]);
         B.MoveCStrS(3, P^.Name^, Color);
         if P^.Command = 0 then
           B.PutGlyph(Size.X - 4, glTriRight)
@@ -1056,7 +1056,7 @@ begin
       WriteBuf(0, Y, Size.X, 1, B);
       P := P^.Next;
     end;
-    FrameLine(B, 5, C.Normal.Lo, C.Normal.Lo);
+    FrameLine(B, 5, C.Normal[0], C.Normal[0]);
     WriteBuf(0, Y + 1, Size.X, 1, B);
   finally
     B.Free;
@@ -1204,7 +1204,7 @@ begin
   C := GetMenuColors(Self);
   B := TDrawBuffer.Create(Size.X);
   try
-    B.MoveChar(0, Ord(' '), C.Normal.Lo, Size.X);
+    B.MoveChar(0, Ord(' '), C.Normal[0], Size.X);
     X := 0;
     T := Items;
     while Assigned(T) do
@@ -1224,8 +1224,8 @@ begin
       HintText := Hint(HelpCtx);
       if HintText <> '' then
       begin
-        B.MoveStrS(X, HintSeparator, C.Normal.Lo);
-        B.MoveStrS(X + 2, HintText, C.Normal.Lo, Size.X - X - 2);
+        B.MoveStrS(X, HintSeparator, C.Normal[0]);
+        B.MoveStrS(X + 2, HintText, C.Normal[0], Size.X - X - 2);
       end;
     end;
     WriteLine(0, 0, Size.X, 1, B);

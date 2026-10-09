@@ -138,7 +138,7 @@ var
   C: TColorAttr;
   W: Integer;
 begin
-  C := V.GetColor(1).Lo;
+  C := V.GetColor(1)[0];
   B := TDrawBuffer.Create(V.Size.X);
   try
     B.MoveChar(0, Ord(' '), C, V.Size.X);

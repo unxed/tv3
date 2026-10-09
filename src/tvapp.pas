@@ -206,7 +206,7 @@ var
   B: TDrawBuffer;
 begin
   B := TDrawBuffer.Create(Size.X);
-  B.MoveChar(0, Pattern, GetColor($01).Lo, Size.X);
+  B.MoveChar(0, Pattern, GetColor($01)[0], Size.X);
   WriteLine(0, 0, Size.X, Size.Y, B);
   B.Free;
 end;

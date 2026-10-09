@@ -41,7 +41,7 @@ type
     function MoveStrS(Indent: Integer; const S: ShortString; Attr: TColorAttr;
       MaxStrWidth: Integer = MaxStrWidthAll; StrIndent: Integer = 0): Integer;
     { Like MoveStr, but '~' toggles between the attributes of Attrs: the text
-      starts with Attrs.Lo, the first '~' switches to Attrs.Hi, the next back. }
+      starts with Attrs[0], the first '~' switches to Attrs[1], the next back. }
     function MoveCStr(Indent: Integer; Str: PByte; Len: Integer; const Attrs: TAttrPair;
       MaxStrWidth: Integer = MaxStrWidthAll; StrIndent: Integer = 0): Integer;
     function MoveCStrS(Indent: Integer; const S: ShortString; const Attrs: TAttrPair;
@@ -63,7 +63,7 @@ type
 
 function IsKeepAttr(const Attr: TColorAttr): Boolean; inline;
 begin
-  Result := AttrEq(Attr, AttrFromBIOS(0));
+  Result := (Attr = TColorAttr(LongInt(0)));
 end;
 
 constructor TDrawBuffer.Create(ScreenDim: Integer);
@@ -166,11 +166,11 @@ begin
   J := 0;
   W := 0;
   Toggle := 1;
-  Cur := Attrs.Lo;
+  Cur := Attrs[0];
   while J < Len do
     if Str[J] = Ord('~') then
     begin
-      if Toggle = 1 then Cur := Attrs.Hi else Cur := Attrs.Lo;
+      if Toggle = 1 then Cur := Attrs[1] else Cur := Attrs[0];
       Toggle := 1 - Toggle;
       Inc(J);
     end

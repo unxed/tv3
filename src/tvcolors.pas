@@ -1,13 +1,17 @@
 { TvColors: colors, color attributes and conversions between color models.
 
   Translated from magiblot/tvision @ b4831e2:
-    include/tvision/colors.h        (TColorRGB, TColorBIOS, TColorXTerm, TColor,
-                                     TColorAttr, TAttrPair, style flags)
+    include/tvision/colors.h        (TColorRGB, TColorBIOS, TColorXTerm, TColorDefault,
+                                     TColorConversion, TColor, TColorAttr, TAttrPair,
+                                     style flags)
     source/platform/colors.cpp      (RGB -> 16/256 colors, quantization to BIOS)
   Borland disclaimer and MIT notice: COPYRIGHT.magiblot.
 
-  Differences from the C++ original (see tv/DESIGN.md):
-    - plain value types and functions instead of classes with operators;
+  Differences from the C++ original (see tv/docs/API-NAMES.md):
+    - the conversions of the C++ constructors and conversion operators are implicit
+      operators (:=);
+    - TColorAttr << is an operator of the unit (TAttrPair is declared after TColorAttr);
+      the array form of TAttrPair is its default property (P[0], P[1]);
     - the lookup tables are built at unit initialization.
 
   A TColor holds a 24-bit value and a 3-bit type (the 27 bits used by
@@ -20,171 +24,319 @@ unit TvColors;
 interface
 
 type
-  TColorRGB = LongWord;     { 0x00RRGGBB; the top byte is ignored }
-  TColorBIOS = Byte;        { low 4 bits: bit0 blue, bit1 green, bit2 red, bit3 intensity }
-  TColorXTerm = Byte;       { xterm palette index }
-  TColor = LongWord;        { 24-bit value | type shl 24 }
+  TColorRGB = record
+  private
+    FB, FG, FR, FUnused: Byte;
+  public
+    constructor Create(R, G, B: Byte); overload;
+    constructor Create(Rgb: LongWord); overload;
+    function GetRed: Byte; inline;
+    procedure SetRed(R: Byte); inline;
+    function GetGreen: Byte; inline;
+    procedure SetGreen(G: Byte); inline;
+    function GetBlue: Byte; inline;
+    procedure SetBlue(B: Byte); inline;
+    class operator :=(Rgb: LongWord): TColorRGB;
+    class operator :=(const C: TColorRGB): LongWord;
+  end;
 
-  TColorAttr = record       { 27-bit fg, 27-bit bg, 10-bit style }
-    Data: QWord;
+  TColorBIOS = record
+  private
+    FIrgb: Byte;
+  public
+    constructor Create(Irgb: Byte);
+    function GetRed: Boolean; inline;
+    procedure SetRed(R: Boolean);
+    function GetGreen: Boolean; inline;
+    procedure SetGreen(G: Boolean);
+    function GetBlue: Boolean; inline;
+    procedure SetBlue(B: Boolean);
+    function GetIntensity: Boolean; inline;
+    procedure SetIntensity(I: Boolean);
+    class operator :=(Irgb: Byte): TColorBIOS;
+    class operator :=(const C: TColorBIOS): Byte;
+  end;
+
+  TColorXTerm = record
+  private
+    FIdx: Byte;
+  public
+    constructor Create(Idx: Byte);
+    class operator :=(Idx: Byte): TColorXTerm;
+    class operator :=(const C: TColorXTerm): Byte;
+  end;
+
+  TColorDefault = record
+  end;
+
+  TColorConversion = record
+  public
+    class function BIOStoXTerm16(C: TColorBIOS): TColorXTerm; static;
+    class function XTerm16toBIOS(Idx: TColorXTerm): TColorBIOS; static;      { XTerm indices 0-15 }
+    class function XTerm256toXTerm16(Idx: TColorXTerm): TColorXTerm; static; { XTerm indices 16-255 -> 0-15 }
+    class function XTerm256toRGB(Idx: TColorXTerm): TColorRGB; static;       { XTerm indices 16-255 }
+    class function RGBtoXTerm16(C: TColorRGB): TColorXTerm; static;          { XTerm indices 0-15 }
+    class function RGBtoXTerm256(C: TColorRGB): TColorXTerm; static;         { XTerm indices 16-255 }
+  end;
+
+  TColor = record
+  private
+    FData: LongWord;
+    const
+      ctDefault = $0;
+      ctBIOS    = $1;
+      ctRGB     = $2;
+      ctXTerm   = $3;
+    function &Type: Byte; inline;
+  public
+    class operator :=(Bios: Char): TColor;
+    class operator :=(Rgb: LongInt): TColor;
+    class operator :=(const Bios: TColorBIOS): TColor;
+    class operator :=(const Rgb: TColorRGB): TColor;
+    class operator :=(const XTerm: TColorXTerm): TColor;
+    class operator :=(const Def: TColorDefault): TColor;
+    function IsDefault: Boolean; inline;
+    function IsBIOS: Boolean; inline;
+    function IsRGB: Boolean; inline;
+    function IsXTerm: Boolean; inline;
+    { The getters do no conversion: check the type first. }
+    function AsBIOS: TColorBIOS; inline;
+    function AsRGB: TColorRGB; inline;
+    function AsXTerm: TColorXTerm; inline;
+    { Quantization to BIOS; the default color maps to 7 (foreground) or 0. }
+    function ToBIOS(IsForeground: Boolean): TColorBIOS;
+    class operator =(const A, B: TColor): Boolean;
+    class operator <>(const A, B: TColor): Boolean;
+  end;
+
+const
+  { TColorAttr style masks }
+  slBold      = $001;
+  slItalic    = $002;
+  slUnderline = $004;
+  slBlink     = $008;
+  slReverse   = $010;       { prefer Reversed }
+  slStrike    = $020;
+  { private masks (used inside the library) }
+  slWindowShadow = $200;
+
+type
+  TColorAttr = record
+  private
+    FData: QWord;
+    const
+      FgMask = (QWord(1) shl 27) - 1;
+      BgMask = (QWord(1) shl 27) - 1;
+      StyleMask = (QWord(1) shl 10) - 1;
+  public
+    constructor Create(Fg, Bg: TColor; Style: Word = 0);
+    class operator :=(Bios: LongInt): TColorAttr;
+    function GetForeground: TColor; inline;
+    procedure SetForeground(Fg: TColor); inline;
+    function GetBackground: TColor; inline;
+    procedure SetBackground(Bg: TColor); inline;
+    function GetStyle: Word; inline;
+    procedure SetStyle(AStyle: Word); inline;
+    function Reversed: TColorAttr;
+    { a BIOS color attribute, with quantization if needed; the style flags are ignored }
+    function ToBIOS: Byte;
+    { the BIOS attribute if both colors are BIOS colors and there is no style, else $5F }
+    class operator :=(const A: TColorAttr): Byte;
+    class operator =(const A, B: TColorAttr): Boolean;
+    class operator <>(const A, B: TColorAttr): Boolean;
+    class operator =(const A: TColorAttr; Bios: LongInt): Boolean;
+    class operator <>(const A: TColorAttr; Bios: LongInt): Boolean;
   end;
 
   PColorAttr = ^TColorAttr;
 
   TAttrPair = record
-    Lo, Hi: TColorAttr;
+  private
+    FAttrs: array[0..1] of TColorAttr;
+    function GetAttr(Index: Integer): TColorAttr; inline;
+    procedure SetAttr(Index: Integer; const A: TColorAttr); inline;
+  public
+    constructor Create(const Low: TColorAttr); overload;
+    constructor Create(const Low, High: TColorAttr); overload;
+    class operator :=(Bios: LongInt): TAttrPair;
+    { [0]: low, [1]: high }
+    property Attrs[Index: Integer]: TColorAttr read GetAttr write SetAttr; default;
+    { the pair of BIOS attributes (both must be BIOS attributes) }
+    class operator :=(const P: TAttrPair): Word;
+    class operator shr(const P: TAttrPair; Shift: Integer): TAttrPair;
+    { for |= : P := P or A }
+    class operator or(const P: TAttrPair; const A: TColorAttr): TAttrPair;
+    { TColorAttr(const TAttrPair &) }
+    class operator :=(const P: TAttrPair): TColorAttr;
   end;
 
-const
-  { TColor types }
-  ctDefault = 0;
-  ctBIOS    = 1;
-  ctRGB     = 2;
-  ctXTerm   = 3;
-
-  { text styles }
-  slBold      = $001;
-  slItalic    = $002;
-  slUnderline = $004;
-  slBlink     = $008;
-  slReverse   = $010;       { prefer AttrReversed }
-  slStrike    = $020;
-  slWindowShadow = $200;    { set by the view output engine on cells already shadowed }
-
-{ --- TColorRGB ------------------------------------------------------------ }
-function RGB(R, G, B: Byte): TColorRGB; inline;
-function RGBRed(C: TColorRGB): Byte; inline;
-function RGBGreen(C: TColorRGB): Byte; inline;
-function RGBBlue(C: TColorRGB): Byte; inline;
-
-{ --- TColorBIOS ------------------------------------------------------------ }
-function BIOSRed(C: TColorBIOS): Boolean; inline;
-function BIOSGreen(C: TColorBIOS): Boolean; inline;
-function BIOSBlue(C: TColorBIOS): Boolean; inline;
-function BIOSIntensity(C: TColorBIOS): Boolean; inline;
-
-{ --- conversions between the color models ----------------------------------- }
-function BIOSToXTerm16(C: TColorBIOS): TColorXTerm;       { swaps red and blue }
-function XTerm16ToBIOS(Idx: TColorXTerm): TColorBIOS;
-function XTerm256ToXTerm16(Idx: TColorXTerm): TColorXTerm; { for indices 16..255 }
-function XTerm256ToRGB(Idx: TColorXTerm): TColorRGB;       { for indices 16..255 }
-function RGBToXTerm16(C: TColorRGB): TColorXTerm;          { indices 0..15 }
-function RGBToXTerm256(C: TColorRGB): TColorXTerm;         { indices 16..255 }
-
-{ --- TColor ------------------------------------------------------------------ }
-function ColorDefault: TColor; inline;
-function ColorBIOS(Bios: Byte): TColor; inline;
-function ColorRGB(Rgb: TColorRGB): TColor; inline;
-function ColorXTerm(Idx: Byte): TColor; inline;
-function ColorType(C: TColor): Byte; inline;
-function ColorIsDefault(C: TColor): Boolean; inline;
-function ColorIsBIOS(C: TColor): Boolean; inline;
-function ColorIsRGB(C: TColor): Boolean; inline;
-function ColorIsXTerm(C: TColor): Boolean; inline;
-{ The getters do no conversion: check the type first. }
-function ColorAsBIOS(C: TColor): TColorBIOS; inline;
-function ColorAsRGB(C: TColor): TColorRGB; inline;
-function ColorAsXTerm(C: TColor): TColorXTerm; inline;
-{ Quantization to BIOS; the default color maps to 7 (foreground) or 0. }
-function ColorToBIOS(C: TColor; IsForeground: Boolean): TColorBIOS;
-
-{ --- TColorAttr -------------------------------------------------------------- }
-function AttrMake(Fg, Bg: TColor; Style: Word = 0): TColorAttr; inline;
-function AttrFromBIOS(Bios: Byte): TColorAttr; inline;
-function AttrFg(const A: TColorAttr): TColor; inline;
-function AttrBg(const A: TColorAttr): TColor; inline;
-function AttrStyle(const A: TColorAttr): Word; inline;
-procedure AttrSetFg(var A: TColorAttr; Fg: TColor); inline;
-procedure AttrSetBg(var A: TColorAttr; Bg: TColor); inline;
-procedure AttrSetStyle(var A: TColorAttr; Style: Word); inline;
-function AttrReversed(const A: TColorAttr): TColorAttr;
-function AttrToBIOS(const A: TColorAttr): Byte;
-{ The BIOS byte if both colors are BIOS and there is no style, else $5F. }
-function AttrAsBIOSByte(const A: TColorAttr): Byte;
-function AttrEq(const A, B: TColorAttr): Boolean; inline;
-
-{ --- TAttrPair --------------------------------------------------------------- }
-function AttrPair(const Lo, Hi: TColorAttr): TAttrPair; inline;
+{ TColorAttr << Shift }
+operator shl(const A: TColorAttr; Shift: Integer): TAttrPair;
 
 implementation
 
-const
-  FgMask: QWord = (QWord(1) shl 27) - 1;
-  BgMask: QWord = (QWord(1) shl 27) - 1;
-  StyleMask: QWord = (QWord(1) shl 10) - 1;
-
 var
-  XTerm256ToXTerm16LUT: array[0..255] of TColorXTerm;
-  XTerm256ToRGBLUT: array[0..255] of TColorRGB;
+  XTerm256toXTerm16LUT: array[0..255] of TColorXTerm;
+  XTerm256toRGBLUT: array[0..255] of TColorRGB;
 
 { --- TColorRGB ------------------------------------------------------------ }
 
-function RGB(R, G, B: Byte): TColorRGB;
+constructor TColorRGB.Create(R, G, B: Byte);
 begin
-  Result := (LongWord(R) shl 16) or (LongWord(G) shl 8) or LongWord(B);
+  FB := B;
+  FG := G;
+  FR := R;
+  FUnused := 0;
 end;
 
-function RGBRed(C: TColorRGB): Byte;
+constructor TColorRGB.Create(Rgb: LongWord);
 begin
-  Result := Byte((C shr 16) and $FF);
+  FB := Byte(Rgb);
+  FG := Byte(Rgb shr 8);
+  FR := Byte(Rgb shr 16);
+  FUnused := 0;
 end;
 
-function RGBGreen(C: TColorRGB): Byte;
+function TColorRGB.GetRed: Byte;
 begin
-  Result := Byte((C shr 8) and $FF);
+  Result := FR;
 end;
 
-function RGBBlue(C: TColorRGB): Byte;
+procedure TColorRGB.SetRed(R: Byte);
 begin
-  Result := Byte(C and $FF);
+  FR := R;
+end;
+
+function TColorRGB.GetGreen: Byte;
+begin
+  Result := FG;
+end;
+
+procedure TColorRGB.SetGreen(G: Byte);
+begin
+  FG := G;
+end;
+
+function TColorRGB.GetBlue: Byte;
+begin
+  Result := FB;
+end;
+
+procedure TColorRGB.SetBlue(B: Byte);
+begin
+  FB := B;
+end;
+
+class operator TColorRGB.:=(Rgb: LongWord): TColorRGB;
+begin
+  Result := TColorRGB.Create(Rgb);
+end;
+
+class operator TColorRGB.:=(const C: TColorRGB): LongWord;
+begin
+  Result := (LongWord(C.FR) shl 16) or (LongWord(C.FG) shl 8) or C.FB;
 end;
 
 { --- TColorBIOS ------------------------------------------------------------ }
 
-function BIOSRed(C: TColorBIOS): Boolean;
+constructor TColorBIOS.Create(Irgb: Byte);
 begin
-  Result := (C and $04) <> 0;
+  FIrgb := Irgb and $0F;
 end;
 
-function BIOSGreen(C: TColorBIOS): Boolean;
+function TColorBIOS.GetRed: Boolean;
 begin
-  Result := (C and $02) <> 0;
+  Result := (FIrgb and $04) <> 0;
 end;
 
-function BIOSBlue(C: TColorBIOS): Boolean;
+procedure TColorBIOS.SetRed(R: Boolean);
 begin
-  Result := (C and $01) <> 0;
+  FIrgb := (FIrgb and not $04) or (Ord(R) shl 2);
 end;
 
-function BIOSIntensity(C: TColorBIOS): Boolean;
+function TColorBIOS.GetGreen: Boolean;
 begin
-  Result := (C and $08) <> 0;
+  Result := (FIrgb and $02) <> 0;
 end;
 
-{ --- conversions ------------------------------------------------------------ }
+procedure TColorBIOS.SetGreen(G: Boolean);
+begin
+  FIrgb := (FIrgb and not $02) or (Ord(G) shl 1);
+end;
 
-function BIOSToXTerm16(C: TColorBIOS): TColorXTerm;
+function TColorBIOS.GetBlue: Boolean;
+begin
+  Result := (FIrgb and $01) <> 0;
+end;
+
+procedure TColorBIOS.SetBlue(B: Boolean);
+begin
+  FIrgb := (FIrgb and not $01) or Ord(B);
+end;
+
+function TColorBIOS.GetIntensity: Boolean;
+begin
+  Result := (FIrgb and $08) <> 0;
+end;
+
+procedure TColorBIOS.SetIntensity(I: Boolean);
+begin
+  FIrgb := (FIrgb and not $08) or (Ord(I) shl 3);
+end;
+
+class operator TColorBIOS.:=(Irgb: Byte): TColorBIOS;
+begin
+  Result := TColorBIOS.Create(Irgb);
+end;
+
+class operator TColorBIOS.:=(const C: TColorBIOS): Byte;
+begin
+  Result := C.FIrgb;
+end;
+
+{ --- TColorXTerm ----------------------------------------------------------- }
+
+constructor TColorXTerm.Create(Idx: Byte);
+begin
+  FIdx := Idx;
+end;
+
+class operator TColorXTerm.:=(Idx: Byte): TColorXTerm;
+begin
+  Result.FIdx := Idx;
+end;
+
+class operator TColorXTerm.:=(const C: TColorXTerm): Byte;
+begin
+  Result := C.FIdx;
+end;
+
+{ --- TColorConversion ------------------------------------------------------ }
+
+class function TColorConversion.BIOStoXTerm16(C: TColorBIOS): TColorXTerm;
 var
-  Bits: Byte;
+  Aux: Boolean;
 begin
-  Bits := C and $0F;
-  { swap the red (bit 2) and blue (bit 0) bits }
-  Result := (Bits and $0A) or ((Bits and $01) shl 2) or ((Bits and $04) shr 2);
+  { swap the red and blue bits }
+  Aux := C.GetBlue;
+  C.SetBlue(C.GetRed);
+  C.SetRed(Aux);
+  Result := Byte(C);
 end;
 
-function XTerm16ToBIOS(Idx: TColorXTerm): TColorBIOS;
+class function TColorConversion.XTerm16toBIOS(Idx: TColorXTerm): TColorBIOS;
 begin
-  Result := BIOSToXTerm16(Idx);
+  Result := Byte(BIOStoXTerm16(Byte(Idx)));
 end;
 
-function XTerm256ToXTerm16(Idx: TColorXTerm): TColorXTerm;
+class function TColorConversion.XTerm256toXTerm16(Idx: TColorXTerm): TColorXTerm;
 begin
-  Result := XTerm256ToXTerm16LUT[Idx];
+  Result := XTerm256toXTerm16LUT[Byte(Idx)];
 end;
 
-function XTerm256ToRGB(Idx: TColorXTerm): TColorRGB;
+class function TColorConversion.XTerm256toRGB(Idx: TColorXTerm): TColorRGB;
 begin
-  Result := XTerm256ToRGBLUT[Idx];
+  Result := XTerm256toRGBLUT[Byte(Idx)];
 end;
 
 const
@@ -246,12 +398,12 @@ begin
   end;
 end;
 
-function RGBToXTerm16(C: TColorRGB): TColorXTerm;
+class function TColorConversion.RGBtoXTerm16(C: TColorRGB): TColorXTerm;
 begin
-  Result := RGBToXTerm16Impl(RGBRed(C), RGBGreen(C), RGBBlue(C));
+  Result := RGBToXTerm16Impl(C.GetRed, C.GetGreen, C.GetBlue);
 end;
 
-function RGBToXTerm256(C: TColorRGB): TColorXTerm;
+class function TColorConversion.RGBtoXTerm256(C: TColorRGB): TColorXTerm;
 
   function Scale(V: Byte): Integer;
   begin
@@ -277,11 +429,11 @@ var
   Idx: Integer;
   R, G, B, Xmin, Xmax, Chroma, L: Byte;
 begin
-  R := RGBRed(C);
-  G := RGBGreen(C);
-  B := RGBBlue(C);
+  R := C.GetRed;
+  G := C.GetGreen;
+  B := C.GetBlue;
   Idx := 16 + (Scale(R) * 6 + Scale(G)) * 6 + Scale(B);
-  if (C and $FFFFFF) <> XTerm256ToRGB(Idx) then
+  if LongWord(C) <> LongWord(XTerm256toRGB(Idx)) then
   begin
     Xmin := R;
     if G < Xmin then Xmin := G;
@@ -306,11 +458,11 @@ var
 begin
   for I := 0 to 255 do
   begin
-    XTerm256ToXTerm16LUT[I] := 0;
-    XTerm256ToRGBLUT[I] := 0;
+    XTerm256toXTerm16LUT[I] := 0;
+    XTerm256toRGBLUT[I] := 0;
   end;
   for I := 0 to 15 do
-    XTerm256ToXTerm16LUT[I] := I;
+    XTerm256toXTerm16LUT[I] := I;
   for I := 0 to 5 do
   begin
     if I <> 0 then R := 55 + I * 40 else R := 0;
@@ -320,182 +472,283 @@ begin
       for K := 0 to 5 do
       begin
         if K <> 0 then B := 55 + K * 40 else B := 0;
-        XTerm256ToXTerm16LUT[16 + (I * 6 + J) * 6 + K] := RGBToXTerm16Impl(R, G, B);
-        XTerm256ToRGBLUT[16 + (I * 6 + J) * 6 + K] := RGB(R, G, B);
+        XTerm256toXTerm16LUT[16 + (I * 6 + J) * 6 + K] := RGBToXTerm16Impl(R, G, B);
+        XTerm256toRGBLUT[16 + (I * 6 + J) * 6 + K] := TColorRGB.Create(R, G, B);
       end;
     end;
   end;
   for I := 0 to 23 do
   begin
     L := I * 10 + 8;
-    XTerm256ToXTerm16LUT[232 + I] := RGBToXTerm16Impl(L, L, L);
-    XTerm256ToRGBLUT[232 + I] := RGB(L, L, L);
+    XTerm256toXTerm16LUT[232 + I] := RGBToXTerm16Impl(L, L, L);
+    XTerm256toRGBLUT[232 + I] := TColorRGB.Create(L, L, L);
   end;
 end;
 
 { --- TColor ------------------------------------------------------------------ }
 
-function ColorDefault: TColor;
+function TColor.&Type: Byte;
 begin
-  Result := 0;
+  Result := Byte(FData shr 24);
 end;
 
-function ColorBIOS(Bios: Byte): TColor;
+class operator TColor.:=(Bios: Char): TColor;
 begin
-  Result := LongWord(Bios and $0F) or (ctBIOS shl 24);
+  Result.FData := LongWord(Ord(Bios) and $0F) or (ctBIOS shl 24);
 end;
 
-function ColorRGB(Rgb: TColorRGB): TColor;
+class operator TColor.:=(Rgb: LongInt): TColor;
 begin
-  Result := (Rgb and $FFFFFF) or (ctRGB shl 24);
+  Result.FData := LongWord(Rgb and $FFFFFF) or (ctRGB shl 24);
 end;
 
-function ColorXTerm(Idx: Byte): TColor;
+class operator TColor.:=(const Bios: TColorBIOS): TColor;
 begin
-  Result := LongWord(Idx) or (ctXTerm shl 24);
+  Result := Char(Byte(Bios));
 end;
 
-function ColorType(C: TColor): Byte;
+class operator TColor.:=(const Rgb: TColorRGB): TColor;
 begin
-  Result := Byte((C shr 24) and $FF);
+  Result := LongInt(LongWord(Rgb));
 end;
 
-function ColorIsDefault(C: TColor): Boolean;
+class operator TColor.:=(const XTerm: TColorXTerm): TColor;
 begin
-  Result := ColorType(C) = ctDefault;
+  Result.FData := LongWord(Byte(XTerm)) or (ctXTerm shl 24);
 end;
 
-function ColorIsBIOS(C: TColor): Boolean;
+class operator TColor.:=(const Def: TColorDefault): TColor;
 begin
-  Result := ColorType(C) = ctBIOS;
+  Result.FData := 0;
 end;
 
-function ColorIsRGB(C: TColor): Boolean;
+function TColor.IsDefault: Boolean;
 begin
-  Result := ColorType(C) = ctRGB;
+  Result := &Type = ctDefault;
 end;
 
-function ColorIsXTerm(C: TColor): Boolean;
+function TColor.IsBIOS: Boolean;
 begin
-  Result := ColorType(C) = ctXTerm;
+  Result := &Type = ctBIOS;
 end;
 
-function ColorAsBIOS(C: TColor): TColorBIOS;
+function TColor.IsRGB: Boolean;
 begin
-  Result := Byte(C and $FF);
+  Result := &Type = ctRGB;
 end;
 
-function ColorAsRGB(C: TColor): TColorRGB;
+function TColor.IsXTerm: Boolean;
 begin
-  Result := C and $FFFFFF;
+  Result := &Type = ctXTerm;
 end;
 
-function ColorAsXTerm(C: TColor): TColorXTerm;
+function TColor.AsBIOS: TColorBIOS;
 begin
-  Result := Byte(C and $FF);
+  Result := Byte(FData);
 end;
 
-function ColorToBIOS(C: TColor; IsForeground: Boolean): TColorBIOS;
+function TColor.AsRGB: TColorRGB;
+begin
+  Result := FData;
+end;
+
+function TColor.AsXTerm: TColorXTerm;
+begin
+  Result := Byte(FData);
+end;
+
+function TColor.ToBIOS(IsForeground: Boolean): TColorBIOS;
 var
   Idx: Byte;
 begin
-  case ColorType(C) of
+  case &Type of
     ctBIOS:
-      Result := ColorAsBIOS(C);
+      Result := AsBIOS;
     ctRGB:
-      Result := XTerm16ToBIOS(RGBToXTerm16(ColorAsRGB(C)));
+      Result := TColorConversion.XTerm16toBIOS(TColorConversion.RGBtoXTerm16(AsRGB));
     ctXTerm:
     begin
-      Idx := ColorAsXTerm(C);
+      Idx := Byte(AsXTerm);
       if Idx >= 16 then
-        Idx := XTerm256ToXTerm16(Idx);
-      Result := XTerm16ToBIOS(Idx);
+        Idx := Byte(TColorConversion.XTerm256toXTerm16(Idx));
+      Result := TColorConversion.XTerm16toBIOS(Idx);
     end;
   else
     if IsForeground then Result := $7 else Result := $0;
   end;
 end;
 
+class operator TColor.=(const A, B: TColor): Boolean;
+begin
+  Result := A.FData = B.FData;
+end;
+
+class operator TColor.<>(const A, B: TColor): Boolean;
+begin
+  Result := A.FData <> B.FData;
+end;
+
 { --- TColorAttr -------------------------------------------------------------- }
 
-function AttrMake(Fg, Bg: TColor; Style: Word): TColorAttr;
+constructor TColorAttr.Create(Fg, Bg: TColor; Style: Word);
 begin
-  Result.Data := (QWord(Fg) and FgMask)
-    or ((QWord(Bg) and BgMask) shl 27)
+  FData := (QWord(Fg.FData) and FgMask)
+    or ((QWord(Bg.FData) and BgMask) shl 27)
     or (QWord(Style) shl 54);
 end;
 
-function AttrFromBIOS(Bios: Byte): TColorAttr;
+class operator TColorAttr.:=(Bios: LongInt): TColorAttr;
 begin
-  Result := AttrMake(ColorBIOS(Bios), ColorBIOS(Bios shr 4));
+  Result := TColorAttr.Create(Char(Bios and $FF), Char((Bios shr 4) and $FF));
 end;
 
-function AttrFg(const A: TColorAttr): TColor;
+function TColorAttr.GetForeground: TColor;
 begin
-  Result := TColor(A.Data and FgMask);
+  Result.FData := LongWord(FData and FgMask);
 end;
 
-function AttrBg(const A: TColorAttr): TColor;
+procedure TColorAttr.SetForeground(Fg: TColor);
 begin
-  Result := TColor((A.Data shr 27) and BgMask);
+  FData := (FData and not FgMask) or (QWord(Fg.FData) and FgMask);
 end;
 
-function AttrStyle(const A: TColorAttr): Word;
+function TColorAttr.GetBackground: TColor;
 begin
-  Result := Word(A.Data shr 54);
+  Result.FData := LongWord((FData shr 27) and BgMask);
 end;
 
-procedure AttrSetFg(var A: TColorAttr; Fg: TColor);
+procedure TColorAttr.SetBackground(Bg: TColor);
 begin
-  A.Data := (A.Data and not FgMask) or (QWord(Fg) and FgMask);
+  FData := (FData and not (BgMask shl 27)) or ((QWord(Bg.FData) and BgMask) shl 27);
 end;
 
-procedure AttrSetBg(var A: TColorAttr; Bg: TColor);
+function TColorAttr.GetStyle: Word;
 begin
-  A.Data := (A.Data and not (BgMask shl 27)) or ((QWord(Bg) and BgMask) shl 27);
+  Result := Word(FData shr 54);
 end;
 
-procedure AttrSetStyle(var A: TColorAttr; Style: Word);
+procedure TColorAttr.SetStyle(AStyle: Word);
 begin
-  A.Data := (A.Data and not (StyleMask shl 54)) or (QWord(Style) shl 54);
+  FData := (FData and not (StyleMask shl 54)) or (QWord(AStyle) shl 54);
 end;
 
-function AttrReversed(const A: TColorAttr): TColorAttr;
+function TColorAttr.Reversed: TColorAttr;
 var
   Fg, Bg: TColor;
 begin
-  Fg := AttrFg(A);
-  Bg := AttrBg(A);
+  Fg := GetForeground;
+  Bg := GetBackground;
   { slReverse may look different in different terminals, so the colors are
     swapped by hand unless one of them is the default color }
-  if ColorIsDefault(Fg) or ColorIsDefault(Bg) then
-    Result := AttrMake(Fg, Bg, AttrStyle(A) xor slReverse)
+  if Fg.IsDefault or Bg.IsDefault then
+    Result := TColorAttr.Create(Fg, Bg, GetStyle xor slReverse)
   else
-    Result := AttrMake(Bg, Fg, AttrStyle(A));
+    Result := TColorAttr.Create(Bg, Fg, GetStyle);
 end;
 
-function AttrToBIOS(const A: TColorAttr): Byte;
+function TColorAttr.ToBIOS: Byte;
 begin
-  Result := ColorToBIOS(AttrFg(A), True) or (ColorToBIOS(AttrBg(A), False) shl 4);
+  Result := Byte(GetForeground.ToBIOS(True)) or (Byte(GetBackground.ToBIOS(False)) shl 4);
 end;
 
-function AttrAsBIOSByte(const A: TColorAttr): Byte;
+class operator TColorAttr.:=(const A: TColorAttr): Byte;
+var
+  Fg, Bg: TColor;
 begin
-  if ColorIsBIOS(AttrFg(A)) and ColorIsBIOS(AttrBg(A)) and (AttrStyle(A) = 0) then
-    Result := ColorAsBIOS(AttrFg(A)) or (ColorAsBIOS(AttrBg(A)) shl 4)
+  Fg := A.GetForeground;
+  Bg := A.GetBackground;
+  if Fg.IsBIOS and Bg.IsBIOS and (A.GetStyle = 0) then
+    Result := Byte(Fg.AsBIOS) or (Byte(Bg.AsBIOS) shl 4)
   else
     Result := $5F;
 end;
 
-function AttrEq(const A, B: TColorAttr): Boolean;
+class operator TColorAttr.=(const A, B: TColorAttr): Boolean;
 begin
-  Result := A.Data = B.Data;
+  Result := A.FData = B.FData;
 end;
 
-function AttrPair(const Lo, Hi: TColorAttr): TAttrPair;
+class operator TColorAttr.<>(const A, B: TColorAttr): Boolean;
 begin
-  Result.Lo := Lo;
-  Result.Hi := Hi;
+  Result := not (A = B);
+end;
+
+class operator TColorAttr.=(const A: TColorAttr; Bios: LongInt): Boolean;
+begin
+  Result := A = TColorAttr(LongInt(Byte(Bios)));
+end;
+
+class operator TColorAttr.<>(const A: TColorAttr; Bios: LongInt): Boolean;
+begin
+  Result := not (A = Bios);
+end;
+
+{ --- TAttrPair --------------------------------------------------------------- }
+
+constructor TAttrPair.Create(const Low: TColorAttr);
+begin
+  FAttrs[0] := Low;
+  FAttrs[1] := 0;
+end;
+
+constructor TAttrPair.Create(const Low, High: TColorAttr);
+begin
+  FAttrs[0] := Low;
+  FAttrs[1] := High;
+end;
+
+class operator TAttrPair.:=(Bios: LongInt): TAttrPair;
+begin
+  Result := TAttrPair.Create(Bios and $FF, (Bios shr 8) and $FF);
+end;
+
+function TAttrPair.GetAttr(Index: Integer): TColorAttr;
+begin
+  Result := FAttrs[Index];
+end;
+
+procedure TAttrPair.SetAttr(Index: Integer; const A: TColorAttr);
+begin
+  FAttrs[Index] := A;
+end;
+
+class operator TAttrPair.:=(const P: TAttrPair): Word;
+begin
+  Result := Byte(P.FAttrs[0]) or (Word(Byte(P.FAttrs[1])) shl 8);
+end;
+
+class operator TAttrPair.shr(const P: TAttrPair; Shift: Integer): TAttrPair;
+begin
+  { legacy code may use shr 8 on a pair to get the higher attribute }
+  if Shift = 8 then
+    Result := TAttrPair.Create(P.FAttrs[1])
+  else
+    Result := LongInt(Word(P) shr Shift);
+end;
+
+class operator TAttrPair.or(const P: TAttrPair; const A: TColorAttr): TAttrPair;
+begin
+  { legacy code may use |= on a pair to set the lower attribute, but only when it is the BIOS
+    attribute 0; else it is an arithmetic operation }
+  Result := P;
+  if Result.FAttrs[0] = 0 then
+    Result.FAttrs[0] := A
+  else
+    Result.FAttrs[0] := LongInt(Byte(Result.FAttrs[0]) or Byte(A));
+end;
+
+class operator TAttrPair.:=(const P: TAttrPair): TColorAttr;
+begin
+  Result := P.FAttrs[0];
+end;
+
+operator shl(const A: TColorAttr; Shift: Integer): TAttrPair;
+begin
+  { legacy code may use shl 8 on an attribute to make a pair }
+  if Shift = 8 then
+    Result := TAttrPair.Create(0, A)
+  else
+    Result := LongInt(Byte(A)) shl Shift;
 end;
 
 initialization

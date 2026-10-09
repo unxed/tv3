@@ -175,12 +175,12 @@ end;
 
 function MemAttr(X, Y: Integer): Byte;
 begin
-  Result := AttrAsBIOSByte((TScreen.ScreenBuffer + (Y * TScreen.ScreenWidth + X))^.Attribute);
+  Result := Byte((TScreen.ScreenBuffer + (Y * TScreen.ScreenWidth + X))^.Attribute);
 end;
 
 function MemIsShadow(X, Y: Integer): Boolean;
 begin
-  Result := (AttrStyle((TScreen.ScreenBuffer + (Y * TScreen.ScreenWidth + X))^.Attribute) and slWindowShadow) <> 0;
+  Result := (((TScreen.ScreenBuffer + (Y * TScreen.ScreenWidth + X))^.Attribute).GetStyle and slWindowShadow) <> 0;
 end;
 
 end.

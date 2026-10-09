@@ -43,7 +43,7 @@ begin
 
   { cells to video words }
   ScInitChar(Cell.Character, Ord('A'));
-  Cell.Attribute := AttrFromBIOS($1E);
+  Cell.Attribute := TColorAttr(LongInt($1E));
   Check(DosCellToVga(Cell) = $1E41, 'an ASCII cell');
   ScInitChar(Cell.Character, $C9);
   Check(DosCellToVga(Cell) = $1EC9, 'a code page byte goes as it is');

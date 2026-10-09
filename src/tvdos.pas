@@ -134,7 +134,7 @@ end;
 
 function CellAttrByte(const A: TColorAttr): Byte;
 begin
-  Result := ColorToBIOS(AttrFg(A), True) or (ColorToBIOS(AttrBg(A), False) shl 4);
+  Result := Byte(A.GetForeground.ToBIOS(True)) or (Byte(A.GetBackground.ToBIOS(False)) shl 4);
 end;
 
 function DosCellToVga(const C: TScreenCell): Word;

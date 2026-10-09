@@ -146,15 +146,15 @@ var
   ColWidth, Indent, Row, Col, X, Item, Marker: Integer;
 begin
   Active := (State and (sfSelected or sfActive)) = (sfSelected or sfActive);
-  CSelected := GetColor(4).Lo;
+  CSelected := GetColor(4)[0];
   if Active then
   begin
-    CNormal := GetColor(1).Lo;
-    CFocused := GetColor(3).Lo;
+    CNormal := GetColor(1)[0];
+    CFocused := GetColor(3)[0];
   end
   else
   begin
-    CNormal := GetColor(2).Lo;
+    CNormal := GetColor(2)[0];
     CFocused := CNormal;
   end;
   Indent := 0;
@@ -198,8 +198,8 @@ begin
         end;
       end
       else if (Row = 0) and (Col = 0) then
-        B.MoveStrS(X + 1, EmptyText, GetColor(1).Lo);
-      B.MoveGlyph(X + ColWidth - 1, glLightV, GetColor(5).Lo, 1);
+        B.MoveStrS(X + 1, EmptyText, GetColor(1)[0]);
+      B.MoveGlyph(X + ColWidth - 1, glLightV, GetColor(5)[0], 1);
     end;
     WriteLine(0, Row, Size.X, 1, B);
   end;

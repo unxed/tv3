@@ -338,7 +338,7 @@ var
   S: ShortString;
   Pt: PByte;
 begin
-  Color := GetColor(1).Lo;
+  Color := GetColor(1)[0];
   GetText(S);
   L := Length(S);
   Pt := @S[1];
@@ -436,7 +436,7 @@ begin
     Marker := 4;
   end;
   B := TDrawBuffer.Create(Size.X);
-  B.MoveChar(0, Ord(' '), Attrs.Lo, Size.X);
+  B.MoveChar(0, Ord(' '), Attrs[0], Size.X);
   if Text <> nil then
     B.MoveCStrS(1, Text^, Attrs);
   if ShowMarkers then
@@ -562,17 +562,17 @@ begin
   B := TDrawBuffer.Create(Size.X);
   for Row := 0 to Size.Y - 2 do
   begin
-    B.MoveChar(0, Ord(' '), CButton.Lo, Size.X);
-    B.PutAttribute(0, CShadow.Lo);
+    B.MoveChar(0, Ord(' '), CButton[0], Size.X);
+    B.PutAttribute(0, CShadow[0]);
     if Down then
     begin
       { pressed: the face moves right by one column }
-      B.PutAttribute(1, CShadow.Lo);
+      B.PutAttribute(1, CShadow[0]);
       Start := 2;
     end
     else
     begin
-      B.PutAttribute(Right, CShadow.Lo);
+      B.PutAttribute(Right, CShadow[0]);
       if not ShowMarkers then
       begin
         if Row = 0 then
@@ -592,8 +592,8 @@ begin
     end;
     WriteLine(0, Row, Size.X, 1, B);
   end;
-  B.MoveChar(0, Ord(' '), CShadow.Lo, 2);
-  B.MoveGlyph(2, Bottom, CShadow.Lo, Right - 1);
+  B.MoveChar(0, Ord(' '), CShadow[0], 2);
+  B.MoveGlyph(2, Bottom, CShadow[0], Right - 1);
   WriteLine(0, Size.Y - 1, Size.X, 1, B);
   B.Free;
 end;

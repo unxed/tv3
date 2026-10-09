@@ -71,11 +71,11 @@ begin
   { all zero bytes is a valid cell }
   FillChar(A, SizeOf(A), 0);
   Check((ScLength(A.Character) = 1) and (A.Character.Text[0] = 0), 'zeroed cell: one NUL');
-  Check(ColorIsDefault(AttrFg(A.Attribute)) and ColorIsDefault(AttrBg(A.Attribute)), 'zeroed cell: default colors');
+  Check(A.Attribute.GetForeground.IsDefault and A.Attribute.GetBackground.IsDefault, 'zeroed cell: default colors');
 
   { cells from DOS words }
   A := CellFromBIOS($1F41);
-  Check((ScText(A.Character) = 'A') and (AttrAsBIOSByte(A.Attribute) = $1F), 'CellFromBIOS');
+  Check((ScText(A.Character) = 'A') and (Byte(A.Attribute) = $1F), 'CellFromBIOS');
 
   { equality }
   B := CellFromBIOS($1F41);
@@ -85,11 +85,11 @@ begin
   B := CellFromBIOS($2F41);
   Check(not CellEq(A, B), 'different attributes');
   ScInitText(C, @Cjk[0], 3, True);
-  A := CellMake(C, AttrFromBIOS($07));
-  B := CellMake(C, AttrFromBIOS($07));
+  A := CellMake(C, TColorAttr(LongInt($07)));
+  B := CellMake(C, TColorAttr(LongInt($07)));
   Check(CellEq(A, B), 'CellMake equal');
   ScInitText(D, @Cjk[0], 3, False);
-  B := CellMake(D, AttrFromBIOS($07));
+  B := CellMake(D, TColorAttr(LongInt($07)));
   Check(not CellEq(A, B), 'wide flag counts in equality');
 
   Finish;

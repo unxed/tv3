@@ -20,12 +20,12 @@ end;
 
 function At(Idx: Integer): Byte;
 begin
-  Result := AttrAsBIOSByte(PScreenCell(PtrUInt(B.Data) + Idx * SizeOf(TScreenCell))^.Attribute);
+  Result := Byte(PScreenCell(PtrUInt(B.Data) + Idx * SizeOf(TScreenCell))^.Attribute);
 end;
 
 function Untouched(Idx: Integer): Boolean;
 begin
-  Result := PScreenCell(PtrUInt(B.Data) + Idx * SizeOf(TScreenCell))^.Attribute.Data = 0;
+  Result := PScreenCell(PtrUInt(B.Data) + Idx * SizeOf(TScreenCell))^.Attribute = Default(TColorAttr);
 end;
 
 function Cell(Idx: Integer): PScreenCell;
@@ -39,10 +39,10 @@ begin
 end;
 
 begin
-  A1 := AttrFromBIOS($1F);
-  A2 := AttrFromBIOS($2E);
-  Keep := AttrFromBIOS(0);
-  Pair := AttrPair(A1, A2);                 { Lo = normal, Hi = highlighted }
+  A1 := TColorAttr(LongInt($1F));
+  A2 := TColorAttr(LongInt($2E));
+  Keep := TColorAttr(LongInt(0));
+  Pair := TAttrPair.Create(A1, A2);                 { Lo = normal, Hi = highlighted }
 
   B := TDrawBuffer.Create(80);
   Check(B.Capacity = 88, 'capacity for an 80-column screen');
@@ -52,7 +52,7 @@ begin
   B.Free;
   B := TDrawBuffer.Create(132);
   Check(B.Capacity = 140, 'capacity for a 132-column screen');
-  Check((Cell(0)^.Character.Text[0] = 0) and (Cell(0)^.Attribute.Data = 0), 'a new buffer is zeroed');
+  Check((Cell(0)^.Character.Text[0] = 0) and (Cell(0)^.Attribute = Default(TColorAttr)), 'a new buffer is zeroed');
 
   { MoveChar }
   B.MoveChar(2, Ord('='), A1, 5);

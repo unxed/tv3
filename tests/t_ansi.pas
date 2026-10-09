@@ -20,7 +20,7 @@ end;
 
 function Cell(const S: string; Fg, Bg: TColor; Style: Word; X, Y: Integer): string;
 begin
-  W.WriteCell(X, Y, S, AttrMake(Fg, Bg, Style), False);
+  W.WriteCell(X, Y, S, TColorAttr.Create(Fg, Bg, Style), False);
   Result := Out;
 end;
 
@@ -40,51 +40,51 @@ begin
   { 16 colors: white on blue, then the same, then another place }
   Cap := TermCapFrom('', 'xterm', '');
   W := TAnsiWriter.Create(Cap);
-  Check(Cell('A', ColorBIOS($F), ColorBIOS($1), 0, 0, 0) = E + '[1;1H' + E + '[97;44mA', 'first cell: move, colors, text');
-  Check(Cell('B', ColorBIOS($F), ColorBIOS($1), 0, 1, 0) = 'B', 'the next cell with the same attributes: the text only');
-  Check(Cell('C', ColorBIOS($F), ColorBIOS($1), 0, 5, 0) = E + '[6GC', 'a jump on the row: the column');
-  Check(Cell('D', ColorBIOS($F), ColorBIOS($1), 0, 0, 1) = E + '[2;1HD', 'another row: row and column');
-  Check(Cell('E', ColorBIOS($4), ColorBIOS($1), 0, 1, 1) = E + '[31mE', 'only the foreground changes');
-  Check(Cell('F', ColorBIOS($4), ColorBIOS($1), slBold, 2, 1) = E + '[1mF', 'bold on');
-  Check(Cell('G', ColorBIOS($4), ColorBIOS($1), 0, 3, 1) = E + '[22mG', 'bold off');
-  Check(Cell('H', ColorDefault, ColorDefault, 0, 4, 1) = E + '[39;49mH', 'default colors');
+  Check(Cell('A', TColor(TColorBIOS($F)), TColor(TColorBIOS($1)), 0, 0, 0) = E + '[1;1H' + E + '[97;44mA', 'first cell: move, colors, text');
+  Check(Cell('B', TColor(TColorBIOS($F)), TColor(TColorBIOS($1)), 0, 1, 0) = 'B', 'the next cell with the same attributes: the text only');
+  Check(Cell('C', TColor(TColorBIOS($F)), TColor(TColorBIOS($1)), 0, 5, 0) = E + '[6GC', 'a jump on the row: the column');
+  Check(Cell('D', TColor(TColorBIOS($F)), TColor(TColorBIOS($1)), 0, 0, 1) = E + '[2;1HD', 'another row: row and column');
+  Check(Cell('E', TColor(TColorBIOS($4)), TColor(TColorBIOS($1)), 0, 1, 1) = E + '[31mE', 'only the foreground changes');
+  Check(Cell('F', TColor(TColorBIOS($4)), TColor(TColorBIOS($1)), slBold, 2, 1) = E + '[1mF', 'bold on');
+  Check(Cell('G', TColor(TColorBIOS($4)), TColor(TColorBIOS($1)), 0, 3, 1) = E + '[22mG', 'bold off');
+  Check(Cell('H', Default(TColor), Default(TColor), 0, 4, 1) = E + '[39;49mH', 'default colors');
   W.Reset;
   Check(Out = E + '[0m', 'reset');
-  Check(Cell('I', ColorDefault, ColorDefault, 0, 0, 0) = E + '[1;1HI', 'after reset the move is repeated, the default colors are known');
+  Check(Cell('I', Default(TColor), Default(TColor), 0, 0, 0) = E + '[1;1HI', 'after reset the move is repeated, the default colors are known');
 
   { a wide character takes two columns: the next one does not need a move }
-  W.WriteCell(0, 0, 'W', AttrMake(ColorDefault, ColorDefault), True);
-  W.WriteCell(2, 0, 'x', AttrMake(ColorDefault, ColorDefault), False);
+  W.WriteCell(0, 0, 'W', TColorAttr.Create(Default(TColor), Default(TColor)), True);
+  W.WriteCell(2, 0, 'x', TColorAttr.Create(Default(TColor), Default(TColor)), False);
   Check(Pos(E + '[', Out) > 0, 'a wide cell moves the cursor by two');
   W.Reset;
   W.Clear;
-  W.WriteCell(0, 0, 'W', AttrMake(ColorDefault, ColorDefault), True);
+  W.WriteCell(0, 0, 'W', TColorAttr.Create(Default(TColor), Default(TColor)), True);
   W.Clear;
-  W.WriteCell(2, 0, 'x', AttrMake(ColorDefault, ColorDefault), False);
+  W.WriteCell(2, 0, 'x', TColorAttr.Create(Default(TColor), Default(TColor)), False);
   Check(Out = 'x', '... so the cell after it (column 2) is only the text');
 
   { 256 and direct colors }
   W.Free;
   W := TAnsiWriter.Create(TermCapFrom('', 'xterm-256color', ''));
-  Check(Cell('A', ColorRGB(RGB(255, 0, 0)), ColorDefault, 0, 0, 0) = E + '[1;1H' + E + '[38;5;' + IntToStr(RGBToXTerm256(RGB(255, 0, 0))) + 'mA',
+  Check(Cell('A', TColor(TColorRGB(TColorRGB.Create(255, 0, 0))), Default(TColor), 0, 0, 0) = E + '[1;1H' + E + '[38;5;' + IntToStr(Byte(TColorConversion.RGBtoXTerm256(TColorRGB.Create(255, 0, 0)))) + 'mA',
     '256 colors: an RGB color is the nearest of the palette (a sequence of its own)');
   W.Free;
   W := TAnsiWriter.Create(TermCapFrom('truecolor', 'xterm', ''));
-  Check(Cell('A', ColorRGB(RGB(255, 0, 0)), ColorRGB(RGB(0, 0, 128)), 0, 0, 0) =
+  Check(Cell('A', TColor(TColorRGB(TColorRGB.Create(255, 0, 0))), TColor(TColorRGB(TColorRGB.Create(0, 0, 128))), 0, 0, 0) =
     E + '[1;1H' + E + '[38;2;255;0;0m' + E + '[48;2;0;0;128mA', 'direct colors: 38;2 and 48;2');
-  Check(Cell('B', ColorRGB(RGB(255, 0, 0)), ColorRGB(RGB(0, 0, 128)), slItalic, 1, 0) = E + '[3mB', 'italic');
+  Check(Cell('B', TColor(TColorRGB(TColorRGB.Create(255, 0, 0))), TColor(TColorRGB(TColorRGB.Create(0, 0, 128))), slItalic, 1, 0) = E + '[3mB', 'italic');
 
   { 8 colors (the Linux console): the bright colors are bold and blink; no italic, no underline }
   W.Free;
   W := TAnsiWriter.Create(TermCapFrom('', 'linux', ''));
-  Check(Cell('A', ColorBIOS($F), ColorBIOS($9), 0, 0, 0) = E + '[1;1H' + E + '[1;5;37;44mA', 'linux: bright white on bright blue is bold and blink');
-  Check(Cell('B', ColorBIOS($F), ColorBIOS($9), slItalic or slUnderline, 1, 0) = 'B', 'linux: italic and underline are dropped');
+  Check(Cell('A', TColor(TColorBIOS($F)), TColor(TColorBIOS($9)), 0, 0, 0) = E + '[1;1H' + E + '[1;5;37;44mA', 'linux: bright white on bright blue is bold and blink');
+  Check(Cell('B', TColor(TColorBIOS($F)), TColor(TColorBIOS($9)), slItalic or slUnderline, 1, 0) = 'B', 'linux: italic and underline are dropped');
 
   { no colors: styles instead }
   W.Free;
   W := TAnsiWriter.Create(TermCapFrom('', 'dumb', ''));
-  Check(Cell('A', ColorBIOS($F), ColorBIOS($0), 0, 0, 0) = E + '[1;1H' + E + '[1mA', 'no colors: bright is bold');
-  Check(Cell('B', ColorBIOS($7), ColorBIOS($0), 0, 1, 0) = E + '[22mB', '... and the normal is not');
+  Check(Cell('A', TColor(TColorBIOS($F)), TColor(TColorBIOS($0)), 0, 0, 0) = E + '[1;1H' + E + '[1mA', 'no colors: bright is bold');
+  Check(Cell('B', TColor(TColorBIOS($7)), TColor(TColorBIOS($0)), 0, 1, 0) = E + '[22mB', '... and the normal is not');
   W.SetCaretPosition(9, 3);
   Check(Out = E + '[4;10H', 'the caret');
   W.Free;

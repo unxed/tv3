@@ -714,9 +714,9 @@ var
   KeyRef: Integer;
   Line: ShortString;
 begin
-  Normal := GetColor(1).Lo;
-  Keyword := GetColor(2).Lo;
-  SelKeyword := GetColor(3).Lo;
+  Normal := GetColor(1)[0];
+  Keyword := GetColor(2)[0];
+  SelKeyword := GetColor(3)[0];
   Topic.SetWidth(Size.X);
   Refs := Topic.GetNumCrossRefs;
   Shown := 0;

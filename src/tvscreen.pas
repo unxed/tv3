@@ -52,7 +52,7 @@ type
 var
   { shadow of a view: its offset and attribute (BIOS $08: dark gray on black) }
   ShadowSize: TPoint = (X: 2; Y: 1);
-  ShadowAttr: TColorAttr = (Data: 0);
+  ShadowAttr: TColorAttr;
   { the caret as last set through SetCaretPosition and SetCaretSize }
   CaretX: Integer = 0;
   CaretY: Integer = 0;
@@ -115,5 +115,5 @@ end;
 initialization
   TScreen.ScreenMode := TDisplay.smCO80;
   TScreen.CursorLines := 20;
-  ShadowAttr := AttrFromBIOS($08);
+  ShadowAttr := TColorAttr(LongInt($08));
 end.

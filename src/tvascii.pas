@@ -209,8 +209,8 @@ var
   X, Y: Integer;
   T: AnsiString;
 begin
-  Normal := GetColor(1).Lo;
-  Marked := GetColor(2).Lo;
+  Normal := GetColor(1)[0];
+  Marked := GetColor(2)[0];
   B := TDrawBuffer.Create(Size.X);
   try
     for Y := 0 to Size.Y - 1 do
@@ -481,8 +481,8 @@ var
   Prefix, Rest: AnsiString;
   X: Integer;
 begin
-  Normal := GetColor(1).Lo;
-  Value := GetColor(2).Lo;
+  Normal := GetColor(1)[0];
+  Value := GetColor(2)[0];
   ReportParts(Prefix, Rest);
   B := TDrawBuffer.Create(Size.X);
   try

@@ -234,9 +234,9 @@ var
   function Col(I: Integer): TColorAttr;
   begin
     if C[I] <> 0 then
-      Result := AttrFromBIOS(Lo(C[I]))
+      Result := TColorAttr(LongInt(Lo(C[I])))
     else
-      Result := GetColor(I).Lo;
+      Result := GetColor(I)[0];
   end;
 
 begin

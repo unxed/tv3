@@ -435,7 +435,7 @@ var
 
 begin
   Path := FExpand(TFileDialog(Owner).Directory^ + TFileDialog(Owner).WildCard);
-  Color := GetColor($01).Lo;
+  Color := GetColor($01)[0];
   B := TDrawBuffer.Create(Size.X);
   B.MoveChar(0, Ord(' '), Color, Size.X);
   B.MoveStrS(1, Path, Color);

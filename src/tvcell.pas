@@ -178,7 +178,7 @@ end;
 function CellFromBIOS(Value: Word): TScreenCell;
 begin
   ScInitChar(Result.Character, Byte(Value));
-  Result.Attribute := AttrFromBIOS(Byte(Value shr 8));
+  Result.Attribute := TColorAttr(LongInt(Byte(Value shr 8)));
 end;
 
 function CellEq(const A, B: TScreenCell): Boolean;

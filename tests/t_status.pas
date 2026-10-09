@@ -113,7 +113,7 @@ end;
 
 function AttrAt(X, Yy: Integer): Byte;
 begin
-  Result := AttrAsBIOSByte(Cell(X, Yy)^.Attribute);
+  Result := Byte(Cell(X, Yy)^.Attribute);
 end;
 
 function R(A, B, C, D: Integer): TRect;

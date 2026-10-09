@@ -151,15 +151,15 @@ end;
 
 function ConvertNoColor(C: TColor; IsFg: Boolean): TConverted;
 var
-  Bios: TColorBIOS;
+  Bios: Byte;
 begin
   Result.Color.Kind := tkNoColor;
   Result.Color.Value := 0;
   Result.ExtraStyle := 0;
   { the mono palettes are mimicked with styles }
-  if ColorIsBIOS(C) then
+  if C.IsBIOS then
   begin
-    Bios := ColorAsBIOS(C);
+    Bios := Byte(C.AsBIOS);
     if IsFg then
     begin
       if (Bios and 8) <> 0 then
@@ -177,17 +177,17 @@ var
   Idx: Byte;
 begin
   Result.ExtraStyle := 0;
-  if ColorIsBIOS(C) then
-    Result.Color := Indexed(BIOSToXTerm16(ColorAsBIOS(C)))
-  else if ColorIsXTerm(C) then
+  if C.IsBIOS then
+    Result.Color := Indexed(Byte(TColorConversion.BIOStoXTerm16(Byte(C.AsBIOS))))
+  else if C.IsXTerm then
   begin
-    Idx := ColorAsXTerm(C);
+    Idx := Byte(C.AsXTerm);
     if Idx >= 16 then
-      Idx := XTerm256ToXTerm16(Idx);
+      Idx := Byte(TColorConversion.XTerm256toXTerm16(Idx));
     Result.Color := Indexed(Idx);
   end
-  else if ColorIsRGB(C) then
-    Result.Color := Indexed(RGBToXTerm16(ColorAsRGB(C)))
+  else if C.IsRGB then
+    Result.Color := Indexed(Byte(TColorConversion.RGBtoXTerm16(C.AsRGB)))
   else
     Result.Color := DefaultColor;
 end;
@@ -210,14 +210,14 @@ end;
 
 function ConvertIndexed256(C: TColor): TConverted;
 begin
-  if ColorIsXTerm(C) then
+  if C.IsXTerm then
   begin
-    Result.Color := Indexed(ColorAsXTerm(C));
+    Result.Color := Indexed(Byte(C.AsXTerm));
     Result.ExtraStyle := 0;
   end
-  else if ColorIsRGB(C) then
+  else if C.IsRGB then
   begin
-    Result.Color := Indexed(RGBToXTerm256(ColorAsRGB(C)));
+    Result.Color := Indexed(Byte(TColorConversion.RGBtoXTerm256(C.AsRGB)));
     Result.ExtraStyle := 0;
   end
   else
@@ -226,10 +226,10 @@ end;
 
 function ConvertDirect(C: TColor): TConverted;
 begin
-  if ColorIsRGB(C) then
+  if C.IsRGB then
   begin
     Result.Color.Kind := tkRgb;
-    Result.Color.Value := ColorAsRGB(C) and $FFFFFF;
+    Result.Color.Value := LongWord(C.AsRGB);
     Result.ExtraStyle := 0;
   end
   else
@@ -252,9 +252,9 @@ procedure ConvertAttr(Attr: TColorAttr; const Cap: TTermCap; out T: TTermAttr);
 var
   F, B: TConverted;
 begin
-  T.Style := AttrStyle(Attr);
-  F := ConvertColor(AttrFg(Attr), True, Cap);
-  B := ConvertColor(AttrBg(Attr), False, Cap);
+  T.Style := Attr.GetStyle;
+  F := ConvertColor(Attr.GetForeground, True, Cap);
+  B := ConvertColor(Attr.GetBackground, False, Cap);
   T.Fg := F.Color;
   T.Bg := B.Color;
   T.Style := T.Style or F.ExtraStyle or B.ExtraStyle;

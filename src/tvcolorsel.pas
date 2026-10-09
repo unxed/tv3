@@ -289,7 +289,7 @@ var
   I, J, C: Integer;
 begin
   B := TDrawBuffer.Create(Size.X);
-  B.MoveChar(0, Ord(' '), AttrFromBIOS($70), Size.X);
+  B.MoveChar(0, Ord(' '), TColorAttr(LongInt($70)), Size.X);
   for I := 0 to Size.Y do
   begin
     if I < 4 then
@@ -297,12 +297,12 @@ begin
       for J := 0 to 3 do
       begin
         C := I * 4 + J;
-        B.MoveGlyph(J * 3, glBlockFull, AttrFromBIOS(C), 3);
+        B.MoveGlyph(J * 3, glBlockFull, TColorAttr(LongInt(C)), 3);
         if C = Color then
         begin
           B.PutChar(J * 3 + 1, 8);
           if C = 0 then
-            B.PutAttribute(J * 3 + 1, AttrFromBIOS($70));
+            B.PutAttribute(J * 3 + 1, TColorAttr(LongInt($70)));
         end;
       end;
     end;
@@ -497,7 +497,7 @@ begin
   C := Color^;
   { BIOS color 0 has a special meaning in TDrawBuffer functions, so it is shown as an
     invalid color }
-  if AttrToBIOS(C) = 0 then
+  if C.ToBIOS = 0 then
     C := ErrorAttr;
   Len := TText.Width(Text^);
   if Len < 1 then
@@ -522,14 +522,14 @@ begin
     case Event.Message.Command of
       cmColorBackgroundChanged:
         begin
-          Bios := (AttrToBIOS(Color^) and $0F) or ((Event.Message.InfoByte shl 4) and $F0);
-          Color^ := AttrFromBIOS(Bios);
+          Bios := (Color^.ToBIOS and $0F) or ((Event.Message.InfoByte shl 4) and $F0);
+          Color^ := TColorAttr(LongInt(Bios));
           DrawView;
         end;
       cmColorForegroundChanged:
         begin
-          Bios := (AttrToBIOS(Color^) and $F0) or (Event.Message.InfoByte and $0F);
-          Color^ := AttrFromBIOS(Bios);
+          Bios := (Color^.ToBIOS and $F0) or (Event.Message.InfoByte and $0F);
+          Color^ := TColorAttr(LongInt(Bios));
           DrawView;
         end;
     end;
@@ -538,7 +538,7 @@ end;
 procedure TColorDisplay.SetColor(AColor: PColorAttr);
 begin
   Color := AColor;
-  Message(Owner, evBroadcast, cmColorSet, Pointer(PtrUInt(AttrToBIOS(Color^))));
+  Message(Owner, evBroadcast, cmColorSet, Pointer(PtrUInt(Color^.ToBIOS)));
   DrawView;
 end;
 

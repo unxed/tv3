@@ -248,7 +248,7 @@ var
 begin
   ScInitChar(Ch, Ord(' '));
   { the erased cells have the background of the pen and nothing else (xterm: back color erase) }
-  Result := CellMake(Ch, AttrMake(ColorDefault, AttrBg(Pen), 0));
+  Result := CellMake(Ch, TColorAttr.Create(Default(TColor), Pen.GetBackground, 0));
 end;
 
 procedure TVtEmu.FreshRow(var R: TVtRow);
@@ -267,7 +267,7 @@ procedure TVtEmu.Reset;
 var
   I: Integer;
 begin
-  Pen := AttrMake(ColorDefault, ColorDefault, 0);
+  Pen := TColorAttr.Create(Default(TColor), Default(TColor), 0);
   SetLength(Scr, FRows);
   SetLength(Other, FRows);
   SetLength(Dirty, FRows);
@@ -305,7 +305,7 @@ end;
 procedure TVtEmu.SoftReset;
 begin
   { DECSTR: the modes and the pen, not the contents }
-  Pen := AttrMake(ColorDefault, ColorDefault, 0);
+  Pen := TColorAttr.Create(Default(TColor), Default(TColor), 0);
   Insert := False; Origin := False; Autowrap := True; NewLine := False;
   CursorVisible := True; AppCursor := False; AppKeypad := False;
   Top := 0; Bot := FRows - 1;
@@ -847,44 +847,44 @@ var
 begin
   if NParams = 0 then
   begin
-    Pen := AttrMake(ColorDefault, ColorDefault, 0);
+    Pen := TColorAttr.Create(Default(TColor), Default(TColor), 0);
     Exit;
   end;
   I := 0;
   while I < NParams do
   begin
     K := Params[I];
-    St := AttrStyle(Pen);
+    St := Pen.GetStyle;
     case K of
-      0: Pen := AttrMake(ColorDefault, ColorDefault, 0);
-      1: AttrSetStyle(Pen, St or slBold);
-      3: AttrSetStyle(Pen, St or slItalic);
+      0: Pen := TColorAttr.Create(Default(TColor), Default(TColor), 0);
+      1: Pen.SetStyle(St or slBold);
+      3: Pen.SetStyle(St or slItalic);
       4: if Colon[I] and (I + 1 < NParams) and (Params[I + 1] = 0) then
          begin
-           AttrSetStyle(Pen, St and not slUnderline);
+           Pen.SetStyle(St and not slUnderline);
            Inc(I);
          end
          else
          begin
-           AttrSetStyle(Pen, St or slUnderline);
+           Pen.SetStyle(St or slUnderline);
            while Colon[I] and (I + 1 < NParams) do Inc(I);
          end;
-      5, 6: AttrSetStyle(Pen, St or slBlink);
-      7: AttrSetStyle(Pen, St or slReverse);
-      9: AttrSetStyle(Pen, St or slStrike);
-      21: AttrSetStyle(Pen, St or slUnderline);
-      22: AttrSetStyle(Pen, St and not slBold);
-      23: AttrSetStyle(Pen, St and not slItalic);
-      24: AttrSetStyle(Pen, St and not slUnderline);
-      25: AttrSetStyle(Pen, St and not slBlink);
-      27: AttrSetStyle(Pen, St and not slReverse);
-      29: AttrSetStyle(Pen, St and not slStrike);
-      30..37: AttrSetFg(Pen, ColorXTerm(K - 30));
-      39: AttrSetFg(Pen, ColorDefault);
-      40..47: AttrSetBg(Pen, ColorXTerm(K - 40));
-      49: AttrSetBg(Pen, ColorDefault);
-      90..97: AttrSetFg(Pen, ColorXTerm(K - 90 + 8));
-      100..107: AttrSetBg(Pen, ColorXTerm(K - 100 + 8));
+      5, 6: Pen.SetStyle(St or slBlink);
+      7: Pen.SetStyle(St or slReverse);
+      9: Pen.SetStyle(St or slStrike);
+      21: Pen.SetStyle(St or slUnderline);
+      22: Pen.SetStyle(St and not slBold);
+      23: Pen.SetStyle(St and not slItalic);
+      24: Pen.SetStyle(St and not slUnderline);
+      25: Pen.SetStyle(St and not slBlink);
+      27: Pen.SetStyle(St and not slReverse);
+      29: Pen.SetStyle(St and not slStrike);
+      30..37: Pen.SetForeground(TColor(TColorXTerm(K - 30)));
+      39: Pen.SetForeground(Default(TColor));
+      40..47: Pen.SetBackground(TColor(TColorXTerm(K - 40)));
+      49: Pen.SetBackground(Default(TColor));
+      90..97: Pen.SetForeground(TColor(TColorXTerm(K - 90 + 8)));
+      100..107: Pen.SetBackground(TColor(TColorXTerm(K - 100 + 8)));
       38, 48, 58:
         begin
           IsBg := K = 48;
@@ -902,36 +902,36 @@ begin
             end;
             { the sub-parameters are I+1 .. I+Cnt }
             if (Cnt >= 2) and (Params[I + 1] = 5) then
-              C := ColorXTerm(Byte255(Params[I + 2]))
+              C := TColor(TColorXTerm(Byte255(Params[I + 2])))
             else if (Cnt >= 4) and (Params[I + 1] = 2) then
-              C := ColorRGB(RGB(Byte255(Params[I + Cnt - 2]), Byte255(Params[I + Cnt - 1]), Byte255(Params[I + Cnt])))
+              C := TColor(TColorRGB(TColorRGB.Create(Byte255(Params[I + Cnt - 2]), Byte255(Params[I + Cnt - 1]), Byte255(Params[I + Cnt]))))
             else
-              C := ColorDefault;
+              C := Default(TColor);
             Idx := I + Cnt;
           end
           else
           begin
             if (I + 2 < NParams) and (Params[I + 1] = 5) then
             begin
-              C := ColorXTerm(Byte255(Params[I + 2]));
+              C := TColor(TColorXTerm(Byte255(Params[I + 2])));
               Idx := I + 2;
             end
             else if (I + 4 < NParams) and (Params[I + 1] = 2) then
             begin
-              C := ColorRGB(RGB(Byte255(Params[I + 2]), Byte255(Params[I + 3]), Byte255(Params[I + 4])));
+              C := TColor(TColorRGB(TColorRGB.Create(Byte255(Params[I + 2]), Byte255(Params[I + 3]), Byte255(Params[I + 4]))));
               Idx := I + 4;
             end
             else
             begin
-              C := ColorDefault;
+              C := Default(TColor);
               Idx := NParams - 1;
             end;
           end;
           if K <> 58 then
             if IsBg then
-              AttrSetBg(Pen, C)
+              Pen.SetBackground(C)
             else
-              AttrSetFg(Pen, C);
+              Pen.SetForeground(C);
           I := Idx;
         end;
     end;

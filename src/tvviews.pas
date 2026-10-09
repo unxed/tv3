@@ -544,9 +544,9 @@ var
   I: Integer;
 begin
   SetLength(Result, Length(S) + 1);
-  Result[0] := AttrFromBIOS(Length(S));
+  Result[0] := TColorAttr(LongInt(Length(S)));
   for I := 1 to Length(S) do
-    Result[I] := AttrFromBIOS(Ord(S[I]));
+    Result[I] := TColorAttr(LongInt(Ord(S[I])));
 end;
 
 function PaletteSize(const P: TPalette): Integer;
@@ -667,14 +667,14 @@ var
   Style: Word;
 begin
   { a style flag says whether the shadow has already been applied }
-  Style := AttrStyle(Attr);
+  Style := Attr.GetStyle;
   if (Style and slWindowShadow) = 0 then
   begin
-    if ColorToBIOS(AttrBg(Attr), False) = 0 then
-      Attr := AttrReversed(ShadowAttr)    { reverse the shadow on black areas }
+    if Byte(Attr.GetBackground.ToBIOS(False)) = 0 then
+      Attr := ShadowAttr.Reversed    { reverse the shadow on black areas }
     else
       Attr := ShadowAttr;
-    AttrSetStyle(Attr, Style or slWindowShadow);
+    Attr.SetStyle(Style or slWindowShadow);
   end;
   Result := Attr;
 end;
@@ -1283,7 +1283,7 @@ var
 begin
   B := TDrawBuffer.Create(IMax(TScreen.ScreenWidth, TScreen.ScreenHeight));
   Pair := GetColor(1);
-  B.MoveChar(0, Ord(' '), Pair.Lo, Size.X);
+  B.MoveChar(0, Ord(' '), Pair[0], Size.X);
   WriteLine(0, 0, Size.X, Size.Y, B);
   B.Free;
 end;
@@ -1396,11 +1396,11 @@ end;
 
 function TView.GetColor(Color: Word): TAttrPair;
 begin
-  Result.Lo := MapColor(Color and $FF);
+  Result[0] := MapColor(Color and $FF);
   if (Color and $FF00) <> 0 then
-    Result.Hi := MapColor(Color shr 8)
+    Result[1] := MapColor(Color shr 8)
   else
-    Result.Hi := AttrFromBIOS(0);
+    Result[1] := TColorAttr(LongInt(0));
 end;
 
 procedure TView.GetData(var Rec);
@@ -1577,11 +1577,11 @@ begin
       Exit(ErrorAttr);
   end
   else
-    Color := AttrFromBIOS(Index);
-  if AttrEq(Color, AttrFromBIOS(0)) then
+    Color := TColorAttr(LongInt(Index));
+  if (Color = TColorAttr(LongInt(0))) then
     Exit(ErrorAttr);
   if Owner <> nil then
-    Result := Owner.MapColor(AttrAsBIOSByte(Color))
+    Result := Owner.MapColor(Byte(Color))
   else
     Result := Color;
 end;
@@ -1907,7 +1907,7 @@ var
   P: TAttrPair;
 begin
   P := GetColor(Color);
-  Result := AttrAsBIOSByte(P.Lo) or (Word(AttrAsBIOSByte(P.Hi)) shl 8);
+  Result := Byte(P[0]) or (Word(Byte(P[1])) shl 8);
 end;
 
 procedure TView.WriteChar(X, Y: Integer; C: Byte; Color: Byte; Count: Integer);
@@ -2846,5 +2846,5 @@ initialization
   RGroup.Load := @BuildGroup;
   RGroup.Store := @StoreGroup;
   InitCommands;
-  TView.ErrorAttr := AttrFromBIOS($CF);
+  TView.ErrorAttr := TColorAttr(LongInt($CF));
 end.

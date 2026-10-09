@@ -202,7 +202,7 @@ var
   BottomLine: Integer;
   Color: TColorAttr;
 begin
-  Color := GetColor(1).Lo;
+  Color := GetColor(1)[0];
   SetCursor(-1, -1);
   BottomLine := Size.Y + Delta.Y;
   if Limit.Y > BottomLine then

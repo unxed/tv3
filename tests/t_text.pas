@@ -36,7 +36,7 @@ begin
 end;
 
 begin
-  Attr := AttrFromBIOS($1F);
+  Attr := TColorAttr(LongInt($1F));
 
   { widths }
   Check(TText.Width('abc') = 3, 'width ASCII');
@@ -82,8 +82,8 @@ begin
   Clear;
   Check(Draw(8, 'Hi') = 2, 'draw ASCII returns the cells used');
   Check((Txt(0) = 'H') and (Txt(1) = 'i'), 'draw ASCII text');
-  Check(AttrAsBIOSByte(Cells[0].Attribute) = $1F, 'draw sets the attribute');
-  Check((Cells[2].Character.Text[0] = 0) and (Cells[2].Attribute.Data = 0), 'draw leaves the rest alone');
+  Check(Byte(Cells[0].Attribute) = $1F, 'draw sets the attribute');
+  Check((Cells[2].Character.Text[0] = 0) and (Cells[2].Attribute = Default(TColorAttr)), 'draw leaves the rest alone');
 
   { indent, and text cut at the cell count }
   Clear;
@@ -96,7 +96,7 @@ begin
   Check(ScIsWide(Cells[0].Character) and (Txt(0) = Cjk), 'wide character in its cell');
   Check(ScIsWideTrail(Cells[1].Character), 'trail after the wide character');
   Check(Txt(2) = 'b', 'text continues after the trail');
-  Check((AttrAsBIOSByte(Cells[0].Attribute) = $1F) and (AttrAsBIOSByte(Cells[1].Attribute) = $1F),
+  Check((Byte(Cells[0].Attribute) = $1F) and (Byte(Cells[1].Attribute) = $1F),
     'attribute set in the character and its trail');
 
   Clear;
@@ -177,7 +177,7 @@ begin
   { fill }
   Clear;
   TText.DrawChar(@Cells[0], 3, Ord('='), @Attr);
-  Check((Txt(0) = '=') and (Txt(2) = '=') and (AttrAsBIOSByte(Cells[1].Attribute) = $1F), 'DrawChar fills cells');
+  Check((Txt(0) = '=') and (Txt(2) = '=') and (Byte(Cells[1].Attribute) = $1F), 'DrawChar fills cells');
   Check(Cells[3].Character.Text[0] = 0, 'DrawChar stops at the count');
 
   Finish;

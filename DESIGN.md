@@ -59,7 +59,7 @@ the library (`source/tvision`, `source/platform`, `include/tvision` without `com
 | 9b | `TvMsgBox` — `MessageBox`, `MessageBoxRect`, formatted variants | `msgbox.h`, `msgbox.cpp` | done; `InputBox` is in `TvInput` |
 | 9c | `TvValid` — `TValidator`, `TPXPictureValidator`, `TFilterValidator`, `TRangeValidator`, `TLookupValidator`, `TStringLookupValidator` | `validate.h`, `tvalidat.cpp` | done (without streams) |
 | 9d | `TvInput` — `TInputLine`, `InputBox`, `InputBoxRect` | `tinputli.cpp`, `msgbox.cpp` | done (without streams) |
-| 9e | `TvCluster` — `TCluster`, `TRadioButtons`, `TCheckBoxes`, `TMultiCheckBoxes`, `TSItem`/`NewSItem` | `tcluster.cpp`, `tradiobu.cpp`, `tcheckbo.cpp`, `tmulchkb.cpp` | done (without streams) |
+| 9e | `TvCluster` — `TCluster`, `TRadioButtons`, `TCheckBoxes`, `TMultiCheckBoxes`, `TSItem` | `tcluster.cpp`, `tradiobu.cpp`, `tcheckbo.cpp`, `tmulchkb.cpp` | done (without streams) |
 | 9f | `TvList` — `TListViewer`, `TListBox`, `TListBoxRec` | `tlstview.cpp`, `tlistbox.cpp` | done (without streams) |
 | 9g | `TvHist` — `HistoryAdd/Count/Str`, `THistory`, `THistoryWindow`, `THistoryViewer` | `histlist.cpp`, `thistory.cpp`, `thistwin.cpp`, `thstview.cpp` | done (without streams) |
 | 10a | `TvFiles` — `TSearchRec`, `TFileFinder`, `TFileCollection`, `TDirCollection`, `FExpand`, `FSplit`, `PathValid`... | `stddlg.h`, `tfilecol.cpp`, `tdircoll.cpp` | done (without streams) |
@@ -86,13 +86,12 @@ collections and streams, the editor — to the extent that DN uses them.
 
 ## Decisions made during the port
 
-- **Color and attribute** — simple types with functions, not classes with operators:
-  `TColor` is `LongWord` (24 bits of value and 3 bits of type), `TColorAttr` is a record with 64
-  bits (27 bits `fg`, 27 bits `bg`, 10 bits of style), as in magiblot. The zero attribute is
-  default colors without style. The functions are named `ColorXxx`, `AttrXxx`.
+- **Color and attribute**:
+  `TColor` is a record of 32 bits (24 bits of value and 3 bits of type), `TColorAttr` is a record with 64
+  bits (27 bits `fg`, 27 bits `bg`, 10 bits of style), as in magiblot, with the methods and operators of tvision.
 - **DN's two-byte attribute.** DN is used to a BIOS attribute byte and a cell of two
-  bytes. For it there are `AttrFromBIOS`, `AttrAsBIOSByte` (`$5F` if the attribute cannot be
-  reduced to BIOS) and `AttrToBIOS` (with quantization). How exactly DN's
+  bytes. For it there are `TColorAttr(LongInt(Bios))`, `Byte(Attr)` (`$5F` if the attribute cannot be
+  reduced to BIOS) and `Attr.ToBIOS` (with quantization). How exactly DN's
   `TDrawBuffer` is coupled with a UTF-8 cell we decide in the `TvDrawBuf` unit (No. 4).
 - **Test file names** `t_*.pas`: DOS without LFN allows 8 characters.
 - **Character width.** magiblot takes it from the system (`wcwidth` on Unix, a console check on
@@ -161,7 +160,7 @@ collections and streams, the editor — to the extent that DN uses them.
   of indices, like the palette strings of Pascal TV.
 - **The destructor** `Done` detaches the view from its group (as in Pascal TV), so `shutDown` from
   C++ is not ported as a separate method; the group in `Done` hides and deletes its subviews.
-- **`TCommandSet`** is `set of Byte`; commands above 255 are always enabled.
+- **`TCommandSet`** is a record of 256 bits with the methods and operators of tvision; commands above 255 are always enabled.
 - **Not yet ported in `TView`/`TGroup`:** streams (`read`/`write`/`build`), timers,
   `getEvent` with a timeout and `textEvent` (`TvApp` is waiting for them).
 - **`ResetCurrent` and the traversal order.** `FirstMatch` starts from `Last` (the bottom view), then
@@ -310,7 +309,7 @@ collections and streams, the editor — to the extent that DN uses them.
 
 ### TvCluster (9e): decisions
 
-- The list of texts is a chain of `TSItem` via `NewSItem(Str, Next)` instead of `operator+`; the cluster takes the texts into a `TStringCollection` (AtInsert, no sorting) and frees the chain.
+- The list of texts is a chain of `TSItem.Create(Str, Next)`; the cluster takes the texts into a `TStringCollection` (AtInsert, no sorting) and frees the chain.
 - `Value` and `EnableMask` are `LongWord`; `DataSize` = 2 (Word) as in the original, for `TMultiCheckBoxes` — 4.
 - `SpecialChars` was moved to the interface part of `TvDialog` (the clusters need it).
 - Drawing rows are `0..Size.Y-1` (the original draws one more row outside the view — without effect).
@@ -361,7 +360,7 @@ collections and streams, the editor — to the extent that DN uses them.
 ### TvColorSel (11a): decisions
 
 - The lists of groups and items are built with `ColorItem(Name, Index, Next)` and `ColorGroup(Name, Items, Next)` (instead of `operator+`); the dialog takes and frees them; `ColorGroupItems` adds items to the last group.
-- The palette is `TPalette` (a dynamic array of `TColorAttr`, element 0 is the size); the dialog data is a `TPalette`: `GetData` gives a copy, `SetData` takes a copy. Colors are edited as BIOS colors (16 colors) via `AttrToBIOS`/`AttrFromBIOS`.
+- The palette is `TPalette` (a dynamic array of `TColorAttr`, element 0 is the size); the dialog data is a `TPalette`: `GetData` gives a copy, `SetData` takes a copy. Colors are edited as BIOS colors (16 colors) via `TColorAttr.ToBIOS` and `TColorAttr(LongInt(Bios))`.
 - The remembered group indices are the global `ColorIndexes` (like the static `colorIndexes` of the original), `FreeColorIndexes` frees it.
 - In `SetData` the original takes the group item index as the palette index (`pal->data[groups->getGroupIndex(...)]`) — repeated as is, with a bounds check.
 - BIOS color 0 in `TDrawBuffer` means "keep the attribute" — `TColorDisplay` shows it as `ErrorAttr`, like the original.
@@ -381,7 +380,7 @@ collections and streams, the editor — to the extent that DN uses them.
 
 - For programs written for Turbo Vision for Borland Pascal (DN): a cell is a `Word` (the low byte is the character, the high byte is the
   BIOS attribute), a color is a BIOS attribute. `WriteBufW`/`WriteLineW` convert the cells with `CellFromBIOS` and write through `WriteView`;
-  `GetColorW(C)` = `Lo + 256 * Hi` of `GetColor(C)` (`AttrAsBIOSByte`). These are separate names (not overloads): an untyped
+  `GetColorW(C)` = `Lo + 256 * Hi` of `GetColor(C)` (`Byte(Attr)`). These are separate names (not overloads): an untyped
   argument would be ambiguous with `PScreenCell`.
 - The character is a byte of the screen's code page (as in `TDrawBuffer.MoveChar`); colors with RGB/xterm lose precision
   when converted to a BIOS byte — for DOS and 16 colors this is lossless.

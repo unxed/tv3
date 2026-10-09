@@ -25,7 +25,7 @@ end;
 
 function Bios(const P: TPalette; I: Integer): Integer;
 begin
-  Result := AttrToBIOS(P[I]);
+  Result := P[I].ToBIOS;
 end;
 
 var
@@ -97,7 +97,7 @@ begin
   Check(Dlg.DataSize = SizeOf(TPalette), 'the data size is that of a palette');
 
   { the color display of the invalid color 0 }
-  Dlg.Display.Color^ := AttrFromBIOS($00);
+  Dlg.Display.Color^ := TColorAttr(LongInt($00));
   Dlg.Display.DrawView;
   Check(Bios(Dlg.Pal, 3) = 0, 'the display accepts color 0');
 

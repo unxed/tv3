@@ -152,19 +152,19 @@ begin
   { SGR }
   Fresh(10, 2);
   E.Feed(#27'[1;31;44mA'#27'[0mB');
-  Check((AttrStyle(Cell(0, 0).Attribute) = slBold) and (AttrFg(Cell(0, 0).Attribute) = ColorXTerm(1)) and (AttrBg(Cell(0, 0).Attribute) = ColorXTerm(4)),
+  Check(((Cell(0, 0).Attribute).GetStyle = slBold) and ((Cell(0, 0).Attribute).GetForeground = TColor(TColorXTerm(1))) and ((Cell(0, 0).Attribute).GetBackground = TColor(TColorXTerm(4))),
     'SGR: bold, red, blue background');
-  Check(AttrEq(Cell(1, 0).Attribute, AttrMake(ColorDefault, ColorDefault, 0)), 'SGR 0: the default');
+  Check((Cell(1, 0).Attribute = TColorAttr.Create(Default(TColor), Default(TColor), 0)), 'SGR 0: the default');
   E.Feed(#27'[38;5;200;48;2;1;2;3mC');
-  Check((AttrFg(Cell(2, 0).Attribute) = ColorXTerm(200)) and (AttrBg(Cell(2, 0).Attribute) = ColorRGB(RGB(1, 2, 3))), 'SGR: 256 colors and 24 bit (with semicolons)');
+  Check(((Cell(2, 0).Attribute).GetForeground = TColor(TColorXTerm(200))) and ((Cell(2, 0).Attribute).GetBackground = TColor(TColorRGB(TColorRGB.Create(1, 2, 3)))), 'SGR: 256 colors and 24 bit (with semicolons)');
   E.Feed(#27'[0;38:2::10:20:30;4:3;7mD');
-  Check((AttrFg(Cell(3, 0).Attribute) = ColorRGB(RGB(10, 20, 30))) and ((AttrStyle(Cell(3, 0).Attribute) and slUnderline) <> 0) and
-    ((AttrStyle(Cell(3, 0).Attribute) and slReverse) <> 0), 'SGR: 24 bit with colons, underline style, reverse');
+  Check(((Cell(3, 0).Attribute).GetForeground = TColor(TColorRGB(TColorRGB.Create(10, 20, 30)))) and (((Cell(3, 0).Attribute).GetStyle and slUnderline) <> 0) and
+    (((Cell(3, 0).Attribute).GetStyle and slReverse) <> 0), 'SGR: 24 bit with colons, underline style, reverse');
   E.Feed(#27'[92;105mE'#27'[39;49;24;27mF');
-  Check((AttrFg(Cell(4, 0).Attribute) = ColorXTerm(10)) and (AttrBg(Cell(4, 0).Attribute) = ColorXTerm(13)), 'SGR: bright colors');
-  Check(AttrEq(Cell(5, 0).Attribute, AttrMake(ColorDefault, ColorDefault, 0)), 'SGR: 39/49/24/27');
+  Check(((Cell(4, 0).Attribute).GetForeground = TColor(TColorXTerm(10))) and ((Cell(4, 0).Attribute).GetBackground = TColor(TColorXTerm(13))), 'SGR: bright colors');
+  Check((Cell(5, 0).Attribute = TColorAttr.Create(Default(TColor), Default(TColor), 0)), 'SGR: 39/49/24/27');
   E.Feed(#27'[44m'#27'[2K');
-  Check(AttrBg(Cell(7, 0).Attribute) = ColorXTerm(4), 'erase: the cells have the background of the pen');
+  Check((Cell(7, 0).Attribute).GetBackground = TColor(TColorXTerm(4)), 'erase: the cells have the background of the pen');
 
   { UTF-8, wide, combining }
   Fresh(6, 2);
@@ -210,7 +210,7 @@ begin
   E.Feed(#27'[2;5H'#27'7'#27'[1;1H'#27'8x');
   Check(Ch(4, 1) = 'x', 'DECSC/DECRC');
   E.Feed(#27'[1;1H'#27'[1;31m'#27'7'#27'[0m'#27'[3;1H'#27'8y');
-  Check((AttrFg(Cell(0, 0).Attribute) = ColorXTerm(1)), 'DECRC restores the pen');
+  Check(((Cell(0, 0).Attribute).GetForeground = TColor(TColorXTerm(1))), 'DECRC restores the pen');
 
   { the alternate screen }
   Fresh(6, 2);

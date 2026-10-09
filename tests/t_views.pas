@@ -86,7 +86,7 @@ var
 begin
   B := TDrawBuffer.Create(W);
   Pair := GetColor(1);
-  B.MoveChar(0, Ch, Pair.Lo, Size.X);
+  B.MoveChar(0, Ch, Pair[0], Size.X);
   WriteLine(0, 0, Size.X, Size.Y, B);
   B.Free;
 end;
@@ -146,12 +146,12 @@ end;
 
 function AttrAt(X, Y: Integer): Byte;
 begin
-  Result := AttrAsBIOSByte(Cell(X, Y)^.Attribute);
+  Result := Byte(Cell(X, Y)^.Attribute);
 end;
 
 function Shadowed(X, Y: Integer): Boolean;
 begin
-  Result := (AttrStyle(Cell(X, Y)^.Attribute) and slWindowShadow) <> 0;
+  Result := ((Cell(X, Y)^.Attribute).GetStyle and slWindowShadow) <> 0;
 end;
 
 function R(A, B, C, D: Integer): TRect;
@@ -416,9 +416,9 @@ begin
   { colors }
   V1 := TFill.Create(R(0, 0, 2, 1), 'c', $07);
   V1.Options := 0;
-  Check(AttrAsBIOSByte(V1.MapColor(1)) = $07, 'color 1 through the palette of the view');
-  Check(AttrEq(V1.MapColor(2), TView.ErrorAttr), 'a color beyond the palette is the error color');
-  Check(AttrEq(V1.MapColor(0), TView.ErrorAttr), 'color 0 is the error color');
+  Check(Byte(V1.MapColor(1)) = $07, 'color 1 through the palette of the view');
+  Check((V1.MapColor(2) = TView.ErrorAttr), 'a color beyond the palette is the error color');
+  Check((V1.MapColor(0) = TView.ErrorAttr), 'color 0 is the error color');
   Check(PaletteSize(MakePalette(#1#2#3)) = 3, 'palette size');
   Check(V1.GetColorW(1) = $0007, 'GetColorW: the BIOS attribute of the color');
   V1.Free;
@@ -476,9 +476,9 @@ begin
   { the 16-bit interface of Borland Pascal: Word cells and BIOS attributes }
   Leg := TLeg.Create(R(0, 6, 4, 8));
   Desk.Insert(Leg);
-  Check((Cell(0, 6)^.Character.Text[0] = Ord('A')) and (AttrAsBIOSByte(Cell(0, 6)^.Attribute) = $1E),
+  Check((Cell(0, 6)^.Character.Text[0] = Ord('A')) and (Byte(Cell(0, 6)^.Attribute) = $1E),
     'WriteLineW: the cell is a character and an attribute');
-  Check((Cell(1, 7)^.Character.Text[0] = Ord('B')) and (AttrAsBIOSByte(Cell(1, 7)^.Attribute) = $1F),
+  Check((Cell(1, 7)^.Character.Text[0] = Ord('B')) and (Byte(Cell(1, 7)^.Attribute) = $1F),
     'WriteLineW writes the same cells to every row');
   Check((Cell(2, 6)^.Character.Text[0] = Ord('C')) and (Cell(3, 6)^.Character.Text[0] = Ord('D')),
     'WriteBufW: W cells of H rows');

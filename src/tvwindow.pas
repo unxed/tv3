@@ -320,7 +320,7 @@ begin
     Room := Size.X - 10;
     if (Win.Flags and (wfClose or wfZoom)) <> 0 then
       Dec(Room, 6);
-    FrameLine(B, 0, Base, FrameColor.Lo);
+    FrameLine(B, 0, Base, FrameColor[0]);
     if (Win.Number <> wnNoNumber) and (Win.Number < 10) then
     begin
       Dec(Room, 4);
@@ -336,7 +336,7 @@ begin
       TitleWidth := Max2(Min2(TText.Width(Caption), Size.X - 10), 0);
       X := (Size.X - TitleWidth) div 2;
       B.PutChar(X - 1, Ord(' '));
-      B.MoveStrS(X, Caption, TitleColor.Lo, TitleWidth);
+      B.MoveStrS(X, Caption, TitleColor[0], TitleWidth);
       B.PutChar(X + TitleWidth, Ord(' '));
     end;
     if GetState(sfActive) then
@@ -357,12 +357,12 @@ begin
     { sides }
     for Y := 1 to Size.Y - 2 do
     begin
-      FrameLine(B, Y, Base + 3, FrameColor.Lo);
+      FrameLine(B, Y, Base + 3, FrameColor[0]);
       WriteLine(0, Y, Size.X, 1, B);
     end;
 
     { bottom line, with the resize corners }
-    FrameLine(B, Size.Y - 1, Base + 6, FrameColor.Lo);
+    FrameLine(B, Size.Y - 1, Base + 6, FrameColor[0]);
     if GetState(sfActive) and ((Win.Flags and wfGrow) <> 0) then
     begin
       B.MoveCStrS(0, DragLeftIcon, FrameColor);
@@ -496,15 +496,15 @@ var
 begin
   B := TDrawBuffer.Create(GetSize);
   S := GetSize - 1;
-  B.MoveChar(0, Chars[0], GetColor(2).Lo, 1);
+  B.MoveChar(0, Chars[0], GetColor(2)[0], 1);
   if MaxVal = MinVal then
-    B.MoveChar(1, Chars[4], GetColor(1).Lo, S - 1)
+    B.MoveChar(1, Chars[4], GetColor(1)[0], S - 1)
   else
   begin
-    B.MoveChar(1, Chars[2], GetColor(1).Lo, S - 1);
-    B.MoveChar(Pos, Chars[3], GetColor(3).Lo, 1);
+    B.MoveChar(1, Chars[2], GetColor(1)[0], S - 1);
+    B.MoveChar(Pos, Chars[3], GetColor(3)[0], 1);
   end;
-  B.MoveChar(S, Chars[1], GetColor(2).Lo, 1);
+  B.MoveChar(S, Chars[1], GetColor(2)[0], 1);
   WriteBuf(0, 0, Size.X, Size.Y, B);
   B.Free;
 end;

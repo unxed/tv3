@@ -54,8 +54,8 @@ begin
         (Cells[0].Character.Text[2] = $80), 'cell: replaced as a whole');
 
   B := TDrawBuffer.Create(80);
-  B.MoveGlyph(2, glDblH, AttrFromBIOS($1F), 3);
-  Check((PScreenCell(B.Data)[2].Character.Text[0] = $E2) and (AttrAsBIOSByte(PScreenCell(B.Data)[4].Attribute) = $1F), 'draw buffer: MoveGlyph');
+  B.MoveGlyph(2, glDblH, TColorAttr(LongInt($1F)), 3);
+  Check((PScreenCell(B.Data)[2].Character.Text[0] = $E2) and (Byte(PScreenCell(B.Data)[4].Attribute) = $1F), 'draw buffer: MoveGlyph');
   Check(PScreenCell(B.Data)[5].Character.Text[0] = 0, 'draw buffer: only Count cells');
   B.PutGlyph(1, glLightV);
   Check((PScreenCell(B.Data)[1].Character.Text[0] = $E2) and (PScreenCell(B.Data)[1].Character.Text[2] = $82), 'draw buffer: PutGlyph');

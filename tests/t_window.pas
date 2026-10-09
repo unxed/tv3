@@ -85,7 +85,7 @@ var
   B: TDrawBuffer;
 begin
   B := TDrawBuffer.Create(W);
-  B.MoveChar(0, Ch, GetColor(1).Lo, Size.X);
+  B.MoveChar(0, Ch, GetColor(1)[0], Size.X);
   WriteLine(0, 0, Size.X, Size.Y, B);
   B.Free;
 end;
@@ -132,7 +132,7 @@ end;
 
 function AttrAt(X, Y: Integer): Byte;
 begin
-  Result := AttrAsBIOSByte(Cell(X, Y)^.Attribute);
+  Result := Byte(Cell(X, Y)^.Attribute);
 end;
 
 function R(A, B, C, D: Integer): TRect;
