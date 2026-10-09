@@ -42,16 +42,16 @@ begin
   Check(DosMousePresent, 'a mouse driver');
 
   { cells to video words }
-  ScInitChar(Cell.Character, Ord('A'));
+  Cell.Character.InitWithChar(Ord('A'));
   Cell.Attribute := TColorAttr(LongInt($1E));
   Check(DosCellToVga(Cell) = $1E41, 'an ASCII cell');
-  ScInitChar(Cell.Character, $C9);
+  Cell.Character.InitWithChar($C9);
   Check(DosCellToVga(Cell) = $1EC9, 'a code page byte goes as it is');
-  ScInitText(Cell.Character, @'Ж'[1], 2, False);
+  Cell.Character.InitWithMultiByteChar(@'Ж'[1], 2, False);
   Check(DosCellToVga(Cell) = $1E86, 'UTF-8 text goes through the code page (CP866: Zhe is $86)');
-  ScInitText(Cell.Character, @'€'[1], 3, False);
+  Cell.Character.InitWithMultiByteChar(@'€'[1], 3, False);
   Check(DosCellToVga(Cell) = $1E3F, 'a character the page does not have is "?"');
-  ScInitWideTrail(Cell.Character);
+  Cell.Character.InitAsWideCharTrail;
   Check(DosCellToVga(Cell) = $1E20, 'the trail of a wide character is a blank');
 
   { the application on the real screen }
