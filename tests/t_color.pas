@@ -37,7 +37,7 @@ var
 
 procedure Run;
 begin
-  Pal := MakePalette(#$1F#$2E#$70);
+  Pal := TPalette.Create(#$1F#$2E#$70, 3);
   MemInit(80, 25);
   App := TApplication.Create;
   Dlg := TColorDialog.Create(Pal, Groups3);
@@ -48,7 +48,7 @@ begin
   Check(Dlg.Groups.GetNumGroups = 2, 'GetNumGroups');
   Check(Dlg.ForSel.Color = $0F, 'the foreground selector shows the foreground of the first item ($1F)');
   Check(Dlg.BakSel.Color = 1, 'the background selector shows the background');
-  Check(Dlg.Display.Color = @Dlg.Pal[1], 'the display points to the color of the item');
+  Check(Dlg.Display.Color = @Dlg.Pal.Data[1], 'the display points to the color of the item');
 
   { the selector changes the color of the item }
   Dlg.ForSel.Select;
@@ -83,12 +83,12 @@ begin
   Dlg.Groups.Select;
   Key(Dlg.Groups, kbDown);
   Check(Dlg.Groups.Focused = 1, 'the group list moves');
-  Check(Dlg.Display.Color = @Dlg.Pal[3], 'the display points to the color of the first item of the second group');
+  Check(Dlg.Display.Color = @Dlg.Pal.Data[3], 'the display points to the color of the first item of the second group');
   Check((Dlg.ForSel.Color = 0) and (Dlg.BakSel.Color = 7), 'the selectors show the color $70');
 
   { the data }
   Dlg.GetData(Res);
-  Check(Length(Res) = Length(Pal), 'GetData gives the palette');
+  Check(Length(Res.Data) = Length(Pal.Data), 'GetData gives the palette');
   Check(Bios(Res, 1) = $0F, 'with the changes (white on color 0)');
   Check(Bios(Res, 3) = $70, 'and the others as they were');
   Check(ColorIndexes <> nil, 'the indexes of the groups are remembered');
@@ -104,8 +104,8 @@ begin
   App.Free;
   MemDone;
   FreeColorIndexes;
-  Pal := nil;
-  Res := nil;
+  Pal := Default(TPalette);
+  Res := Default(TPalette);
 end;
 
 begin

@@ -1257,10 +1257,10 @@ initialization
     else
       FrameInit[FrameI + 9] := 0;
   end;
-  FramePalette := MakePalette(#1#1#2#2#3);
-  ScrollBarPalette := MakePalette(#4#5#5);
-  ScrollerPalette := MakePalette(#6#7);
-  BluePalette := MakePalette(#8#9#10#11#12#13#14#15);
-  CyanPalette := MakePalette(#16#17#18#19#20#21#22#23);
-  GrayPalette := MakePalette(#24#25#26#27#28#29#30#31);
+  FramePalette := TPalette.Create(#1#1#2#2#3, 5);
+  ScrollBarPalette := TPalette.Create(#4#5#5, 3);
+  ScrollerPalette := TPalette.Create(#6#7, 2);
+  BluePalette := TPalette.Create(#8#9#10#11#12#13#14#15, 8);
+  CyanPalette := TPalette.Create(#16#17#18#19#20#21#22#23, 8);
+  GrayPalette := TPalette.Create(#24#25#26#27#28#29#30#31, 8);
 end.

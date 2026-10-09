@@ -154,10 +154,10 @@ collections and streams, the editor — to the extent that DN uses them.
   labels `L0`…`L50` (these are translations of Borland assembler that magiblot has already written in
   C++); rewriting them "more nicely" would risk subtle
   divergences. Shadows are marked in the attribute by the flag `slWindowShadow`.
-- **Palettes** are an array of `TColorAttr`, element 0 is the number of entries; `nil` is an empty palette.
-  A non-top view maps an index to the owner's index (via a BIOS byte), the top one (the future
-  `TApplication`) gives the real colors. `MakePalette(#1#2#3)` builds a palette from a string
-  of indices, like the palette strings of Pascal TV.
+- **Palettes** are the record `TPalette` of tvision: `Data` (a dynamic array of `TColorAttr`), element 0 is the number
+  of entries; `Default(TPalette)` is an empty palette. A non-top view maps an index to the owner's index (via a BIOS
+  byte), the top one (`TApplication`) gives the real colors. `TPalette.Create(#1#2#3, 3)` builds a palette from a
+  string of indices, as `TPalette(cpX, sizeof(cpX) - 1)` in tvision.
 - **The destructor** `Done` detaches the view from its group (as in Pascal TV), so `shutDown` from
   C++ is not ported as a separate method; the group in `Done` hides and deletes its subviews.
 - **`TCommandSet`** is a record of 256 bits with the methods and operators of tvision; commands above 255 are always enabled.

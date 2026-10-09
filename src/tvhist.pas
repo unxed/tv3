@@ -275,7 +275,7 @@ end;
 
 function THistoryViewer.GetPalette: TPalette;
 begin
-  Result := MakePalette(HistoryViewerPalette);
+  Result := TPalette.Create(HistoryViewerPalette, Length(HistoryViewerPalette));
 end;
 
 function THistoryViewer.GetText(Item, MaxLen: Integer): ShortString;
@@ -338,7 +338,7 @@ end;
 
 function THistoryWindow.GetPalette: TPalette;
 begin
-  Result := MakePalette(HistoryWindowPalette);
+  Result := TPalette.Create(HistoryWindowPalette, Length(HistoryWindowPalette));
 end;
 
 function THistoryWindow.GetSelection: ShortString;
@@ -396,7 +396,7 @@ end;
 
 function THistory.GetPalette: TPalette;
 begin
-  Result := MakePalette(HistoryPalette);
+  Result := TPalette.Create(HistoryPalette, Length(HistoryPalette));
 end;
 
 procedure THistory.HandleEvent(var Event: TEvent);

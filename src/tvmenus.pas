@@ -779,7 +779,7 @@ end;
 
 function TMenuView.GetPalette: TPalette;
 begin
-  Result := MakePalette(MenuViewPalette);
+  Result := TPalette.Create(MenuViewPalette, Length(MenuViewPalette));
 end;
 
 function TMenuView.UpdateMenu(AMenu: PMenu): Boolean;
@@ -1253,7 +1253,7 @@ end;
 
 function TStatusLine.GetPalette: TPalette;
 begin
-  Result := MakePalette(MenuViewPalette);
+  Result := TPalette.Create(MenuViewPalette, Length(MenuViewPalette));
 end;
 
 function TStatusLine.ItemMouseIsIn(Mouse: TPoint): PStatusItem;

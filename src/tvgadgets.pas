@@ -173,9 +173,9 @@ end;
 function TClockView.GetPalette: TPalette;
 begin
   if PaletteStr = '' then
-    Result := nil
+    Result := Default(TPalette)
   else
-    Result := MakePalette(PaletteStr);
+    Result := TPalette.Create(PChar(@PaletteStr[1]), Length(PaletteStr));
 end;
 
 function TClockView.ClockText: AnsiString;
@@ -280,9 +280,9 @@ end;
 function THeapView.GetPalette: TPalette;
 begin
   if PaletteStr = '' then
-    Result := nil
+    Result := Default(TPalette)
   else
-    Result := MakePalette(PaletteStr);
+    Result := TPalette.Create(PChar(@PaletteStr[1]), Length(PaletteStr));
 end;
 
 function THeapView.HeapText: AnsiString;

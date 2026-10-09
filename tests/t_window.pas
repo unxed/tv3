@@ -92,7 +92,7 @@ end;
 
 function TFill.GetPalette: TPalette;
 begin
-  Result := MakePalette(#7);
+  Result := TPalette.Create(PChar(#7#0), 1);
 end;
 
 function Cell(X, Y: Integer): PScreenCell;

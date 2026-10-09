@@ -182,7 +182,7 @@ end;
 
 function TAsciiTable.GetPalette: TPalette;
 begin
-  Result := MakePalette(AsciiPalette);
+  Result := TPalette.Create(PChar(@AsciiPalette[1]), Length(AsciiPalette));
 end;
 
 function TAsciiTable.CellText(ACode: LongInt): AnsiString;
@@ -462,7 +462,7 @@ end;
 
 function TAsciiReport.GetPalette: TPalette;
 begin
-  Result := MakePalette(AsciiPalette);
+  Result := TPalette.Create(PChar(@AsciiPalette[1]), Length(AsciiPalette));
 end;
 
 procedure TAsciiReport.ReportParts(out Prefix, Rest: AnsiString);

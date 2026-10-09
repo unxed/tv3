@@ -263,7 +263,7 @@ end;
 
 function TCluster.GetPalette: TPalette;
 begin
-  Result := MakePalette(ClusterPalette);
+  Result := TPalette.Create(ClusterPalette, Length(ClusterPalette));
 end;
 
 procedure TCluster.MoveSel(I, S: Integer);

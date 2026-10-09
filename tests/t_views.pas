@@ -93,7 +93,7 @@ end;
 
 function TFill.GetPalette: TPalette;
 begin
-  Result := MakePalette(Chr(Col));
+  Result := TPalette.Create([TColorAttr(LongInt(Col))]);
 end;
 
 procedure TFill.HandleEvent(var Event: TEvent);
@@ -419,7 +419,7 @@ begin
   Check(Byte(V1.MapColor(1)) = $07, 'color 1 through the palette of the view');
   Check((V1.MapColor(2) = TView.ErrorAttr), 'a color beyond the palette is the error color');
   Check((V1.MapColor(0) = TView.ErrorAttr), 'color 0 is the error color');
-  Check(PaletteSize(MakePalette(#1#2#3)) = 3, 'palette size');
+  Check(Byte(TPalette.Create(#1#2#3, 3)[0]) = 3, 'palette size');
   Check(V1.GetColorW(1) = $0007, 'GetColorW: the BIOS attribute of the color');
   V1.Free;
 

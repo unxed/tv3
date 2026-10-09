@@ -193,7 +193,7 @@ begin
   SetLength(S, 32);
   for I := 1 to 32 do
     S[I] := Chr(First + I - 1);
-  Result := MakePalette(S);
+  Result := TPalette.Create(PChar(@S[1]), Length(S));
 end;
 
 var
@@ -326,7 +326,7 @@ end;
 
 function TStaticText.GetPalette: TPalette;
 begin
-  Result := MakePalette(StaticTextPalette);
+  Result := TPalette.Create(StaticTextPalette, Length(StaticTextPalette));
 end;
 
 procedure TStaticText.Draw;
@@ -416,7 +416,7 @@ end;
 
 function TLabel.GetPalette: TPalette;
 begin
-  Result := MakePalette(LabelPalette);
+  Result := TPalette.Create(LabelPalette, Length(LabelPalette));
 end;
 
 procedure TLabel.Draw;
@@ -506,7 +506,7 @@ end;
 
 function TButton.GetPalette: TPalette;
 begin
-  Result := MakePalette(ButtonPalette);
+  Result := TPalette.Create(ButtonPalette, Length(ButtonPalette));
 end;
 
 procedure TButton.Draw;

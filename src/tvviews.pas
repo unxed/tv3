@@ -10,8 +10,8 @@
   Differences from the C++ original (see tv/DESIGN.md):
     - Pascal names: Done (which also detaches the view from its group, like the
       Pascal Turbo Vision), Delete instead of remove;
-    - a TPalette is an array of TColorAttr whose element 0 is the number of
-      entries as a BIOS attribute; a nil palette is an empty one;
+    - the data of a TPalette is a dynamic array (an assignment shares it); a palette is
+      returned by value (getPalette returns a reference);
     - the screen is TvScreen, the output engine only knows TScreenCell buffers;
     - streams (read/write/build) and timers are not translated yet; GetEvent with
       a timeout, TextEvent and the event loop of TProgram come with TvApp.
@@ -106,10 +106,21 @@ type
     class operator <>(const TC1, TC2: TCommandSet): Boolean;
   end;
 
-  { Element 0 holds the number of entries (a BIOS attribute); entries 1..N map a
-    color index of a view to a color index of its owner (or, in the palette of the
-    application, to a real color). }
-  TPalette = array of TColorAttr;
+  { Data[0] holds the number of entries; entries 1..N map a color index of a view to a
+    color index of its owner (or, in the palette of the application, to a real color).
+    Data is a dynamic array: an assignment shares it (Copy(P.Data) copies it); a
+    Default(TPalette) is the empty palette. }
+  TPalette = record
+  private
+    function GetItem(Index: Integer): TColorAttr;
+    procedure SetItem(Index: Integer; const A: TColorAttr);
+  public
+    Data: array of TColorAttr;
+    constructor Create(D: PChar; Len: Word); overload;
+    constructor Create(D: PColorAttr; Len: Word); overload;
+    constructor Create(const A: array of TColorAttr); overload;
+    property Items[Index: Integer]: TColorAttr read GetItem write SetItem; default;
+  end;
 
   TForEachProc = procedure(P: TView; Args: Pointer);
   TNestedViewTest = function(P: TView): Boolean is nested;
@@ -331,10 +342,6 @@ var
   { the view being run modally by ExecView, if any }
   TheTopView: TView = nil;
 
-{ Palettes. MakePalette builds a palette from a string of color indices, as the
-  Pascal Turbo Vision's palette strings. }
-function MakePalette(const S: ShortString): TPalette;
-function PaletteSize(const P: TPalette): Integer;
 
 { Sends a message to a view: the view's HandleEvent gets an event with the
   command and Info; if the view cleared the event, its InfoPtr is returned. }
@@ -539,21 +546,45 @@ begin
     DisableCommands(Commands);
 end;
 
-function MakePalette(const S: ShortString): TPalette;
+{ --- TPalette ------------------------------------------------------------------- }
+
+constructor TPalette.Create(D: PChar; Len: Word);
 var
   I: Integer;
 begin
-  SetLength(Result, Length(S) + 1);
-  Result[0] := TColorAttr(LongInt(Length(S)));
-  for I := 1 to Length(S) do
-    Result[I] := TColorAttr(LongInt(Ord(S[I])));
+  SetLength(Data, Len + 1);
+  Data[0] := Len;
+  for I := 0 to Len - 1 do
+    Data[I + 1] := Ord(D[I]);
 end;
 
-function PaletteSize(const P: TPalette): Integer;
+constructor TPalette.Create(D: PColorAttr; Len: Word);
 begin
-  Result := Length(P) - 1;
-  if Result < 0 then
-    Result := 0;
+  SetLength(Data, Len + 1);
+  Data[0] := Len;
+  if Len > 0 then
+    Move(D^, Data[1], Len * SizeOf(TColorAttr));
+end;
+
+constructor TPalette.Create(const A: array of TColorAttr);
+begin
+  SetLength(Data, Length(A) + 1);
+  Data[0] := Length(A);
+  if Length(A) > 0 then
+    Move(A[0], Data[1], Length(A) * SizeOf(TColorAttr));
+end;
+
+function TPalette.GetItem(Index: Integer): TColorAttr;
+begin
+  if (Index = 0) and (Data = nil) then
+    Result := 0
+  else
+    Result := Data[Index];
+end;
+
+procedure TPalette.SetItem(Index: Integer; const A: TColorAttr);
+begin
+  Data[Index] := A;
 end;
 
 function Message(Receiver: TView; What, Command: Word; InfoPtr: Pointer): Pointer;
@@ -1463,7 +1494,7 @@ end;
 
 function TView.GetPalette: TPalette;
 begin
-  Result := nil;
+  Result := Default(TPalette);
 end;
 
 function TView.GetState(AState: Word): Boolean;
@@ -1569,16 +1600,16 @@ var
   Color: TColorAttr;
 begin
   P := GetPalette;
-  if PaletteSize(P) <> 0 then
+  if P[0] <> 0 then
   begin
-    if (Index > 0) and (Index <= PaletteSize(P)) then
+    if (0 < Index) and (Index <= Byte(P[0])) then
       Color := P[Index]
     else
       Exit(ErrorAttr);
   end
   else
-    Color := TColorAttr(LongInt(Index));
-  if (Color = TColorAttr(LongInt(0))) then
+    Color := LongInt(Index);
+  if Color = 0 then
     Exit(ErrorAttr);
   if Owner <> nil then
     Result := Owner.MapColor(Byte(Color))

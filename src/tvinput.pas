@@ -281,7 +281,7 @@ end;
 
 function TInputLine.GetPalette: TPalette;
 begin
-  Result := MakePalette(InputLinePalette);
+  Result := TPalette.Create(InputLinePalette, Length(InputLinePalette));
 end;
 
 function TInputLine.MouseDelta(var Event: TEvent): Integer;

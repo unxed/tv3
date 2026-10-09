@@ -769,7 +769,7 @@ end;
 
 function THelpViewer.GetPalette: TPalette;
 begin
-  Result := MakePalette(CHelpViewer);
+  Result := TPalette.Create(CHelpViewer, Length(CHelpViewer));
 end;
 
 procedure THelpViewer.MakeSelectVisible(ASelected: Integer; var KeyPoint: TPoint; var KeyLength: Byte; var KeyRef: Integer);
@@ -908,7 +908,7 @@ end;
 
 function THelpWindow.GetPalette: TPalette;
 begin
-  Result := MakePalette(CHelpWindow);
+  Result := TPalette.Create(CHelpWindow, Length(CHelpWindow));
 end;
 
 { --- stream records ---------------------------------------------------------- }

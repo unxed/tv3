@@ -478,7 +478,7 @@ end;
 
 function TFileInfoPane.GetPalette: TPalette;
 begin
-  Result := MakePalette(InfoPanePalette);
+  Result := TPalette.Create(InfoPanePalette, Length(InfoPanePalette));
 end;
 
 procedure TFileInfoPane.HandleEvent(var Event: TEvent);

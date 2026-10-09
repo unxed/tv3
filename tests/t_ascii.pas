@@ -271,7 +271,7 @@ begin
   Chart2.Free;
 
   { --- the palette and the text hooks --- }
-  Check(Length(MakePalette(AsciiPalette)) = 3, 'the palette of the views has two entries');
+  Check(Length(TPalette.Create(PChar(@AsciiPalette[1]), Length(AsciiPalette)).Data) = 3, 'the palette of the views has two entries');
 
   Cat.Free;
   Desk.Free;

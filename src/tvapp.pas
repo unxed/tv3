@@ -213,7 +213,7 @@ end;
 
 function TBackground.GetPalette: TPalette;
 begin
-  Result := MakePalette(BackgroundPalette);
+  Result := TPalette.Create(BackgroundPalette, Length(BackgroundPalette));
 end;
 
 { --- TDeskTop ---------------------------------------------------------------- }
@@ -804,10 +804,10 @@ end;
 function TProgram.GetPalette: TPalette;
 begin
   case AppPalette of
-    apBlackWhite: Result := MakePalette(SystemColors[apBlackWhite]);
-    apMonochrome: Result := MakePalette(SystemColors[apMonochrome]);
+    apBlackWhite: Result := TPalette.Create(PChar(@SystemColors[apBlackWhite][1]), Length(SystemColors[apBlackWhite]));
+    apMonochrome: Result := TPalette.Create(PChar(@SystemColors[apMonochrome][1]), Length(SystemColors[apMonochrome]));
   else
-    Result := MakePalette(SystemColors[apColor]);
+    Result := TPalette.Create(PChar(@SystemColors[apColor][1]), Length(SystemColors[apColor]));
   end;
 end;
 

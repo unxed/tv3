@@ -12,7 +12,7 @@ var
 { the main block keeps the temporaries (dynamic arrays) until its end: measure in a function }
 function PalLen(A: TApplication): Integer;
 begin
-  Result := PaletteSize(A.GetPalette);
+  Result := Byte(A.GetPalette[0]);
 end;
 
 type

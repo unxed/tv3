@@ -252,7 +252,7 @@ end;
 
 function TListViewer.GetPalette: TPalette;
 begin
-  Result := MakePalette(ListViewerPalette);
+  Result := TPalette.Create(ListViewerPalette, Length(ListViewerPalette));
 end;
 
 function TListViewer.GetText(Item, MaxLen: Integer): ShortString;

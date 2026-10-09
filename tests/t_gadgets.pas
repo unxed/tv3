@@ -158,9 +158,9 @@ begin
   Clicks.Free;
 
   { the palette }
-  Check(Length(Clock.GetPalette) = 2, 'the palette of a gadget has one entry');
+  Check(Length(Clock.GetPalette.Data) = 2, 'the palette of a gadget has one entry');
   Clock.PaletteStr := '';
-  Check(Clock.GetPalette = nil, 'an empty PaletteStr: no palette');
+  Check(Clock.GetPalette.Data = nil, 'an empty PaletteStr: no palette');
 
   { the heap view }
   Heap := THeapView.Create(R(30, 2, 40, 3));

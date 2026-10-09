@@ -40,7 +40,7 @@ begin
   Dlg.Free;
 
   Groups := nil;
-  Pal := MakePalette(#$1F#$2E#$70);
+  Pal := TPalette.Create(#$1F#$2E#$70, 3);
   Dlg := TColorDialog.Create(Pal, ColorGroup('Group', ColorItem('Item', 1, nil), nil));
   MemClear;
   MemKey(kbEsc);

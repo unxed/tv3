@@ -10,7 +10,7 @@
   Differences from the C++ original (see tv/DESIGN.md):
     - the lists are built with ColorItem and ColorGroup (instead of operator+);
       the dialog takes them over and frees them;
-    - the palette is a TPalette (a dynamic array, element 0 is the size); the data of the
+    - the palette is a TPalette (element 0 is the size); the data of the
       dialog is a TPalette: GetData gives a copy, SetData takes a copy;
     - the colors of the palette are TColorAttr, they are edited as BIOS colors (16 colors);
     - the remembered indexes of the groups are in ColorIndexes (FreeColorIndexes frees them);
@@ -877,10 +877,10 @@ begin
   R := TRect.Create(0, 0, 61, 18);
   inherited Create(R, ColorsTitle);
   Options := Options or ofCentered;
-  if Length(APalette) > 0 then
-    Pal := Copy(APalette)
+  if Length(APalette.Data) > 0 then
+    Pal.Data := Copy(APalette.Data)
   else
-    Pal := nil;
+    Pal := Default(TPalette);
 
   R := TRect.Create(18, 3, 19, 14);
   SB := TScrollBar.Create(R);
@@ -938,7 +938,7 @@ begin
   SelectNext(False);
 
   GroupIndex := 0;
-  if Length(Pal) > 0 then
+  if Length(Pal.Data) > 0 then
     SetData(Pal);
 end;
 
@@ -955,7 +955,7 @@ begin
   BakSel := TColorSelector(ReadChildPtr(S));
   MonoLabel := TLabel(ReadChildPtr(S));
   MonoSel := TMonoSelector(ReadChildPtr(S));
-  Pal := nil;
+  Pal := Default(TPalette);
   GroupIndex := 0;
 end;
 
@@ -974,7 +974,7 @@ end;
 
 destructor TColorDialog.Destroy;
 begin
-  Pal := nil;
+  Pal := Default(TPalette);
   inherited Destroy;
 end;
 
@@ -984,8 +984,8 @@ begin
     GroupIndex := Groups.Focused;
   inherited HandleEvent(Event);
   if (Event.What = evBroadcast) and (Event.Message.Command = cmNewColorIndex) and
-    (Event.Message.InfoByte < Length(Pal)) then
-    Display.SetColor(@Pal[Event.Message.InfoByte]);
+    (Event.Message.InfoByte < Length(Pal.Data)) then
+    Display.SetColor(@Pal.Data[Event.Message.InfoByte]);
 end;
 
 function TColorDialog.DataSize: Integer;
@@ -996,16 +996,16 @@ end;
 procedure TColorDialog.GetData(var Rec);
 begin
   GetIndexes;
-  TPalette(Rec) := Copy(Pal);
+  TPalette(Rec).Data := Copy(Pal.Data);
 end;
 
 procedure TColorDialog.SetData(var Rec);
 begin
-  Pal := Copy(TPalette(Rec));
+  Pal.Data := Copy(TPalette(Rec).Data);
   SetIndexes;
   { the original takes the index of the item in the group as the index of the palette }
-  if Groups.GetGroupIndex(GroupIndex) < Length(Pal) then
-    Display.SetColor(@Pal[Groups.GetGroupIndex(GroupIndex)]);
+  if Groups.GetGroupIndex(GroupIndex) < Length(Pal.Data) then
+    Display.SetColor(@Pal.Data[Groups.GetGroupIndex(GroupIndex)]);
   Groups.FocusItem(GroupIndex);
   if ShowMarkers then
   begin
