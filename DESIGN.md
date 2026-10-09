@@ -40,14 +40,14 @@ the library (`source/tvision`, `source/platform`, `include/tvision` without `com
 | 2b | `TvUtf8` — UTF-8 decoding/encoding, character width | `internal/utf8.h`; width — tables from the Unicode database (`tools/gen-width.py`) | done |
 | 2c | `TvCell` — `TScreenCharacter`, `TScreenCell` (a cell with UTF-8) | `scrncell.h` | done |
 | 2c2 | `TvGlyphs` — the frame, shade, block and arrow characters by name (Unicode code points `glLightH`, `glDblDR`, ...; `GlyphByte`, `GlyphChar`, `GlyphStr`, `SetCellGlyph`; the Char constants `gc*` for typed constants); `TDrawBuffer.MoveGlyph`/`PutGlyph` | own (the C++ original has the CP437 bytes in the sources) | done; the frames, shadows, scroll bars and icons of the views use it, test `t_glyphs` |
-| 2d | `TvCodePg`, `TvText` — code pages; `TText`: Next, Width, Prev, DrawOne, DrawStr, Scroll | `ttext.h`, `source/platform/{ttext,codepage}.cpp` | done (without `equalsIgnoreCase`, UTF-32 and `drawStrEx` with a callback) |
+| 2d | `TvCodePg`, `TvText` — code pages; `TText`: Next, Width, Prev, DrawOne, DrawStr, Scroll, EqualsIgnoreCase | `ttext.h`, `source/platform/{ttext,codepage}.cpp` | done (without UTF-32 and `drawStrEx` with a callback) |
 | 3a | `TvKeys` — key codes `kb*`, modifiers, `TKey` (normalization of key combinations) | `tkeys.h`, `tkey.cpp` | done |
 | 3b | `TvEvents` — the `TEvent` record, event codes and masks | `system.h` (events; the queue, mouse and screen are in the backends) | done; the `cm*` command codes are in `TvViews` |
 | 4 | `TvDrawBuf` — `TDrawBuffer`: MoveChar, MoveStr, MoveCStr, MoveBuf | `drawbuf.h`, `drivers.cpp` | done |
 | 5a | `TvScreen` — screen size, screen buffer, backend hooks (write, caret) | `TScreen`, `THardwareInfo` (the screen part) | done |
 | 5b | `TvViews` — constants, `TCommandSet`, palettes, `TView`, `TGroup`, the output engine and the visibility check | `views.h`, `tview.cpp`, `tgroup.cpp`, `tvwrite.cpp`, `tvexposd.cpp`, `tvcursor.cpp`, etc. | done (without streams and timers) |
 | 5c | `TvWindow` — `TFrame`, `TScrollBar`, `TScroller`, `TWindow` | `views.h`, `tframe.cpp`, `framelin.cpp`, `tscrlbar.cpp`, `tscrolle.cpp`, `twindow.cpp`, `tvtext1.cpp` (frame tables) | done (without streams); `CtrlToArrow` is in `TvKeys` |
-| 5d | `TvUtil` — hot keys and strings with `~`: `HotKeyStr`, `CStrLen`, `GetAltCode/Char/CharStr`, `GetCtrlCode/Char`, `EqualsIgnoreCase`, `NewStr` | `util.h`, `tvtext2.cpp`, `tinputli.cpp`, `drivers2.cpp`, `ttext.cpp` | done |
+| 5d | `TvUtil` — hot keys and strings with `~`: `HotKeyStr`, `CStrLen`, `GetAltCode/Char/CharStr`, `GetCtrlCode/Char`, `NewStr` | `util.h`, `tvtext2.cpp`, `tinputli.cpp`, `drivers2.cpp` | done |
 | 6a | `TvMenus` — menus: `TMenuView`, `TMenuBar`, `TMenuBox`, `TMenuPopup`, `TMenu`, `TMenuItem`, `TSubMenu`, `NewLine`, `operator +` | `menus.h`, `tmnuview.cpp`, `tmenubar.cpp`, `tmenubox.cpp`, `tmenupop.cpp` | done (without streams) |
 | 6b | `TvMenus` — status line: `TStatusLine`, `TStatusDef`, `TStatusItem`, `operator +` | `menus.h`, `tstatusl.cpp` | done (without streams) |
 | 7a | `TvSys` — backend hooks: event polling, clock, video mode switching, screen mode | own (in the original `THardwareInfo`, `TEventQueue`) | done |
@@ -192,7 +192,7 @@ collections and streams, the editor — to the extent that DN uses them.
   `ShortString` (`nil` is a separator; an empty name given to a constructor is `nil`). `TMenu.Free` frees a menu
   with its items and submenus; `TMenuBar` and `TMenuPopup` free their menu in `Destroy`, `TMenuBox` does not (it
   belongs to the parent).
-- **`EqualsIgnoreCase`** lowercases using a small built-in table (Latin-1, Latin
+- **`TText.EqualsIgnoreCase`** lowercases using a small built-in table (Latin-1, Latin
   Extended-A, Greek, Cyrillic), and not the platform tables; bytes that are not UTF-8
   are treated as code page characters (as in the original). Other alphabets are not distinguished
   by case: if needed, the table will have to be generated from the Unicode database (like

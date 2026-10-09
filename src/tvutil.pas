@@ -3,14 +3,11 @@
   Translated from magiblot/tvision @ b4831e2:
     include/tvision/util.h, source/tvision/tvtext2.cpp (getAltChar, getAltCode,
     getAltCharStr, getCtrlChar, getCtrlCode, tables), tinputli.cpp (hotKey, hotKeyStr),
-    drivers2.cpp (cstrlen), source/platform/ttext.cpp (equalsIgnoreCase)
+    drivers2.cpp (cstrlen)
   Borland disclaimer and MIT notice: COPYRIGHT.magiblot.
 
   Differences from the C++ original (see tv/DESIGN.md):
-    - strings are ShortStrings;
-    - EqualsIgnoreCase lowercases code points with a small built-in table (Latin-1,
-      Latin Extended-A, Greek, Cyrillic) instead of the platform's tables; invalid
-      UTF-8 bytes are taken as code page bytes, like the original does. }
+    - strings are ShortStrings. }
 unit TvUtil;
 
 {$I tvdefs.inc}
@@ -49,9 +46,6 @@ function GetAltCharStr(const Event: TEvent): ShortString;
 function GetCtrlCode(C: Char): Word;
 function GetCtrlChar(KeyCode: Word): Char;
 function GetCtrlCharStr(const Event: TEvent): ShortString;
-
-{ Compares two UTF-8 strings ignoring case. }
-function EqualsIgnoreCase(const A, B: ShortString): Boolean;
 
 implementation
 
@@ -248,47 +242,6 @@ begin
   if (C >= 'a') and (C <= 'z') then
     C := Chr(Ord(C) and not $20);
   Result := GetAltCode(C) or (Ord(C) - Ord('A') + 1);
-end;
-
-function Lower(C: LongWord): LongWord;
-begin
-  Result := C;
-  case C of
-    Ord('A')..Ord('Z'): Result := C + 32;
-    $C0..$DE: if C <> $D7 then Result := C + 32;
-    $100..$137, $14A..$177: if (C and 1) = 0 then Result := C + 1;
-    $139..$148, $179..$17E: if (C and 1) = 1 then Result := C + 1;
-    $178: Result := $FF;
-    $391..$3A9: if C <> $3A2 then Result := C + 32;
-    $400..$40F: Result := C + 80;
-    $410..$42F: Result := C + 32;
-  end;
-end;
-
-{ one character: UTF-8 when valid, otherwise a code page byte }
-function NextChar(const S: ShortString; var I: Integer): LongWord;
-var
-  Used: Integer;
-begin
-  if Utf8Enabled and Utf8Decode(@S[I], Length(S) - I + 1, Result, Used) then
-    Inc(I, Used)
-  else
-  begin
-    Result := CpToUnicode(Byte(S[I]));
-    Inc(I);
-  end;
-end;
-
-function EqualsIgnoreCase(const A, B: ShortString): Boolean;
-var
-  I, J: Integer;
-begin
-  I := 1;
-  J := 1;
-  while (I <= Length(A)) and (J <= Length(B)) do
-    if Lower(NextChar(A, I)) <> Lower(NextChar(B, J)) then
-      Exit(False);
-  Result := (I > Length(A)) and (J > Length(B));
 end;
 
 end.

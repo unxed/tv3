@@ -1,6 +1,6 @@
 program t_util;
 {$I ../src/tvdefs.inc}
-uses TvCodePg, TvKeys, TvEvents, TvUtil, TvUtf8;
+uses TvCodePg, TvKeys, TvEvents, TvUtil, TvUtf8, TvText;
 {$I testlib.inc}
 
 var
@@ -43,17 +43,17 @@ begin
   Check(GetCtrlCode('b') = (GetAltCode('B') or 2), 'GetCtrlCode: Ctrl+B');
 
   { comparing ignoring case }
-  Check(EqualsIgnoreCase('File', 'fILE'), 'EqualsIgnoreCase: ASCII');
-  Check(not EqualsIgnoreCase('File', 'Fil'), 'EqualsIgnoreCase: different lengths');
-  Check(not EqualsIgnoreCase('a', 'b'), 'EqualsIgnoreCase: different letters');
-  Check(EqualsIgnoreCase('Ф', 'ф'), 'EqualsIgnoreCase: Cyrillic');
-  Check(EqualsIgnoreCase('Ё', 'ё'), 'EqualsIgnoreCase: Cyrillic YO');
-  Check(EqualsIgnoreCase('É', 'é'), 'EqualsIgnoreCase: Latin-1');
-  Check(EqualsIgnoreCase('Ω', 'ω'), 'EqualsIgnoreCase: Greek');
-  Check(not EqualsIgnoreCase('×', 'ö'), 'EqualsIgnoreCase: the multiplication sign has no case');
+  Check(TText.EqualsIgnoreCase('File', 'fILE'), 'EqualsIgnoreCase: ASCII');
+  Check(not TText.EqualsIgnoreCase('File', 'Fil'), 'EqualsIgnoreCase: different lengths');
+  Check(not TText.EqualsIgnoreCase('a', 'b'), 'EqualsIgnoreCase: different letters');
+  Check(TText.EqualsIgnoreCase('Ф', 'ф'), 'EqualsIgnoreCase: Cyrillic');
+  Check(TText.EqualsIgnoreCase('Ё', 'ё'), 'EqualsIgnoreCase: Cyrillic YO');
+  Check(TText.EqualsIgnoreCase('É', 'é'), 'EqualsIgnoreCase: Latin-1');
+  Check(TText.EqualsIgnoreCase('Ω', 'ω'), 'EqualsIgnoreCase: Greek');
+  Check(not TText.EqualsIgnoreCase('×', 'ö'), 'EqualsIgnoreCase: the multiplication sign has no case');
   CpSelect(866);
-  Check(EqualsIgnoreCase(#$84, 'д'), 'EqualsIgnoreCase: a code page byte (CP866 "Д") equals UTF-8');
-  Check(EqualsIgnoreCase('', ''), 'EqualsIgnoreCase: two empty strings');
+  Check(TText.EqualsIgnoreCase(#$84, 'д'), 'EqualsIgnoreCase: a code page byte (CP866 "Д") equals UTF-8');
+  Check(TText.EqualsIgnoreCase('', ''), 'EqualsIgnoreCase: two empty strings');
 
   { copies of strings }
   P := NewStr('hello');

@@ -166,7 +166,7 @@ begin
   L.NewList(nil);
   Check((L.Range = 0) and (L.List = nil), 'NewList(nil) empties the list');
 
-  Check(SizeOf(TListBoxRec) = SizeOf(Pointer) + 4, 'the data record: a pointer and a 32-bit number, no padding');
+  Check(SizeOf(TListBoxRec) = 2 * SizeOf(Pointer), 'the data record: a pointer and a 16-bit number, aligned as the pointer');
   L3 := TListBox.Create(R(0, 0, 10, 3), 1, nil);
   L3.NewList(Items(2));
   Keep := L3.List;

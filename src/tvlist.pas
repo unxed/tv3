@@ -59,11 +59,9 @@ type
   { the data record of a list box: the collection (owned by the list box after SetData)
     and the number of the selected item }
   PListBoxRec = ^TListBoxRec;
-  { packed and Selection a LongInt: the layout of the data record of Virtual Pascal (the application builds its records on it; Integer there
-    has 32 bits and the records are byte-aligned), the layout is a compatibility requirement of the application }
-  TListBoxRec = packed record
+  TListBoxRec = record
     Items: TCollection;
-    Selection: LongInt;
+    Selection: Word;
   end;
 
   TListBox = class(TListViewer)

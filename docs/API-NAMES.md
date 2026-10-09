@@ -99,9 +99,7 @@ outside tv3 (dn / fpide / tve) at the time of writing.
 | tvision | tv3 | what is open |
 |---|---|---|
 | the streams of `THelpTopic` and `THelpIndex` (`read`, `write`, `build`, `readParagraphs`, `writeParagraphs` ...) and of `THelpFile` (`ipstream`/`fpstream`), and of the compiler `tvhc` | `THelpTopic.Load`/`Store`, `THelpIndex.Load`/`Store`, `THelpFile` over a `TStream`; the byte streams `TStream`, `TDosStream`, `TBufStream`, `TMemoryStream` and the registry `RegisterType`/`TStreamRec` stay in `TvObjs` for them | the translation of `THelpTopic::readParagraphs` and `writeParagraphs` was refused by the audit (`raw` 24 and 38 tokens in common with `HELPFILE.PAS` of Borland Pascal Turbo Vision); waits for the owner |
-| `TText::equalsIgnoreCase` | `TvUtil.EqualsIgnoreCase` | the code moves from `TvUtil` to `TvText`: the list of sources in the notices of both units changes with it (the notices are changed only by a decision of the owner) |
 | `TSystemError` (`ctrlBreakHit`, `suspend`, `resume`) | - | waits for the owner |
-| `TListBoxRec::selection` (`ushort`) | `TListBoxRec.Selection: LongInt`, the record packed | the binary layout of the dialog data records of DN; a change of the type changes the files DN stores |
 | `inputBox`, `inputBoxRect` (msgbox.h) | `InputBox`, `InputBoxRect` in `TvInput` | names are the same; the unit differs (it needs the input line) |
 | absent in tv3: `TParamText`, `TOutline`, `TOutlineViewer`, `TNode`, `TResourceFile`, `TResourceCollection`, `TStringList`, `TStrListMaker`, `TStringView`, `TTextMetrics` and `TText::measure`, `fromCodePage`, `setCodePageTranslation`, `TVMemMgr`, `TDrawSurface`, `TSurfaceView`, `TIndicator`, `TEditor`, `TMemo`, `TFileEditor`, `TEditWindow` (the editor is tve), `popupMenu`, `historyAdd` ..., `getHomeDir`, `lowMemory`, `printKeyCode` ... (debug output), the C string helpers of util.h (`strnzcpy`, `itoa` ...: Pascal strings) | - | not translated |
 
