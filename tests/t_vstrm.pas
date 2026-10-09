@@ -74,7 +74,7 @@ begin
   D.Insert(TStaticText.Create(R(3, 5, 40, 6), 'some text'));
   Btn := TButton.Create(R(3, 13, 13, 15), '~O~K', cmOK, bfDefault);
   D.Insert(Btn);
-  Chk := TCheckBoxes.Create(R(3, 7, 20, 9), NewSItem('~A~', NewSItem('~B~', nil)));
+  Chk := TCheckBoxes.Create(R(3, 7, 20, 9), TSItem.Create('~A~', TSItem.Create('~B~', nil)));
   Chk.Value := 2;
   D.Insert(Chk);
   Coll := TStringCollection.Create(5, 5);

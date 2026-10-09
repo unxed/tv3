@@ -54,10 +54,10 @@ begin
   Inp := TInputLine.Create(R(2, 1, 30, 2), 20);
   Dlg.Insert(Inp);
   Chk := TCheckBoxes.Create(R(2, 3, 30, 6),
-    NewSItem('~A~', NewSItem('~B~', NewSItem('~C~', nil))));
+    TSItem.Create('~A~', TSItem.Create('~B~', TSItem.Create('~C~', nil))));
   Dlg.Insert(Chk);
   Two := TCheckBoxes.Create(R(2, 7, 40, 9),
-    NewSItem('~D~', NewSItem('~E~', NewSItem('~F~', NewSItem('~G~', nil)))));
+    TSItem.Create('~D~', TSItem.Create('~E~', TSItem.Create('~F~', TSItem.Create('~G~', nil)))));
   Dlg.Insert(Two);
   Inp2 := TInputLine.Create(R(2, 10, 30, 11), 20);
   Dlg.Insert(Inp2);
@@ -123,7 +123,7 @@ begin
 
   { Dlg2: a radio group, two buttons (no default), a field with a history }
   Dlg2 := TDialog.Create(R(2, 2, 62, 22), 'ux2');
-  Rad := TRadioButtons.Create(R(2, 1, 30, 4), NewSItem('~A~', NewSItem('~B~', NewSItem('~C~', nil))));
+  Rad := TRadioButtons.Create(R(2, 1, 30, 4), TSItem.Create('~A~', TSItem.Create('~B~', TSItem.Create('~C~', nil))));
   Dlg2.Insert(Rad);
   Hs := TInputLine.Create(R(2, 5, 30, 6), 20);
   Dlg2.Insert(Hs);
@@ -210,7 +210,7 @@ begin
   Dlg2 := TDialog.Create(R(2, 2, 62, 22), 'ux4');
   Pre := TInputLine.Create(R(2, 1, 30, 2), 20);
   Dlg2.Insert(Pre);
-  Rad := TRadioButtons.Create(R(2, 3, 30, 6), NewSItem('~A~', NewSItem('~B~', nil)));
+  Rad := TRadioButtons.Create(R(2, 3, 30, 6), TSItem.Create('~A~', TSItem.Create('~B~', nil)));
   Dlg2.Insert(Rad);
   Dlg2.Insert(TButton.Create(R(2, 8, 12, 10), '~G~o', cmYes, bfNormal));
   Dlg2.Insert(TButton.Create(R(14, 8, 24, 10), 'Close', cmNo, bfDefault));

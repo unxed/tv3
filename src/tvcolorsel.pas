@@ -406,8 +406,8 @@ end;
 
 constructor TMonoSelector.Create(const Bounds: TRect);
 begin
-  inherited Create(Bounds, NewSItem(NormalText, NewSItem(HighlightText,
-    NewSItem(UnderlineText, NewSItem(InverseText, nil)))));
+  inherited Create(Bounds, TSItem.Create(NormalText, TSItem.Create(HighlightText,
+    TSItem.Create(UnderlineText, TSItem.Create(InverseText, nil)))));
   EventMask := EventMask or evBroadcast;
 end;
 

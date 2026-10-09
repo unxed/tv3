@@ -31,7 +31,7 @@ var
   Mul: TMultiCheckBoxes;
   Wide: TCheckBoxes;
   Empty: TCheckBoxes;
-  Item: PSItem;
+  Item: TSItem;
   Used0: PtrUInt;
   W: Word;
   D: LongWord;
@@ -44,17 +44,17 @@ begin
   MemInit(80, 25);
   App := TApplication.Create;
   Dlg := TDialog.Create(R(10, 5, 60, 14), 'Cluster');
-  Chk := TCheckBoxes.Create(R(2, 2, 22, 5), NewSItem('~A~lpha', NewSItem('~B~eta', NewSItem('~G~amma', nil))));
+  Chk := TCheckBoxes.Create(R(2, 2, 22, 5), TSItem.Create('~A~lpha', TSItem.Create('~B~eta', TSItem.Create('~G~amma', nil))));
   Dlg.Insert(Chk);
-  Rad := TRadioButtons.Create(R(2, 5, 22, 8), NewSItem('~O~ne', NewSItem('~T~wo', NewSItem('T~h~ree', nil))));
+  Rad := TRadioButtons.Create(R(2, 5, 22, 8), TSItem.Create('~O~ne', TSItem.Create('~T~wo', TSItem.Create('T~h~ree', nil))));
   Dlg.Insert(Rad);
-  Mul := TMultiCheckBoxes.Create(R(2, 8, 22, 10), NewSItem('~X~', NewSItem('~Y~', nil)), 3, $0203, ' -+');
+  Mul := TMultiCheckBoxes.Create(R(2, 8, 22, 10), TSItem.Create('~X~', TSItem.Create('~Y~', nil)), 3, $0203, ' -+');
   Dlg.Insert(Mul);
-  Wide := TCheckBoxes.Create(R(25, 2, 49, 4), NewSItem('Alpha', NewSItem('Beta', NewSItem('Gamma', NewSItem('Delta', nil)))));
+  Wide := TCheckBoxes.Create(R(25, 2, 49, 4), TSItem.Create('Alpha', TSItem.Create('Beta', TSItem.Create('Gamma', TSItem.Create('Delta', nil)))));
   Dlg.Insert(Wide);
-  Item := NewSItem('x', nil);
-  DisposeStr(Item^.Value);
-  Item^.Value := nil;                                                      { an item with no text, as the stream gives it }
+  Item := TSItem.Create('x', nil);
+  DisposeStr(Item.Value);
+  Item.Value := nil;                                                      { an item with no text, as the stream gives it }
   Empty := TCheckBoxes.Create(R(25, 5, 49, 7), Item);
   Dlg.Insert(Empty);
   Chk.Select;

@@ -7,8 +7,7 @@
   Borland disclaimer and MIT notice: COPYRIGHT.magiblot.
 
   Differences from the C++ original (see tv/DESIGN.md):
-    - the texts are ShortStrings; the list of them is built with NewSItem (instead of
-      the operator+ of TSItem), the cluster takes it over and frees it;
+    - the texts are ShortStrings;
     - streams are not translated yet;
     - the data of TCluster is a Word, the one of TMultiCheckBoxes is a LongWord, as in the
       original (DataSize). }
@@ -23,10 +22,11 @@ uses
   TvDialog;
 
 type
-  PSItem = ^TSItem;
-  TSItem = record
+  TSItem = class
     Value: PStr;
-    Next: PSItem;
+    Next: TSItem;
+    constructor Create(const AValue: ShortString; ANext: TSItem);
+    destructor Destroy; override;
   end;
 
   { Palette: 1 = normal text, 2 = selected text, 3 = normal shortcut, 4 = selected
@@ -41,7 +41,7 @@ type
     EnableMask: LongWord;
     Sel: Integer;
     Strings: TStringCollection;
-    constructor Create(const Bounds: TRect; AStrings: PSItem);
+    constructor Create(const Bounds: TRect; AStrings: TSItem);
     constructor Load(S: TStream);
     procedure Store(S: TStream); override;
     destructor Destroy; override;
@@ -90,7 +90,7 @@ type
     SelRange: Byte;
     Flags: Word;
     States: PStr;
-    constructor Create(const Bounds: TRect; AStrings: PSItem; ASelRange: Byte; AFlags: Word;
+    constructor Create(const Bounds: TRect; AStrings: TSItem; ASelRange: Byte; AFlags: Word;
       const AStates: ShortString);
     constructor Load(S: TStream);
     procedure Store(S: TStream); override;
@@ -103,8 +103,6 @@ type
     procedure SetData(var Rec); override;
   end;
 
-function NewSItem(const Str: ShortString; ANext: PSItem): PSItem;
-
 const
   ClusterPalette = #$10#$11#$12#$12#$1F;
 
@@ -114,11 +112,19 @@ var
 
 implementation
 
-function NewSItem(const Str: ShortString; ANext: PSItem): PSItem;
+{ --- TSItem ------------------------------------------------------------------ }
+
+constructor TSItem.Create(const AValue: ShortString; ANext: TSItem);
 begin
-  New(Result);
-  Result^.Value := NewStr(Str);
-  Result^.Next := ANext;
+  inherited Create;
+  Value := NewStr(AValue);
+  Next := ANext;
+end;
+
+destructor TSItem.Destroy;
+begin
+  DisposeStr(Value);
+  inherited Destroy;
 end;
 
 { The text of an item: an item with an empty text is nil in the collection (NewStr('') is nil), not a string of length 0 }
@@ -135,10 +141,10 @@ end;
 
 { --- TCluster ---------------------------------------------------------------- }
 
-constructor TCluster.Create(const Bounds: TRect; AStrings: PSItem);
+constructor TCluster.Create(const Bounds: TRect; AStrings: TSItem);
 var
   N: Integer;
-  P: PSItem;
+  P: TSItem;
 begin
   inherited Create(Bounds);
   Options := Options or ofSelectable or ofFirstClick or ofPreProcess or ofPostProcess;
@@ -149,16 +155,18 @@ begin
   while P <> nil do
   begin
     Inc(N);
-    P := P^.Next;
+    P := P.Next;
   end;
-  { the texts move into the collection, the list itself is freed }
   Strings := TStringCollection.Create(N, 0);
   while AStrings <> nil do
   begin
     P := AStrings;
-    AStrings := P^.Next;
-    Strings.AtInsert(Strings.Count, P^.Value);
-    Dispose(P);
+    if AStrings.Value = nil then
+      Strings.AtInsert(Strings.Count, nil)
+    else
+      Strings.AtInsert(Strings.Count, NewStr(AStrings.Value^));
+    AStrings := AStrings.Next;
+    P.Free;
   end;
   SetCursor(2, 0);
   ShowCursor;
@@ -618,7 +626,7 @@ end;
 
 { --- TMultiCheckBoxes -------------------------------------------------------- }
 
-constructor TMultiCheckBoxes.Create(const Bounds: TRect; AStrings: PSItem; ASelRange: Byte;
+constructor TMultiCheckBoxes.Create(const Bounds: TRect; AStrings: TSItem; ASelRange: Byte;
   AFlags: Word; const AStates: ShortString);
 begin
   inherited Create(Bounds, AStrings);
