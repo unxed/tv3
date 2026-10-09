@@ -5,7 +5,7 @@
 # the documents of standards in tools/audit/facts/ of the repository that runs the script).
 #   fpc      Free Pascal 3.2.2: packages fv, ide, fcl-base, rtl-objpas, fcl-passrc (GPL / LGPL with exception)
 #   fpcmain  the same packages of the main branch of Free Pascal
-#   fpide    the Free Pascal IDE on tv3 (unxed/sp, GPL)
+#   fpide    the Free Pascal IDE on tv3 (unxed/bp, GPL)
 #   dn214    DOS Navigator OSP 2.14 sources (licence of RIT Research Labs / DN OSP)
 #   dn151    DOS Navigator 1.51 sources (RIT Research Labs)
 #   bp7tv    Borland Pascal 7.0 / 7.01 Turbo Vision sources (proprietary)
@@ -42,7 +42,7 @@ if [ ! -d fpcmain ]; then
     mv fpcmain.tmp fpcmain
 fi
 if [ ! -d sp ]; then
-    rm -rf sp.tmp && git clone -q --depth 1 https://github.com/unxed/sp sp.tmp && mv sp.tmp sp
+    rm -rf sp.tmp && git clone -q --depth 1 https://github.com/unxed/bp sp.tmp && mv sp.tmp sp
 fi
 if [ ! -d dn214 ]; then
     get dn2s214.rar 4b8feadac86780f615d4b2a7847d81ad41f551c1962c9dd58b721806f36608c3 \

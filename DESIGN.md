@@ -431,7 +431,7 @@ The protocol is described in `VTExts.md` (far2l, branch `extsdocs`). tv3 has bot
 - Not done: image display (the server says "no capabilities", the client does not use images), drag and drop (a proposal), the host identity sent by the
   client, the emergency exit key of the server.
 
-- **Free Vision extensions for the IDE port (`unxed/sp`, `fpide/`).** `TListBox.GetFocusedItem` /
+- **Free Vision extensions for the IDE port (`unxed/bp`, `fpide/`).** `TListBox.GetFocusedItem` /
   `SetFocusedItem(Item)` work with the item itself instead of its index (additive, no change to
   existing API; `SetFocusedItem(nil)` or an unknown item does nothing).
 - **A list of masks in the file dialog.** `TFileList.ReadDirectoryMask` searches `*.pas;*.pp;*.inc` mask by mask (the file
