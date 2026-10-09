@@ -18,9 +18,9 @@ begin
   Check(SizeOf(TScreenCell) = 24, 'TScreenCell is 24 bytes');
 
   { single byte }
-  ScInitChar(C, Ord('A'));
-  Check((ScLength(C) = 1) and (ScText(C) = 'A'), 'init with a byte');
-  Check(not ScIsWide(C) and not ScIsWideTrail(C), 'a byte is narrow, not a trail');
+  C.InitWithChar(Ord('A'));
+  Check((Length(C.GetText) = 1) and (C.GetText = 'A'), 'init with a byte');
+  Check(not C.IsWide and not C.IsWideCharTrail, 'a byte is narrow, not a trail');
 
   CpSelect(866);
   Check((CpFallback($2500) = Ord('-')) and (CpFallback($2551) = Ord('|')) and (CpFallback($2554) = Ord('+')) and (CpFallback($2588) = Ord('#')),
@@ -28,69 +28,80 @@ begin
   Check((CpFallback($4E2D) = 0) and (CpFallback($2190) = Ord('<')), 'no plain sign for a CJK character, arrows have one');
 
   { multi-byte, narrow and wide }
-  ScInitText(C, @EAcute[0], 2, False);
-  Check((ScLength(C) = 2) and (ScText(C) = #$C3#$A9) and not ScIsWide(C), 'init with UTF-8 text');
-  ScInitText(C, @Cjk[0], 3, True);
-  Check((ScLength(C) = 3) and ScIsWide(C) and not ScIsWideTrail(C), 'wide text');
+  C.InitWithMultiByteChar(@EAcute[0], 2, False);
+  Check((Length(C.GetText) = 2) and (C.GetText = #$C3#$A9) and not C.IsWide, 'init with UTF-8 text');
+  C.InitWithMultiByteChar(@Cjk[0], 3, True);
+  Check((Length(C.GetText) = 3) and C.IsWide and not C.IsWideCharTrail, 'wide text');
 
   { out of range lengths leave an empty character }
-  ScInitText(C, @Cjk[0], 0, False);
-  Check((ScLength(C) = 1) and (C.Text[0] = 0), 'length 0 leaves an empty character');
-  ScInitText(C, @Cjk[0], 5, False);
-  Check((ScLength(C) = 1) and (C.Text[0] = 0), 'length 5 leaves an empty character');
+  C.InitWithMultiByteChar(@Cjk[0], 0, False);
+  Check(C.GetText = #0, 'length 0 leaves an empty character');
+  C.InitWithMultiByteChar(@Cjk[0], 5, False);
+  Check(C.GetText = #0, 'length 5 leaves an empty character');
 
   { wide character trail }
-  ScInitWideTrail(C);
-  Check(ScIsWideTrail(C) and not ScIsWide(C), 'wide character trail');
+  C.InitAsWideCharTrail;
+  Check(C.IsWideCharTrail and not C.IsWide, 'wide character trail');
 
   { zero-width characters are appended }
-  ScInitChar(C, Ord('e'));
-  ScAppendZeroWidth(C, @Combining[0], 2);
-  Check((ScLength(C) = 3) and (ScText(C) = 'e'#$CC#$81), 'append a combining mark');
-  ScAppendZeroWidth(C, @Zwj[0], 3);
-  Check(ScLength(C) = 6, 'append another zero-width character');
+  C.InitWithChar(Ord('e'));
+  C.AppendZeroWidthChar(@Combining[0], 2);
+  Check((Length(C.GetText) = 3) and (C.GetText = 'e'#$CC#$81), 'append a combining mark');
+  C.AppendZeroWidthChar(@Zwj[0], 3);
+  Check(Length(C.GetText) = 6, 'append another zero-width character');
 
   { a NUL base character becomes a space }
-  ScInitChar(C, 0);
-  ScAppendZeroWidth(C, @Combining[0], 2);
-  Check(ScText(C) = ' '#$CC#$81, 'NUL base becomes a space');
+  C.InitWithChar(0);
+  C.AppendZeroWidthChar(@Combining[0], 2);
+  Check(C.GetText = ' '#$CC#$81, 'NUL base becomes a space');
 
   { overflow: 15 bytes at most, then the flag sticks and the text stays }
-  ScInitChar(C, Ord('a'));
+  C.InitWithChar(Ord('a'));
   for I := 1 to 7 do
-    ScAppendZeroWidth(C, @Combining[0], 2);          { 1 + 14 = 15 bytes }
-  Check(ScLength(C) = 15, 'filled to 15 bytes');
+    C.AppendZeroWidthChar(@Combining[0], 2);          { 1 + 14 = 15 bytes }
+  Check(Length(C.GetText) = 15, 'filled to 15 bytes');
   D := C;
-  ScAppendZeroWidth(C, @Combining[0], 2);
-  Check(CompareByte(C.Text, D.Text, 15) = 0, 'overflowing append keeps the text');
-  Check(C.Meta <> D.Meta, 'overflow sets a flag');
+  C.AppendZeroWidthChar(@Combining[0], 2);
+  Check(C.GetText = D.GetText, 'overflowing append keeps the text');
+  Check(CompareByte(C, D, SizeOf(C)) <> 0, 'overflow sets a flag');
   D := C;
-  ScAppendZeroWidth(C, @Combining[0], 2);
+  C.AppendZeroWidthChar(@Combining[0], 2);
   Check(CompareByte(C, D, SizeOf(C)) = 0, 'overflow flag is sticky');
 
   { all zero bytes is a valid cell }
   FillChar(A, SizeOf(A), 0);
-  Check((ScLength(A.Character) = 1) and (A.Character.Text[0] = 0), 'zeroed cell: one NUL');
+  Check((Length(A.Character.GetText) = 1) and (Ord(A.Character.GetText[1]) = 0), 'zeroed cell: one NUL');
   Check(A.Attribute.GetForeground.IsDefault and A.Attribute.GetBackground.IsDefault, 'zeroed cell: default colors');
 
   { cells from DOS words }
-  A := CellFromBIOS($1F41);
-  Check((ScText(A.Character) = 'A') and (Byte(A.Attribute) = $1F), 'CellFromBIOS');
+  A := TScreenCell(Word($1F41));
+  Check((A.Character.GetText = 'A') and (Byte(A.Attribute) = $1F), 'TScreenCell from a BIOS word');
 
   { equality }
-  B := CellFromBIOS($1F41);
-  Check(CellEq(A, B), 'equal cells');
-  B := CellFromBIOS($1F42);
-  Check(not CellEq(A, B), 'different characters');
-  B := CellFromBIOS($2F41);
-  Check(not CellEq(A, B), 'different attributes');
-  ScInitText(C, @Cjk[0], 3, True);
-  A := CellMake(C, TColorAttr(LongInt($07)));
-  B := CellMake(C, TColorAttr(LongInt($07)));
-  Check(CellEq(A, B), 'CellMake equal');
-  ScInitText(D, @Cjk[0], 3, False);
-  B := CellMake(D, TColorAttr(LongInt($07)));
-  Check(not CellEq(A, B), 'wide flag counts in equality');
+  B := TScreenCell(Word($1F41));
+  Check((A = B), 'equal cells');
+  B := TScreenCell(Word($1F42));
+  Check(not (A = B), 'different characters');
+  B := TScreenCell(Word($2F41));
+  Check(not (A = B), 'different attributes');
+  C.InitWithMultiByteChar(@Cjk[0], 3, True);
+  A := TScreenCell.Create(C, TColorAttr(LongInt($07)));
+  B := TScreenCell.Create(C, TColorAttr(LongInt($07)));
+  Check((A = B), 'TScreenCell.Create equal');
+  D.InitWithMultiByteChar(@Cjk[0], 3, False);
+  B := TScreenCell.Create(D, TColorAttr(LongInt($07)));
+  Check(not (A = B), 'wide flag counts in equality');
 
+  { the forms of tvision: a character as a 32-bit number, the conversions of a byte and of a BIOS word }
+  C.InitWithMultiByteChar($A9C3, False);
+  Check((C.GetText = #$C3#$A9) and not C.IsWide, 'a multi-byte character as a number');
+  C.InitWithMultiByteChar($41, True);
+  Check((C.GetText = 'A') and C.IsWide, 'one byte as a number, wide');
+  C := Ord('x');
+  Check(C.GetText = 'x', 'TScreenCharacter from a byte');
+  A := $1E41;
+  B := TScreenCell.Create(D, A.Attribute);
+  B.Character := Ord('A');
+  Check((A.Character.GetText = 'A') and (Byte(A.Attribute) = $1E) and (A = B) and not (A <> B), 'TScreenCell from a BIOS word, =');
   Finish;
 end.

@@ -1862,7 +1862,7 @@ begin
   while H > 0 do
   begin
     for I := 0 to W - 1 do
-      Buf[I] := CellFromBIOS(Src[I]);
+      Buf[I] := TScreenCell(Word(Src[I]));
     WriteView(X, Y, W, Buf);
     Inc(Y);
     Inc(Src, W);
@@ -1882,7 +1882,7 @@ begin
   Src := @B;
   GetMem(Buf, W * SizeOf(TScreenCell));
   for I := 0 to W - 1 do
-    Buf[I] := CellFromBIOS(Src[I]);
+    Buf[I] := TScreenCell(Word(Src[I]));
   while H > 0 do
   begin
     WriteView(X, Y, W, Buf);

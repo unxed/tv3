@@ -166,7 +166,7 @@ var
   Code: Byte;
   Utf: array[0..7] of Byte;
 begin
-  Result := ScText(Ch);
+  Result := Ch.GetText;
   case Length(Result) of
     0: Result := ' ';
     1:
@@ -189,9 +189,9 @@ begin
   Row := TScreen.ScreenBuffer + Y * Cols;
   C := Row + CX;
   Idx := Y * Cols + CX;
-  if ScIsWideTrail(C^.Character) then
+  if C^.Character.IsWideCharTrail then
   begin
-    if (CX > 0) and ScIsWide(Row[CX - 1].Character) then
+    if (CX > 0) and Row[CX - 1].Character.IsWide then
       DrawCell(CX - 1, Y)               { the lead draws both }
     else
       Writer.WriteCell(CX, Y, ' ', C^.Attribute, False);   { a trail with no lead }
@@ -199,14 +199,14 @@ begin
     Exit;
   end;
   { a wide character that was shown here, and this cell is not its trail any more: it is gone from the screen }
-  if (CX > 0) and ScIsWide(Shown[Idx - 1].Character) and not ScIsWide(Row[CX - 1].Character) then
+  if (CX > 0) and Shown[Idx - 1].Character.IsWide and not Row[CX - 1].Character.IsWide then
   begin
     Writer.WriteCell(CX - 1, Y, ' ', Shown[Idx - 1].Attribute, False);
     Shown[Idx - 1] := Row[CX - 1];
   end;
-  if ScIsWide(C^.Character) then
+  if C^.Character.IsWide then
   begin
-    if (CX + 1 < Cols) and ScIsWideTrail(Row[CX + 1].Character) then
+    if (CX + 1 < Cols) and Row[CX + 1].Character.IsWideCharTrail then
     begin
       Writer.WriteCell(CX, Y, CellText(C^.Character), C^.Attribute, True);
       Shown[Idx] := C^;
@@ -237,9 +237,9 @@ begin
     if (CX < 0) or (CX >= Cols) then
       Continue;
     Idx := Y * Cols + CX;
-    Differs := not CellEq(Row[CX], Shown[Idx]);
+    Differs := not (Row[CX] = Shown[Idx]);
     { a wide lead is drawn again when its trail changed }
-    if (not Differs) and ScIsWide(Row[CX].Character) and (CX + 1 < Cols) and not CellEq(Row[CX + 1], Shown[Idx + 1]) then
+    if (not Differs) and Row[CX].Character.IsWide and (CX + 1 < Cols) and not (Row[CX + 1] = Shown[Idx + 1]) then
       Differs := True;
     if Differs then
     begin

@@ -15,7 +15,7 @@ var
 
 function Txt(Idx: Integer): ShortString;
 begin
-  Result := ScText(PScreenCell(PtrUInt(B.Data) + Idx * SizeOf(TScreenCell))^.Character);
+  Result := (PScreenCell(PtrUInt(B.Data) + Idx * SizeOf(TScreenCell))^.Character).GetText;
 end;
 
 function At(Idx: Integer): Byte;
@@ -52,7 +52,7 @@ begin
   B.Free;
   B := TDrawBuffer.Create(132);
   Check(B.Capacity = 140, 'capacity for a 132-column screen');
-  Check((Cell(0)^.Character.Text[0] = 0) and (Cell(0)^.Attribute = Default(TColorAttr)), 'a new buffer is zeroed');
+  Check((Ord(Cell(0)^.Character.GetText[1]) = 0) and (Cell(0)^.Attribute = Default(TColorAttr)), 'a new buffer is zeroed');
 
   { MoveChar }
   B.MoveChar(2, Ord('='), A1, 5);
@@ -96,7 +96,7 @@ begin
   { double-width characters and combining marks }
   Reset;
   Check(B.MoveStrS(0, Cjk + 'b', A1) = 3, 'MoveStr of a wide character');
-  Check(ScIsWide(Cell(0)^.Character) and ScIsWideTrail(Cell(1)^.Character) and (Txt(2) = 'b'), 'wide character, trail and next');
+  Check((Cell(0)^.Character).IsWide and (Cell(1)^.Character).IsWideCharTrail and (Txt(2) = 'b'), 'wide character, trail and next');
   Reset;
   Check(B.MoveStrS(0, 'e' + Acute + 'x', A1) = 2, 'MoveStr with a combining mark');
   Check((Txt(0) = 'e' + Acute) and (Txt(1) = 'x'), 'the mark joins the previous cell');

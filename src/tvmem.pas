@@ -148,9 +148,9 @@ var
 begin
   Ch := (TScreen.ScreenBuffer + (Y * TScreen.ScreenWidth + X))^.Character;
   { the second half of a wide character: its text is in the cell before }
-  if ScIsWideTrail(Ch) then
+  if Ch.IsWideCharTrail then
     Exit('');
-  Result := ScText(Ch);
+  Result := Ch.GetText;
   if (Result = '') or (Result = #0) then
     Exit('_');
   if Length(Result) <> 1 then

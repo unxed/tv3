@@ -144,11 +144,11 @@ var
   Cp: LongWord;
   Used: Integer;
 begin
-  if ScIsWideTrail(C.Character) then
+  if C.Character.IsWideCharTrail then
     Ch := Ord(' ')
   else
   begin
-    S := ScText(C.Character);
+    S := C.Character.GetText;
     if Length(S) = 1 then
     begin
       Ch := Byte(S[1]);

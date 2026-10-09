@@ -14,7 +14,11 @@
        trail is missing, or a trail is not preceded by a double-width character,
        the double-width character is being partially overlapped.
   Cells are plain data: all-zero bytes is a valid, empty cell (default colors,
-  one NUL character), and cells can be moved and compared as raw memory. }
+  one NUL character), and cells can be moved and compared as raw memory.
+
+  Differences from the C++ original (see tv/docs/API-NAMES.md):
+    - a character of the code page above $7F (InitWithChar) is stored as its UTF-8;
+    - a TStringView argument is a pointer and a length, getText gives a ShortString. }
 unit TvCell;
 
 {$I tvdefs.inc}
@@ -24,166 +28,173 @@ interface
 uses
   TvColors;
 
-const
-  MaxCellTextSize = 15;
-
 type
   TScreenCharacter = packed record
-    Text: array[0..MaxCellTextSize - 1] of Byte;
-    { low nibble: text length - 1 (there is always at least one byte, possibly NUL);
-      high nibble: flags (see sc* below) }
-    Meta: Byte;
+  private
+    const
+      fWide     = $1;
+      fTrail    = $2;
+      fOverflow = $4;
+    var
+      FText: array[0..14] of Byte;
+      { low nibble: the length of the text - 1 (there is always at least one byte, possibly NUL);
+        high nibble: the flags }
+      FMeta: Byte;
+    function Flags: Byte; inline;
+  public
+    class operator :=(C: Byte): TScreenCharacter;
+    procedure InitWithChar(C: Byte);
+    { Mbc: the bytes of one character of UTF-8 (the first in the low byte) }
+    procedure InitWithMultiByteChar(Mbc: LongWord; Wide: Boolean = False); overload;
+    { Text is Len bytes of UTF-8 (1..4); anything else leaves an empty character. }
+    procedure InitWithMultiByteChar(Text: PByte; Len: Integer; Wide: Boolean = False); overload;
+    procedure InitAsWideCharTrail;
+    function IsWide: Boolean; inline;
+    function IsWideCharTrail: Boolean; inline;
+    { Appends a zero-width character (UTF-8, Len bytes); when it does not fit, the
+      overflow flag is set and the text is left unchanged. Precondition: the text is
+      valid UTF-8. A NUL base character becomes a space first. }
+    procedure AppendZeroWidthChar(Text: PByte; Len: Integer);
+    { The text. Precondition: not a wide character trail. }
+    function GetText: ShortString;
   end;
 
   TScreenCell = packed record
     Character: TScreenCharacter;
     Attribute: TColorAttr;
+    constructor Create(const Ch: TScreenCharacter; Attr: TColorAttr);
+    { from a DOS text mode word: the character in the low byte, the BIOS attribute above }
+    class operator :=(Bios: Word): TScreenCell;
+    class operator =(const A, B: TScreenCell): Boolean;
+    class operator <>(const A, B: TScreenCell): Boolean;
   end;
   PScreenCell = ^TScreenCell;
-
-const
-  { flags, stored in the high nibble of Meta }
-  scWide     = $1;
-  scTrail    = $2;
-  scOverflow = $4;
-
-{ --- TScreenCharacter -------------------------------------------------------- }
-procedure ScInitChar(out C: TScreenCharacter; Ch: Byte);
-{ Text is Len bytes of UTF-8 (1..4); anything else leaves an empty character. }
-procedure ScInitText(out C: TScreenCharacter; Text: PByte; Len: Integer; Wide: Boolean);
-{ One character by its Unicode code point (a one-column character: a frame line, a block, a letter); the cell holds its UTF-8. A code point that is
-  not valid leaves an empty character. }
-procedure ScInitCodePoint(out C: TScreenCharacter; CodePoint: LongWord);
-procedure ScInitWideTrail(out C: TScreenCharacter);
-function ScIsWide(const C: TScreenCharacter): Boolean; inline;
-function ScIsWideTrail(const C: TScreenCharacter): Boolean; inline;
-function ScLength(const C: TScreenCharacter): Integer; inline;
-{ The text, as a string. Precondition: not a wide character trail. }
-function ScText(const C: TScreenCharacter): ShortString;
-{ Appends a zero-width character (UTF-8, Len bytes); when it does not fit, the
-  overflow flag is set and the text is left unchanged. Precondition: the text is
-  valid UTF-8. A NUL base character becomes a space first. }
-procedure ScAppendZeroWidth(var C: TScreenCharacter; Text: PByte; Len: Integer);
-
-{ --- TScreenCell ------------------------------------------------------------- }
-function CellMake(const Ch: TScreenCharacter; const Attr: TColorAttr): TScreenCell;
-{ From a DOS text mode word: character in the low byte, BIOS attribute above. }
-function CellFromBIOS(Value: Word): TScreenCell;
-function CellEq(const A, B: TScreenCell): Boolean;
 
 implementation
 
 uses
-  TvCodePg, TvUtf8;
+  TvCodePg;
 
-function Flags(const C: TScreenCharacter): Byte; inline;
+{ --- TScreenCharacter -------------------------------------------------------- }
+
+function TScreenCharacter.Flags: Byte;
 begin
-  Result := C.Meta shr 4;
+  Result := FMeta shr 4;
 end;
 
-procedure ScInitChar(out C: TScreenCharacter; Ch: Byte);
+class operator TScreenCharacter.:=(C: Byte): TScreenCharacter;
+begin
+  Result.InitWithChar(C);
+end;
+
+procedure TScreenCharacter.InitWithChar(C: Byte);
 var
   Buf: array[0..7] of Byte;
   N: Integer;
 begin
-  if Ch >= $80 then
+  if C >= $80 then
   begin
-    N := CpToUtf8(Ch, @Buf[0]);
-    ScInitText(C, @Buf[0], N, False);
+    N := CpToUtf8(C, @Buf[0]);
+    InitWithMultiByteChar(@Buf[0], N, False);
     Exit;
   end;
   { a raw byte of the code page; TvText/TvUnix/TvDos turn it into its character when they write it. TODO(later): making the cell hold UTF-8 here
     left stray cells of a closed frame in a program that repaints with raw bytes (an acceptance run of the application): not understood yet }
-  FillChar(C, SizeOf(C), 0);
-  C.Text[0] := Ch;
+  FillChar(Self, SizeOf(Self), 0);
+  FText[0] := C;
 end;
 
-procedure ScInitText(out C: TScreenCharacter; Text: PByte; Len: Integer; Wide: Boolean);
+procedure TScreenCharacter.InitWithMultiByteChar(Mbc: LongWord; Wide: Boolean);
+begin
+  FillChar(Self, SizeOf(Self), 0);
+  FText[0] := Byte(Mbc);
+  FText[1] := Byte(Mbc shr 8);
+  FText[2] := Byte(Mbc shr 16);
+  FText[3] := Byte(Mbc shr 24);
+  FMeta := Ord(Mbc > $000000FF) + Ord(Mbc > $0000FFFF) + Ord(Mbc > $00FFFFFF);
+  if Wide then
+    FMeta := FMeta or (fWide shl 4);
+end;
+
+procedure TScreenCharacter.InitWithMultiByteChar(Text: PByte; Len: Integer; Wide: Boolean);
 var
   Flg: Byte;
 begin
-  FillChar(C, SizeOf(C), 0);
+  FillChar(Self, SizeOf(Self), 0);
   if (Len > 0) and (Len <= 4) then
   begin
-    Move(Text^, C.Text[0], Len);
+    Move(Text^, FText[0], Len);
     Flg := 0;
-    if Wide then Flg := scWide;
-    C.Meta := (Flg shl 4) or (Len - 1);
+    if Wide then Flg := fWide;
+    FMeta := (Flg shl 4) or (Len - 1);
   end;
 end;
 
-procedure ScInitCodePoint(out C: TScreenCharacter; CodePoint: LongWord);
-var
-  Buf: array[0..7] of Byte;
-  N: Integer;
+procedure TScreenCharacter.InitAsWideCharTrail;
 begin
-  N := Utf8Encode(CodePoint, @Buf[0]);
-  ScInitText(C, @Buf[0], N, False);
+  FillChar(Self, SizeOf(Self), 0);
+  FMeta := fTrail shl 4;
 end;
 
-procedure ScInitWideTrail(out C: TScreenCharacter);
+function TScreenCharacter.IsWide: Boolean;
 begin
-  FillChar(C, SizeOf(C), 0);
-  C.Meta := scTrail shl 4;
+  Result := (Flags and fWide) <> 0;
 end;
 
-function ScIsWide(const C: TScreenCharacter): Boolean;
+function TScreenCharacter.IsWideCharTrail: Boolean;
 begin
-  Result := (Flags(C) and scWide) <> 0;
+  Result := (Flags and fTrail) <> 0;
 end;
 
-function ScIsWideTrail(const C: TScreenCharacter): Boolean;
-begin
-  Result := (Flags(C) and scTrail) <> 0;
-end;
-
-function ScLength(const C: TScreenCharacter): Integer;
-begin
-  Result := (C.Meta and $0F) + 1;
-end;
-
-function ScText(const C: TScreenCharacter): ShortString;
-var
-  N: Integer;
-begin
-  N := ScLength(C);
-  SetLength(Result, N);
-  Move(C.Text[0], Result[1], N);
-end;
-
-procedure ScAppendZeroWidth(var C: TScreenCharacter; Text: PByte; Len: Integer);
+procedure TScreenCharacter.AppendZeroWidthChar(Text: PByte; Len: Integer);
 var
   Size: Integer;
 begin
-  if (Flags(C) and scOverflow) <> 0 then
+  if (Flags and fOverflow) <> 0 then
     Exit;
-  Size := ScLength(C);
-  if (Len >= 1) and (Len <= MaxCellTextSize - Size) then
+  Size := (FMeta and $0F) + 1;
+  if (Len >= 1) and (Len <= SizeOf(FText) - Size) then
   begin
-    if C.Text[0] = 0 then
-      C.Text[0] := Ord(' ');
-    Move(Text^, C.Text[Size], Len);
-    C.Meta := (C.Meta and $F0) or (Size - 1 + Len);
+    if FText[0] = 0 then
+      FText[0] := Ord(' ');
+    Move(Text^, FText[Size], Len);
+    FMeta := (FMeta and $F0) or (Size - 1 + Len);
   end
   else
-    C.Meta := C.Meta or (scOverflow shl 4);
+    FMeta := FMeta or (fOverflow shl 4);
 end;
 
-function CellMake(const Ch: TScreenCharacter; const Attr: TColorAttr): TScreenCell;
+function TScreenCharacter.GetText: ShortString;
+var
+  N: Integer;
 begin
-  Result.Character := Ch;
-  Result.Attribute := Attr;
+  N := (FMeta and $0F) + 1;
+  SetLength(Result, N);
+  Move(FText[0], Result[1], N);
 end;
 
-function CellFromBIOS(Value: Word): TScreenCell;
+{ --- TScreenCell ------------------------------------------------------------- }
+
+constructor TScreenCell.Create(const Ch: TScreenCharacter; Attr: TColorAttr);
 begin
-  ScInitChar(Result.Character, Byte(Value));
-  Result.Attribute := TColorAttr(LongInt(Byte(Value shr 8)));
+  Character := Ch;
+  Attribute := Attr;
 end;
 
-function CellEq(const A, B: TScreenCell): Boolean;
+class operator TScreenCell.:=(Bios: Word): TScreenCell;
+begin
+  Result.Character.InitWithChar(Byte(Bios));
+  Result.Attribute := LongInt(Byte(Bios shr 8));
+end;
+
+class operator TScreenCell.=(const A, B: TScreenCell): Boolean;
 begin
   Result := CompareByte(A, B, SizeOf(TScreenCell)) = 0;
+end;
+
+class operator TScreenCell.<>(const A, B: TScreenCell): Boolean;
+begin
+  Result := not (A = B);
 end;
 
 end.

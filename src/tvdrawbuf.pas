@@ -57,6 +57,17 @@ type
 
 implementation
 
+uses
+  TvUtf8;
+
+{ the character of a code point (a frame line, a block, a letter); a code point that is not valid leaves an empty character }
+procedure InitWithCodePoint(var Ch: TScreenCharacter; CodePoint: LongWord);
+var
+  Buf: array[0..7] of Byte;
+begin
+  Ch.InitWithMultiByteChar(@Buf[0], Utf8Encode(CodePoint, @Buf[0]), False);
+end;
+
 type
   TCellArray = array[0..MaxInt div SizeOf(TScreenCell) - 1] of TScreenCell;
   PCellArray = ^TCellArray;
@@ -97,7 +108,7 @@ begin
   begin
     if C <> 0 then
     begin
-      ScInitChar(Cell.Character, C);
+      Cell.Character.InitWithChar(C);
       Cell.Attribute := Attr;
       while Count > 0 do
       begin
@@ -117,7 +128,7 @@ begin
   else
     while Count > 0 do
     begin
-      ScInitChar(Dest^.Character, C);
+      Dest^.Character.InitWithChar(C);
       Inc(Dest);
       Dec(Count);
     end;
@@ -188,7 +199,7 @@ begin
       if (StrIndent < W) and (I < CellCount) then
       begin
         { StrIndent is in the middle of a double-width character }
-        ScInitChar(Cells^[I].Character, Ord(' '));
+        Cells^[I].Character.InitWithChar(Ord(' '));
         Cells^[I].Attribute := Cur;
         Inc(I);
       end;
@@ -218,7 +229,7 @@ end;
 procedure TDrawBuffer.PutChar(Indent: Integer; C: Byte);
 begin
   if (Indent >= 0) and (Indent < Capacity) then
-    ScInitChar(PCellArray(Data)^[Indent].Character, C);
+    (PCellArray(Data)^[Indent].Character).InitWithChar(C);
 end;
 
 procedure TDrawBuffer.MoveGlyph(Indent: Integer; CodePoint: LongWord; Attr: TColorAttr; Count: Integer);
@@ -231,7 +242,7 @@ begin
   if Indent + Count >= Capacity then
     Count := Capacity - Indent;
   Dest := Data + Indent;
-  ScInitCodePoint(Cell.Character, CodePoint);
+  InitWithCodePoint(Cell.Character, CodePoint);
   while Count > 0 do
   begin
     if IsKeepAttr(Attr) then
@@ -249,7 +260,7 @@ end;
 procedure TDrawBuffer.PutGlyph(Indent: Integer; CodePoint: LongWord);
 begin
   if (Indent >= 0) and (Indent < Capacity) then
-    ScInitCodePoint(PCellArray(Data)^[Indent].Character, CodePoint);
+    InitWithCodePoint(PCellArray(Data)^[Indent].Character, CodePoint);
 end;
 
 end.

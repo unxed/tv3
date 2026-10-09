@@ -70,7 +70,7 @@ var
   Bytes: array[0..7] of Byte;
   C: Byte;
 begin
-  Result := ScText(Cell(X, Y)^.Character);
+  Result := (Cell(X, Y)^.Character).GetText;
   if Result = #0 then
     Exit(' ');
   if Length(Result) = 1 then

@@ -107,7 +107,7 @@ collections and streams, the editor — to the extent that DN uses them.
 - **The screen cell** is as in magiblot: `TScreenCharacter` (15 bytes of UTF-8 text plus a byte
   "length−1 / flags": wide, wide trail, overflow), 16 bytes; `TScreenCell` is a
   character plus a `TColorAttr`, 24 bytes. This is plain data: zero bytes are a valid empty
-  cell, comparison is bytewise. A converter from a DOS word (`CellFromBIOS`) is needed for DN and for
+  cell, comparison is bytewise. A converter from a DOS word (`TScreenCell(Word(...))`, the conversion of `TScreenCell(ushort)`) is needed for DN and for
   the DOS backend.
 - **Code pages** (`TvCodePg`, tables from `tools/gen-codepage.py`): currently 437 and 866,
   selected with `CpSelect`, 866 by default (magiblot uses 437). The lower half (0..31 and 7Fh)
@@ -379,7 +379,7 @@ collections and streams, the editor — to the extent that DN uses them.
 ### The 16-bit cell interface (11c): decisions
 
 - For programs written for Turbo Vision for Borland Pascal (DN): a cell is a `Word` (the low byte is the character, the high byte is the
-  BIOS attribute), a color is a BIOS attribute. `WriteBufW`/`WriteLineW` convert the cells with `CellFromBIOS` and write through `WriteView`;
+  BIOS attribute), a color is a BIOS attribute. `WriteBufW`/`WriteLineW` convert the cells with `TScreenCell(Word(...))` and write through `WriteView`;
   `GetColorW(C)` = `Lo + 256 * Hi` of `GetColor(C)` (`Byte(Attr)`). These are separate names (not overloads): an untyped
   argument would be ambiguous with `PScreenCell`.
 - The character is a byte of the screen's code page (as in `TDrawBuffer.MoveChar`); colors with RGB/xterm lose precision

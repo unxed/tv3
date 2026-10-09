@@ -198,9 +198,9 @@ end;
 
 function CellText(const C: TScreenCell): AnsiString;
 begin
-  if ScIsWideTrail(C.Character) then
+  if C.Character.IsWideCharTrail then
     Exit('');
-  Result := ScText(C.Character);
+  Result := C.Character.GetText;
   if (Length(Result) = 1) and (Result[1] = #0) then
     Result := ' ';
 end;
@@ -211,7 +211,7 @@ var
 begin
   Result := '';
   E := Min2(Cols, Length(R)) - 1;
-  while (E >= 0) and (ScText(R[E].Character) = ' ') and not ScIsWideTrail(R[E].Character) do
+  while (E >= 0) and (R[E].Character.GetText = ' ') and not R[E].Character.IsWideCharTrail do
     Dec(E);
   for X := 0 to E do
     Result := Result + CellText(R[X]);
@@ -246,9 +246,9 @@ function TVtEmu.Blank: TScreenCell;
 var
   Ch: TScreenCharacter;
 begin
-  ScInitChar(Ch, Ord(' '));
+  Ch.InitWithChar(Ord(' '));
   { the erased cells have the background of the pen and nothing else (xterm: back color erase) }
-  Result := CellMake(Ch, TColorAttr.Create(Default(TColor), Pen.GetBackground, 0));
+  Result := TScreenCell.Create(Ch, TColorAttr.Create(Default(TColor), Pen.GetBackground, 0));
 end;
 
 procedure TVtEmu.FreshRow(var R: TVtRow);
@@ -589,9 +589,9 @@ var
   B: TScreenCell;
 begin
   B := Blank;
-  if (X1 > 0) and ScIsWideTrail(Scr[Y][X1].Character) then
+  if (X1 > 0) and (Scr[Y][X1].Character).IsWideCharTrail then
     Scr[Y][X1 - 1] := B;
-  if (X2 < FCols - 1) and ScIsWideTrail(Scr[Y][X2 + 1].Character) then
+  if (X2 < FCols - 1) and (Scr[Y][X2 + 1].Character).IsWideCharTrail then
     Scr[Y][X2 + 1] := B;
 end;
 
@@ -631,7 +631,7 @@ begin
     Scr[CY][X] := Scr[CY][X - N];
   for X := CX to CX + N - 1 do
     Scr[CY][X] := Blank;
-  if ScIsWideTrail(Scr[CY][FCols - 1].Character) or (ScIsWide(Scr[CY][FCols - 1].Character)) then
+  if (Scr[CY][FCols - 1].Character).IsWideCharTrail or ((Scr[CY][FCols - 1].Character).IsWide) then
     Scr[CY][FCols - 1] := Blank;
   Dirty[CY] := True;
 end;
@@ -676,9 +676,9 @@ begin
       Dec(PX);
     if PX >= 0 then
     begin
-      if ScIsWideTrail(Scr[CY][PX].Character) and (PX > 0) then
+      if (Scr[CY][PX].Character).IsWideCharTrail and (PX > 0) then
         Dec(PX);
-      ScAppendZeroWidth(Scr[CY][PX].Character, @Buf[0], N);
+      (Scr[CY][PX].Character).AppendZeroWidthChar(@Buf[0], N);
       Dirty[CY] := True;
     end;
     Exit;
@@ -697,12 +697,12 @@ begin
   if Insert then
     InsertChars(W);
   FixWide(CY, CX, CX + W - 1);
-  ScInitText(Ch, @Buf[0], N, W = 2);
-  Scr[CY][CX] := CellMake(Ch, Pen);
+  Ch.InitWithMultiByteChar(@Buf[0], N, W = 2);
+  Scr[CY][CX] := TScreenCell.Create(Ch, Pen);
   if W = 2 then
   begin
-    ScInitWideTrail(Ch);
-    Scr[CY][CX + 1] := CellMake(Ch, Pen);
+    Ch.InitAsWideCharTrail;
+    Scr[CY][CX + 1] := TScreenCell.Create(Ch, Pen);
   end;
   Dirty[CY] := True;
   Inc(CX, W);
@@ -1288,7 +1288,7 @@ begin
                begin
                  { DECALN: the screen of E }
                  Ch0 := Blank;
-                 ScInitChar(Ch, Ord('E'));
+                 Ch.InitWithChar(Ord('E'));
                  Ch0.Character := Ch;
                  for D := 0 to FRows - 1 do
                  begin

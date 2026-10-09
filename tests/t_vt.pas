@@ -62,7 +62,7 @@ end;
 
 function Ch(X, Y: Integer): AnsiString;
 begin
-  Result := ScText(Cell(X, Y).Character);
+  Result := (Cell(X, Y).Character).GetText;
 end;
 
 begin
@@ -171,12 +171,12 @@ begin
   E.Feed('п' + 'р' + 'и');
   Check((Ch(0, 0) = 'п') and (Ch(2, 0) = 'и') and (E.CursorX = 3), 'UTF-8: Cyrillic, one column each');
   E.Feed(#13#10'日本');
-  Check(ScIsWide(Cell(0, 1).Character) and ScIsWideTrail(Cell(1, 1).Character) and ScIsWide(Cell(2, 1).Character) and (E.CursorX = 4),
+  Check((Cell(0, 1).Character).IsWide and (Cell(1, 1).Character).IsWideCharTrail and (Cell(2, 1).Character).IsWide and (E.CursorX = 4),
     'wide: a wide character takes a cell and a trail');
   Check(E.RowText(1) = '日本', 'wide: the text of the row has no trails');
   Fresh(4, 2);
   E.Feed('abc日');
-  Check((E.CursorY = 1) and ScIsWide(Cell(0, 1).Character), 'wide: does not fit the line, goes to the next');
+  Check((E.CursorY = 1) and (Cell(0, 1).Character).IsWide, 'wide: does not fit the line, goes to the next');
   Fresh(6, 2);
   E.Feed('e' + #$CC#$81 + 'x');
   Check((Ch(0, 0) = 'e' + #$CC#$81) and (Ch(1, 0) = 'x') and (E.CursorX = 2), 'combining: the mark goes into the cell of its letter');

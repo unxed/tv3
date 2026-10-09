@@ -213,8 +213,10 @@ begin
 end;
 
 procedure SetCellGlyph(var Cell: TScreenCell; CodePoint: LongWord);
+var
+  Buf: array[0..7] of Byte;
 begin
-  ScInitCodePoint(Cell.Character, CodePoint);
+  Cell.Character.InitWithMultiByteChar(@Buf[0], Utf8Encode(CodePoint, @Buf[0]), False);
 end;
 
 end.

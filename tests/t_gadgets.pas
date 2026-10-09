@@ -57,7 +57,7 @@ begin
   Result := '';
   for X := X0 to X1 do
   begin
-    T := ScText((TScreen.ScreenBuffer + (Y * TScreen.ScreenWidth + X))^.Character);
+    T := ((TScreen.ScreenBuffer + (Y * TScreen.ScreenWidth + X))^.Character).GetText;
     if (T = '') or (T = #0) then
       T := ' ';
     Result := Result + T;

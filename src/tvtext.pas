@@ -211,7 +211,7 @@ begin
       if I < CellCount then
       begin
         Buf[0] := $EF; Buf[1] := $BF; Buf[2] := $BD;      { U+FFFD }
-        ScInitText(Cells^[I].Character, @Buf[0], 3, False);
+        Cells^[I].Character.InitWithMultiByteChar(@Buf[0], 3, False);
         Len := Used;
         Width := 1;
       end;
@@ -222,9 +222,9 @@ begin
       if (I > 0) and not IsZeroWidthJoiner(Text, Used) then
       begin
         K := I - 1;
-        while ScIsWideTrail(Cells^[K].Character) and (K > 0) do
+        while Cells^[K].Character.IsWideCharTrail and (K > 0) do
           Dec(K);
-        ScAppendZeroWidth(Cells^[K].Character, Text, Used);
+        Cells^[K].Character.AppendZeroWidthChar(Text, Used);
       end;
       Len := Used;
       Width := 0;
@@ -232,10 +232,10 @@ begin
     else if I < CellCount then
     begin
       Wide := W > 1;
-      ScInitText(Cells^[I].Character, Text, Used, Wide);
+      Cells^[I].Character.InitWithMultiByteChar(Text, Used, Wide);
       Trail := Wide and (I + 1 < CellCount);
       if Trail then
-        ScInitWideTrail(Cells^[I + 1].Character);
+        Cells^[I + 1].Character.InitAsWideCharTrail;
       Len := Used;
       Width := 1;
       if Trail then
@@ -250,10 +250,10 @@ begin
     if (Text[0] < $20) or (Text[0] >= $7F) then
     begin
       N := CpToUtf8(Text[0], @Buf[0]);
-      ScInitText(Cells^[I].Character, @Buf[0], N, False);
+      Cells^[I].Character.InitWithMultiByteChar(@Buf[0], N, False);
     end
     else
-      ScInitChar(Cells^[I].Character, Text[0]);
+      Cells^[I].Character.InitWithChar(Text[0]);
     Len := 1;
     Width := 1;
   end;
@@ -287,7 +287,7 @@ begin
     J := Skipped;
     if (LeadWidth > TextIndent) and (I < CellCount) then
     begin
-      ScInitChar(PCellArray(Cells)^[I].Character, Ord(' '));
+      (PCellArray(Cells)^[I].Character).InitWithChar(Ord(' '));
       if Attr <> nil then
         PCellArray(Cells)^[I].Attribute := Attr^;
       Inc(I);
@@ -311,7 +311,7 @@ var
 begin
   for I := 0 to CellCount - 1 do
   begin
-    ScInitChar(PCellArray(Cells)^[I].Character, Ch);
+    (PCellArray(Cells)^[I].Character).InitWithChar(Ch);
     if Attr <> nil then
       PCellArray(Cells)^[I].Attribute := Attr^;
   end;

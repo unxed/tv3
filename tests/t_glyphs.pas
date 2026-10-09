@@ -45,20 +45,20 @@ begin
   for I := 0 to 2 do
     SetCellGlyph(Cells[I], glDblH);
   for I := 0 to 2 do
-    Check((ScLength(Cells[I].Character) = 3) and (Cells[I].Character.Text[0] = $E2) and (Cells[I].Character.Text[1] = $95) and
-          (Cells[I].Character.Text[2] = $90), 'cell: U+2550 in UTF-8');
-  Check(Cells[3].Character.Text[0] = 0, 'cell: the next one is untouched');
+    Check((Length(Cells[I].Character.GetText) = 3) and (Ord(Cells[I].Character.GetText[1]) = $E2) and (Ord(Cells[I].Character.GetText[2]) = $95) and
+          (Ord(Cells[I].Character.GetText[3]) = $90), 'cell: U+2550 in UTF-8');
+  Check(Ord(Cells[3].Character.GetText[1]) = 0, 'cell: the next one is untouched');
   { a glyph over a cell that holds a longer text leaves no stray bytes (an overlay that wrote one byte did) }
   SetCellGlyph(Cells[0], glLightH);
-  Check((ScLength(Cells[0].Character) = 3) and (Cells[0].Character.Text[0] = $E2) and (Cells[0].Character.Text[1] = $94) and
-        (Cells[0].Character.Text[2] = $80), 'cell: replaced as a whole');
+  Check((Length(Cells[0].Character.GetText) = 3) and (Ord(Cells[0].Character.GetText[1]) = $E2) and (Ord(Cells[0].Character.GetText[2]) = $94) and
+        (Ord(Cells[0].Character.GetText[3]) = $80), 'cell: replaced as a whole');
 
   B := TDrawBuffer.Create(80);
   B.MoveGlyph(2, glDblH, TColorAttr(LongInt($1F)), 3);
-  Check((PScreenCell(B.Data)[2].Character.Text[0] = $E2) and (Byte(PScreenCell(B.Data)[4].Attribute) = $1F), 'draw buffer: MoveGlyph');
-  Check(PScreenCell(B.Data)[5].Character.Text[0] = 0, 'draw buffer: only Count cells');
+  Check((Ord(PScreenCell(B.Data)[2].Character.GetText[1]) = $E2) and (Byte(PScreenCell(B.Data)[4].Attribute) = $1F), 'draw buffer: MoveGlyph');
+  Check(Ord(PScreenCell(B.Data)[5].Character.GetText[1]) = 0, 'draw buffer: only Count cells');
   B.PutGlyph(1, glLightV);
-  Check((PScreenCell(B.Data)[1].Character.Text[0] = $E2) and (PScreenCell(B.Data)[1].Character.Text[2] = $82), 'draw buffer: PutGlyph');
+  Check((Ord(PScreenCell(B.Data)[1].Character.GetText[1]) = $E2) and (Ord(PScreenCell(B.Data)[1].Character.GetText[3]) = $82), 'draw buffer: PutGlyph');
   B.Free;
   Finish;
 end.

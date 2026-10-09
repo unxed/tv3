@@ -22,7 +22,7 @@ end;
 
 function Txt(Idx: Integer): ShortString;
 begin
-  Result := ScText(Cells[Idx].Character);
+  Result := Cells[Idx].Character.GetText;
 end;
 
 function ToCp(const S: ShortString): Byte;
@@ -83,7 +83,7 @@ begin
   Check(Draw(8, 'Hi') = 2, 'draw ASCII returns the cells used');
   Check((Txt(0) = 'H') and (Txt(1) = 'i'), 'draw ASCII text');
   Check(Byte(Cells[0].Attribute) = $1F, 'draw sets the attribute');
-  Check((Cells[2].Character.Text[0] = 0) and (Cells[2].Attribute = Default(TColorAttr)), 'draw leaves the rest alone');
+  Check((Ord(Cells[2].Character.GetText[1]) = 0) and (Cells[2].Attribute = Default(TColorAttr)), 'draw leaves the rest alone');
 
   { indent, and text cut at the cell count }
   Clear;
@@ -93,16 +93,16 @@ begin
   { double-width characters }
   Clear;
   Check(Draw(4, Cjk + 'b') = 3, 'draw wide + ASCII');
-  Check(ScIsWide(Cells[0].Character) and (Txt(0) = Cjk), 'wide character in its cell');
-  Check(ScIsWideTrail(Cells[1].Character), 'trail after the wide character');
+  Check(Cells[0].Character.IsWide and (Txt(0) = Cjk), 'wide character in its cell');
+  Check(Cells[1].Character.IsWideCharTrail, 'trail after the wide character');
   Check(Txt(2) = 'b', 'text continues after the trail');
   Check((Byte(Cells[0].Attribute) = $1F) and (Byte(Cells[1].Attribute) = $1F),
     'attribute set in the character and its trail');
 
   Clear;
   Check(Draw(1, Cjk) = 1, 'wide character in the last cell takes one cell');
-  Check(ScIsWide(Cells[0].Character), 'wide flag stays without the trail');
-  Check(not ScIsWideTrail(Cells[1].Character), 'no trail beyond the cells');
+  Check(Cells[0].Character.IsWide, 'wide flag stays without the trail');
+  Check(not Cells[1].Character.IsWideCharTrail, 'no trail beyond the cells');
 
   { combining characters join the previous cell }
   Clear;
@@ -178,7 +178,7 @@ begin
   Clear;
   TText.DrawChar(@Cells[0], 3, Ord('='), @Attr);
   Check((Txt(0) = '=') and (Txt(2) = '=') and (Byte(Cells[1].Attribute) = $1F), 'DrawChar fills cells');
-  Check(Cells[3].Character.Text[0] = 0, 'DrawChar stops at the count');
+  Check(Ord(Cells[3].Character.GetText[1]) = 0, 'DrawChar stops at the count');
 
   Finish;
 end.

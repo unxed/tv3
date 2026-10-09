@@ -136,7 +136,7 @@ begin
   Result := '';
   for X := X0 to X1 do
   begin
-    T := ScText(Cell(X, Y)^.Character);
+    T := (Cell(X, Y)^.Character).GetText;
     if T = #0 then
       Result := Result + '_'
     else
@@ -476,11 +476,11 @@ begin
   { the 16-bit interface of Borland Pascal: Word cells and BIOS attributes }
   Leg := TLeg.Create(R(0, 6, 4, 8));
   Desk.Insert(Leg);
-  Check((Cell(0, 6)^.Character.Text[0] = Ord('A')) and (Byte(Cell(0, 6)^.Attribute) = $1E),
+  Check((Ord(Cell(0, 6)^.Character.GetText[1]) = Ord('A')) and (Byte(Cell(0, 6)^.Attribute) = $1E),
     'WriteLineW: the cell is a character and an attribute');
-  Check((Cell(1, 7)^.Character.Text[0] = Ord('B')) and (Byte(Cell(1, 7)^.Attribute) = $1F),
+  Check((Ord(Cell(1, 7)^.Character.GetText[1]) = Ord('B')) and (Byte(Cell(1, 7)^.Attribute) = $1F),
     'WriteLineW writes the same cells to every row');
-  Check((Cell(2, 6)^.Character.Text[0] = Ord('C')) and (Cell(3, 6)^.Character.Text[0] = Ord('D')),
+  Check((Ord(Cell(2, 6)^.Character.GetText[1]) = Ord('C')) and (Ord(Cell(3, 6)^.Character.GetText[1]) = Ord('D')),
     'WriteBufW: W cells of H rows');
   Desk.Delete(Leg);
   Leg.Free;
