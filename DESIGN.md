@@ -276,8 +276,7 @@ collections and streams, the editor — to the extent that DN uses them.
   `RView := TStreamableClass.Create('TView', @TView.Build)`; `Build` makes an empty object through the protected
   `Create(streamableInit)` and `Read` fills it. The differences are listed in `docs/API-NAMES.md` (section 1).
   The unit also has the byte streams `TStream`, `TDosStream`, `TBufStream`, `TMemoryStream` (the buffers of the object
-  streams, and the files of dn) and the old registry `RegisterType`/`Get`/`Put`, used now only by the help topics
-  (`docs/API-NAMES.md`, section 3).
+  streams, and the files of dn).
 - **FPC trap:** `SizeOf(X)` for a class variable with a VMT reads the size from the VMT
   of the instance (an uninitialized instance — a crash); for a static size write
   `SizeOf(TFoo)`.

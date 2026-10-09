@@ -21,9 +21,8 @@
     - a class has one base: iopstream is an ipstream with an opstream (it converts to it),
       ifpstream, ofpstream and fpstream have the members of fpbase.
 
-  The byte streams TStream, TDosStream, TBufStream, TMemoryStream and the registry RegisterType,
-  TStreamRec (with TStream.Get and Put) are tv3 additions: the buffers of the object streams, the
-  files of dn, and the streams of the help topics (TvHelp). }
+  The byte streams TStream, TDosStream, TBufStream, TMemoryStream are tv3 additions: the buffers of
+  the object streams and the files of dn. }
 unit TvObjs;
 
 {$I tvdefs.inc}
@@ -35,7 +34,7 @@ uses
 
 const
   { Status of a stream: stOk, or the kind of the first failure (negative) }
-  stPutError = -6; stGetError = -5;        { unregistered type in Put / Get }
+  stPutError = -6; stGetError = -5;
   stWriteError = -4; stReadError = -3; stInitError = -2;
   stError = -1;                            { a generic failure }
   stOk = 0;
@@ -85,18 +84,14 @@ type
     constructor Create(const N: ShortString; B: TStreamableBuilder; Unused: Integer = 0);
   end;
 
-  PStreamRec = ^TStreamRec;
-
   TStream = class
     Status: Integer;
     ErrorInfo: Integer;
     procedure CopyFrom(S: TStream; Count: Int64);
     procedure Error(Code, Info: Integer); virtual;
     procedure Flush; virtual;
-    function Get: TStreamable;
     function GetPos: Int64; virtual;
     function GetSize: Int64; virtual;
-    procedure Put(P: TStreamable);
     procedure Read(var Buf; Count: Longint); virtual;
     function ReadStr: PStr;
     { Extensions of DN (the strings of more than 255 characters, zero-terminated strings, the end of the stream):
@@ -174,17 +169,6 @@ type
     procedure Write(const Buf; Count: Longint); override;
   end;
 
-
-  TLoadProc = function(S: TStream): TStreamable;
-  TStoreProc = procedure(P: TStreamable; S: TStream);
-
-  TStreamRec = record
-    ObjType: Word;
-    VmtLink: PtrUInt;      { PtrUInt(TypeOf(TFoo)) }
-    Load: TLoadProc;
-    Store: TStoreProc;
-    Next: PStreamRec;
-  end;
 
   TItemList = array[0..MaxCollectionSize - 1] of Pointer;
   PItemList = ^TItemList;
@@ -468,12 +452,6 @@ type
     function RdBuf: TStream;
   end;
 
-procedure RegisterType(var S: TStreamRec);
-{ DN: registers the record in place of the one that is registered for the same type number (RegisterType keeps the first). }
-procedure ReRegisterType(var S: TStreamRec);
-{ The record registered for a type number, nil if none. }
-function FindStreamRec(ObjType: Word): PStreamRec;
-
 type
   { the name of a file of the program into the name that the system takes (DN: DOS names on Unix) }
   TFileNameHook = function(const Name: string): string;
@@ -489,62 +467,6 @@ var
   RStringCollection: TStreamableClass;
 
 implementation
-
-{ --- registry ---------------------------------------------------------------- }
-
-var
-  Registry: PStreamRec = nil;
-
-function FindStreamRec(ObjType: Word): PStreamRec;
-begin
-  Result := Registry;
-  while (Result <> nil) and (Result^.ObjType <> ObjType) do
-    Result := Result^.Next;
-end;
-
-function FindByVmt(Vmt: PtrUInt): PStreamRec;
-begin
-  Result := Registry;
-  while (Result <> nil) and (Result^.VmtLink <> Vmt) do
-    Result := Result^.Next;
-end;
-
-procedure RegisterType(var S: TStreamRec);
-var
-  Link: ^PStreamRec;
-begin
-  { a class is registered once; another class with a number that is taken can still be written (Put finds it by its
-    class), while Get keeps reading that number as the class registered first }
-  if FindByVmt(S.VmtLink) <> nil then
-    Exit;
-  Link := @Registry;
-  while Link^ <> nil do
-    Link := @Link^^.Next;
-  S.Next := nil;
-  Link^ := @S;
-end;
-
-procedure ReRegisterType(var S: TStreamRec);
-var
-  Link: ^PStreamRec;
-begin
-  Link := @Registry;
-  while Link^ <> nil do
-  begin
-    if Link^^.ObjType = S.ObjType then
-    begin
-      if Link^ <> @S then
-      begin
-        S.Next := Link^^.Next;
-        Link^ := @S;
-      end;
-      Exit;
-    end;
-    Link := @Link^^.Next;
-  end;
-  S.Next := Registry;
-  Registry := @S;
-end;
 
 { --- TStream ----------------------------------------------------------------- }
 
@@ -728,46 +650,6 @@ begin
   Write(L, 1);
   if L > 0 then
     Write(P^[1], L);
-end;
-
-function TStream.Get: TStreamable;
-var
-  Id: Word;
-  R: PStreamRec;
-begin
-  Result := nil;
-  Read(Id, SizeOf(Id));
-  if (Status <> stOk) or (Id = 0) then
-    Exit;
-  R := FindStreamRec(Id);
-  if (R = nil) or not Assigned(R^.Load) then
-  begin
-    Error(stGetError, Id);
-    Exit;
-  end;
-  Result := R^.Load(Self);
-end;
-
-procedure TStream.Put(P: TStreamable);
-var
-  Id: Word;
-  R: PStreamRec;
-begin
-  if P = nil then
-  begin
-    Id := 0;
-    Write(Id, SizeOf(Id));
-    Exit;
-  end;
-  R := FindByVmt(PtrUInt(PPointer(P)^));
-  if (R = nil) or not Assigned(R^.Store) then
-  begin
-    Error(stPutError, 0);
-    Exit;
-  end;
-  Id := R^.ObjType;
-  Write(Id, SizeOf(Id));
-  R^.Store(P, Self);
 end;
 
 { --- TDosStream -------------------------------------------------------------- }

@@ -511,8 +511,11 @@ var
   P: PParagraph;
   C: TCrossRef;
   N: LongInt;
+  Written: array of THelpTopic;
 begin
-  HF := THelpFile.Create(TBufStream.Create(OutName, stCreate, 4096));
+  { the topics live until the file is closed: the stream knows a written object by its address }
+  Written := nil;
+  HF := THelpFile.Create(fpstream.Create(OutName, stCreate));
   for T := 0 to High(Topics) do
   begin
     if Length(Topics[T].Paras) = 0 then
@@ -544,9 +547,12 @@ begin
     for K := 0 to High(Topics[T].Names) do
       HF.RecordPositionInIndex(Topics[T].Names[K].Number);
     HF.PutTopic(Topic);
-    Topic.Free;
+    SetLength(Written, Length(Written) + 1);
+    Written[High(Written)] := Topic;
   end;
   HF.Free;
+  for T := 0 to High(Written) do
+    Written[T].Free;
 end;
 
 { the unit with the constants: the names of the topics (and of the references) that are not the contexts of Turbo Vision }
@@ -615,8 +621,6 @@ begin
     Writeln('usage: tvhc INPUT.HTX OUTPUT.HLP [SYMBOLS.PAS] [options]');
     Halt(1);
   end;
-  RegisterType(RHelpTopic);
-  RegisterType(RHelpIndex);
   Load;
   ReadTopics;
   CheckNames;

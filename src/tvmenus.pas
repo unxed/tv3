@@ -1692,7 +1692,8 @@ var
   Last: ^TStatusItem;
   ACount: Integer;
   T: PStr;
-  Key, Cmd: Word;
+  Key: TKey;
+  Cmd: Word;
   Text: ShortString;
 begin
   First := nil;
@@ -1702,7 +1703,9 @@ begin
   begin
     Dec(ACount);
     T := Ip.ReadString;
-    Key := Ip.ReadWord;
+    { the key as WriteItems writes it: the code, then the modifiers }
+    Key.Code := Ip.ReadWord;
+    Key.Mods := Ip.ReadWord;
     Cmd := Ip.ReadWord;
     if T = nil then
       Text := ''

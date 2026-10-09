@@ -1,7 +1,7 @@
 program t_status;
 {$I ../src/tvdefs.inc}
 uses TvCodePg, TvGeom, TvColors, TvCell, TvEvents, TvKeys, TvDrawBuf, TvScreen, TvViews,
-  TvUtil, TvMenus;
+  TvUtil, TvObjs, TvMenus;
 {$I testlib.inc}
 
 function CommandsOf(const A: array of Integer): TCommandSet;
@@ -133,6 +133,10 @@ var
   HV: THelpView;
   Ev: TEvent;
   Used0: PtrUInt;
+  Mem: TMemoryStream;
+  Os: opstream;
+  Ip: ipstream;
+  Back: TStatusLine;
 
 begin
   ScreenCreate(W, H);
@@ -258,6 +262,30 @@ begin
     'TStatusDef + TStatusItem adds the items to the last definition');
   Check((OpDefs.Next.Min = 1000) and (OpDefs.Next.Items.Command = cmHelp), 'TStatusDef + TStatusDef chains the definitions');
   Plain := TStatusLine.Create(R(0, Y, W, Y + 1), OpDefs);
+  Plain.Free;
+
+  { the streams: a key is read back with its modifiers, as it is written }
+  Plain := TStatusLine.Create(R(0, Y, W, Y + 1),
+    TStatusDef.Create(0, $FFFF, TStatusItem.Create('~Shift-F3~ Open', TKey.Create(kbF3, kbShift), cmOpen,
+      TStatusItem.Create('~F1~ Help', kbF1, cmHelp, nil)), nil));
+  Mem := TMemoryStream.Create(0, 256);
+  Os := opstream.Create(Mem);
+  Os.WritePointer(Plain);
+  Os.Free;
+  Mem.Seek(0);
+  Ip := ipstream.Create(Mem);
+  Back := TStatusLine(Ip.ReadPointer);
+  Ip.Free;
+  Mem.Free;
+  Check((Back <> nil) and (Back.Defs <> nil) and (Back.Defs.Items <> nil), 'a status line is read from a stream');
+  if (Back <> nil) and (Back.Defs <> nil) and (Back.Defs.Items <> nil) then
+  begin
+    Check(Back.Defs.Items.KeyCode = Plain.Defs.Items.KeyCode, 'the key of an item comes back with its modifiers');
+    Check((Back.Defs.Items.Command = cmOpen) and (Back.Defs.Items.Next <> nil) and
+      (Back.Defs.Items.Next.Command = cmHelp) and (Back.Defs.Items.Next.KeyCode = TKey(kbF1)),
+      'the command of an item and the next item follow the key');
+  end;
+  Back.Free;
   Plain.Free;
   Desk.Free;
   Finish;

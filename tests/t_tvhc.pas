@@ -73,9 +73,7 @@ begin
     'See {nowhere}.']);
   Check(ExecuteProcess(Tool, [Htx, Hlp, Sym, '/4DN_OSP']) = 0, 'a good text is compiled (a reference to nowhere is a warning)');
 
-  RegisterType(RHelpTopic);
-  RegisterType(RHelpIndex);
-  HF := THelpFile.Create(TBufStream.Create(Hlp, stOpenRead, 1024));
+  HF := THelpFile.Create(fpstream.Create(Hlp, stOpenRead));
   T := HF.GetTopic(1);
   T.SetWidth(40);
   Check(Copy(T.GetLine(1), 1, 1) = #218, '.title: a box, line 1');
@@ -114,7 +112,7 @@ begin
   { a text in UTF-8 (the help of DN built with -dDNUTF8): the box of .title is as wide as the text in columns }
   WriteText('t_tvhc_u8.htx', ['.topic U=1', '.title Привет', 'Текст.']);
   Check(ExecuteProcess(Tool, ['t_tvhc_u8.htx', 't_tvhc_u8.hlp', 't_tvhc_u8.sym', '/4DN_OSP']) = 0, 'a text in UTF-8 is compiled');
-  HF := THelpFile.Create(TBufStream.Create('t_tvhc_u8.hlp', stOpenRead, 1024));
+  HF := THelpFile.Create(fpstream.Create('t_tvhc_u8.hlp', stOpenRead));
   T := HF.GetTopic(1);
   T.SetWidth(40);
   Check(T.GetLine(1) = #218 + StringOfChar(#196, 8), '.title in UTF-8: the top of the box has 6 + 2 columns: ' + IntToStr(Length(T.GetLine(1))));

@@ -1,5 +1,5 @@
 program t_bstrm;
-{ The byte streams (TStream, TDosStream, TBufStream, TMemoryStream) and their registry of types (RegisterType, Get, Put). }
+{ The byte streams (TStream, TDosStream, TBufStream, TMemoryStream)  }
 {$I ../src/tvdefs.inc}
 uses SysUtils, TvUtil, TvObjs;
 {$I testlib.inc}
@@ -16,14 +16,6 @@ type
     C: Int64;
     D: TStreamable;
     constructor Create;
-  end;
-
-  { a streamable point }
-  TPt = class;
-  TPt = class(TStreamable)
-    X, Y: Integer;
-    constructor Create(AX, AY: Integer);
-    procedure Store(S: TStream);
   end;
 
   { a collection that records its errors instead of stopping the program }
@@ -52,38 +44,6 @@ constructor TB.Create;
 begin
   inherited Create;
 end;
-
-constructor TPt.Create(AX, AY: Integer);
-begin
-  inherited Create;
-  X := AX;
-  Y := AY;
-end;
-
-procedure TPt.Store(S: TStream);
-begin
-  S.Write(X, SizeOf(X));
-  S.Write(Y, SizeOf(Y));
-end;
-
-function LoadPt(S: TStream): TStreamable;
-var
-  P: TPt;
-begin
-  P := TPt.Create(0, 0);
-  S.Read(P.X, SizeOf(Integer));
-  S.Read(P.Y, SizeOf(Integer));
-  Result := P;
-end;
-
-procedure StorePt(P: TStreamable; S: TStream);
-begin
-  TPt(P).Store(S);
-end;
-
-var
-  RPt: TStreamRec;
-  RPt2: TStreamRec;
 
 procedure TSafeColl.Error(Code, Info: Integer);
 begin
@@ -133,7 +93,6 @@ var
   Back: array[0..9999] of Byte;
   I: Integer;
   P: PStr;
-  W: Word;
   Ok: Boolean;
   Used0: PtrUInt;
   FreeObj: TStreamable;
@@ -142,9 +101,6 @@ var
   SC: TStringCollection;
   C2: TSafeColl;
   PC: TCollection;
-  Pt: TPt;
-  O: TStreamable;
-  Dummy: TStreamable;
   Bytes: array[0..3] of Byte;
 
 { routines declared inside the caller, passed as @Name (Turbo Pascal style): they use the variables of the caller }
@@ -356,54 +312,6 @@ begin
   Check(F.GetSize = 10010, 'the appended file has the new size');
   F.Free;
   DeleteFile(TmpName);
-
-  { --- registered types: Get and Put -------------------------------------------------- }
-  FillChar(RPt, SizeOf(RPt), 0);
-  RPt.ObjType := 4001;
-  RPt.VmtLink := PtrUInt(System.TClass(TPt));
-  RPt.Load := @LoadPt;
-  RPt.Store := @StorePt;
-  RegisterType(RPt);
-  Check(FindStreamRec(4001) = @RPt, 'RegisterType');
-  RPt2 := RPt;
-  RegisterType(RPt2);
-  Check(FindStreamRec(4001) = @RPt, 'RegisterType keeps the first record of a number');
-  RPt2.Next := nil;
-  ReRegisterType(RPt2);
-  Check(FindStreamRec(4001) = @RPt2, 'DN extensions: ReRegisterType replaces it');
-  ReRegisterType(RPt);
-  Check(FindStreamRec(4001) = @RPt, 'DN extensions: and back');
-  M := TMemoryStream.Create(0, 64);
-  Pt := TPt.Create(3, -4);
-  M.Put(Pt);
-  M.Put(nil);
-  Pt.X := 99;
-  M.Put(Pt);
-  Pt.Free;
-  Check(M.Status = stOk, 'Put of a registered type');
-  M.Seek(0);
-  O := M.Get;
-  Check((O <> nil) and (TPt(O).X = 3) and (TPt(O).Y = -4), 'Get makes the instance again');
-  O.Free;
-  Check(M.Get = nil, 'a nil instance');
-  O := M.Get;
-  Check((O <> nil) and (TPt(O).X = 99), 'the next instance');
-  O.Free;
-  Dummy := TStreamable.Create;
-  M.Put(Dummy);
-  Check(M.Status = stPutError, 'Put of a type that is not registered: stPutError');
-  M.Reset;
-  W := 7777;
-  M.Seek(0);
-  M.Truncate;
-  M.Write(W, 2);
-  M.Seek(0);
-  Check((M.Get = nil) and (M.Status = stGetError) and (M.ErrorInfo = 7777), 'Get of an unknown number: stGetError');
-  M.Free;
-  Dummy.Free;
-  Check(True, 'a number registered twice is ignored');
-  RegisterType(RPt);
-  Check(FindStreamRec(4001) = @RPt, 'the registry is not damaged');
 
   Check(GetFPCHeapStatus.CurrHeapUsed = Used0, 'no memory is left behind');
   Finish;

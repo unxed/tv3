@@ -7,11 +7,8 @@
   Borland disclaimer and MIT notice: COPYRIGHT.magiblot.
 
   Differences from the C++ original (see tv/DESIGN.md):
-    - the streams are those of TvObjs; the stream records (10000: THelpTopic, 10001: THelpIndex) are the numbers of Borland
-      Pascal, RegisterType(RHelpTopic) and RegisterType(RHelpIndex) make them known; the fields are written with fixed sizes:
-      the count of the paragraphs (LongInt), for each: the size (Word), Wrap (Byte), the bytes of the text; the count of
-      the cross references (LongInt), for each: Ref (LongInt), Offset (LongInt), Length (Byte); THelpIndex: Size (LongInt:
-      the contexts go up to 65535, which does not fit a Word with the step of 10), then Size LongInts;
+    - the streams are the object streams of TvObjs (ipstream, opstream, iopstream); THelpTopic and THelpIndex register
+      themselves by name (RHelpTopic, RHelpIndex);
     - a line of a topic is a ShortString (longer lines are cut to 255 bytes);
     - the help files are made by tvhc (tv/tools/tvhc.pas) from the text of a help (.htx). }
 unit TvHelp;
@@ -49,16 +46,14 @@ type
     Length: Byte;
   end;
 
-  TCrossRefHandler = procedure(S: TStream; Ref: LongInt);
+  TCrossRefHandler = procedure(Os: opstream; Value: Integer);
 
   THelpTopic = class(TStreamable)
     Paragraphs: PParagraph;
     NumRefs: Integer;
     CrossRefs: PCrossRef;
-    constructor Create;
-    constructor Load(S: TStream);
+    constructor Create; overload;
     destructor Destroy; override;
-    procedure Store(S: TStream);
     procedure AddCrossRef(Ref: TCrossRef);
     procedure AddParagraph(P: PParagraph);
     { the place of a cross reference in the wrapped text: X, Y (Y from 1) and the width on the screen }
@@ -77,33 +72,51 @@ type
     LastParagraph: PParagraph;
     procedure WrapText(Text: PByte; Size: Integer; var Offset: Integer; Wrap: Boolean; out LineStart, LineLen: Integer);
     procedure DisposeParagraphs;
+    procedure ReadParagraphs(Ip: ipstream);
+    procedure ReadCrossRefs(Ip: ipstream);
+    procedure WriteParagraphs(Os: opstream);
+    procedure WriteCrossRefs(Os: opstream);
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    procedure Write(Os: opstream); override;
+    function Read(Ip: ipstream): Pointer; override;
+  public
+    class function Build: TStreamable; static;
   end;
 
 
   THelpIndex = class(TStreamable)
     Size: LongInt;
     Index: PLongInt;
-    constructor Create;
-    constructor Load(S: TStream);
+    constructor Create; overload;
     destructor Destroy; override;
-    procedure Store(S: TStream);
     function Position(I: Integer): LongInt;
     procedure Add(I: Integer; Val: LongInt);
+  protected
+    constructor Create(AInit: TStreamableInit); overload;
+    function StreamableName: ShortString; override;
+    procedure Write(Os: opstream); override;
+    function Read(Ip: ipstream): Pointer; override;
+  public
+    class function Build: TStreamable; static;
   end;
 
 
   THelpFile = class
-    Stream: TStream;
+    Stream: iopstream;
     Modified: Boolean;
     Index: THelpIndex;
     IndexPos: LongInt;
     { the file takes the stream and disposes it }
-    constructor Create(S: TStream);
+    constructor Create(S: iopstream);
     destructor Destroy; override;
     function GetTopic(I: Integer): THelpTopic;
     function InvalidTopic: THelpTopic;
     procedure RecordPositionInIndex(I: Integer);
     procedure PutTopic(Topic: THelpTopic);
+  private
+    class procedure EnsureStreamSize(S: iopstream; DesiredSize: Integer); static;
   end;
 
 
@@ -133,16 +146,18 @@ type
     function GetPalette: TPalette; override;
   end;
 
-procedure NotAssigned(S: TStream; Ref: LongInt);
+procedure NotAssigned(Os: opstream; Value: Integer);
 
 var
   CrossRefHandler: TCrossRefHandler = @NotAssigned;
-  { stream records: RegisterType(RHelpTopic), RegisterType(RHelpIndex) }
-  RHelpTopic, RHelpIndex: TStreamRec;
+  RHelpTopic, RHelpIndex: TStreamableClass;
 
 implementation
 
-procedure NotAssigned(S: TStream; Ref: LongInt);
+uses
+  SysUtils;
+
+procedure NotAssigned(Os: opstream; Value: Integer);
 begin
 end;
 
@@ -160,89 +175,125 @@ begin
   LastParagraph := nil;
 end;
 
-constructor THelpTopic.Load(S: TStream);
-var
-  I, Count: LongInt;
-  P: PParagraph;
-  PP: ^PParagraph;
-  C: PCrossRef;
+constructor THelpTopic.Create(AInit: TStreamableInit);
 begin
   inherited Create;
-  Paragraphs := nil;
-  NumRefs := 0;
-  CrossRefs := nil;
-  LastOffset := 0;
-  LastParagraph := nil;
-  S.Read(Count, SizeOf(Count));
-  PP := @Paragraphs;
-  for I := 1 to Count do
-  begin
-    New(P);
-    S.Read(P^.Size, SizeOf(P^.Size));
-    S.Read(P^.Wrap, SizeOf(P^.Wrap));
-    GetMem(P^.Text, P^.Size + 1);
-    if P^.Size > 0 then
-      S.Read(P^.Text^, P^.Size);
-    P^.Text[P^.Size] := 0;
-    P^.Next := nil;
-    PP^ := P;
-    PP := @P^.Next;
-  end;
-  S.Read(Count, SizeOf(Count));
-  if Count > 0 then
-  begin
-    GetMem(CrossRefs, Count * SizeOf(TCrossRef));
-    NumRefs := Count;
-    for I := 0 to Count - 1 do
-    begin
-      C := CrossRefs + I;
-      S.Read(C^.Ref, SizeOf(C^.Ref));
-      S.Read(C^.Offset, SizeOf(C^.Offset));
-      S.Read(C^.Length, SizeOf(C^.Length));
-    end;
-  end;
-  Width := 0;
-  LastLine := MaxInt;
 end;
 
-procedure THelpTopic.Store(S: TStream);
-var
-  N, K: LongInt;
-  Para: PParagraph;
-  X: PCrossRef;
-  Custom: Boolean;
+class function THelpTopic.Build: TStreamable;
 begin
-  { the paragraphs }
-  N := 0;
-  Para := Paragraphs;
-  while Para <> nil do
+  Result := THelpTopic.Create(streamableInit);
+end;
+
+function THelpTopic.StreamableName: ShortString;
+begin
+  Result := 'THelpTopic';
+end;
+
+procedure THelpTopic.Write(Os: opstream);
+begin
+  WriteParagraphs(Os);
+  WriteCrossRefs(Os);
+end;
+
+function THelpTopic.Read(Ip: ipstream): Pointer;
+begin
+  ReadParagraphs(Ip);
+  ReadCrossRefs(Ip);
+  Width := 0;
+  LastLine := MaxInt;
+  Result := Self;
+end;
+
+{ a paragraph: its length (a Word), the wrap flag (an Integer), then the text }
+procedure THelpTopic.ReadParagraphs(Ip: ipstream);
+var
+  Total, K, Flag: Integer;
+  Len: Word;
+  Tail: ^PParagraph;
+  Fresh: PParagraph;
+begin
+  Total := 0;
+  Ip.ReadBytes(Total, SizeOf(Integer));
+  Tail := @Paragraphs;
+  for K := 1 to Total do
   begin
-    Inc(N);
-    Para := Para^.Next;
+    Len := Ip.ReadWord;
+    Fresh := AllocMem(SizeOf(TParagraph));
+    Fresh^.Size := Len;
+    Fresh^.Text := AllocMem(Len + 1);
+    Flag := 0;
+    Ip.ReadBytes(Flag, SizeOf(Integer));
+    Fresh^.Wrap := Flag <> 0;
+    Ip.ReadBytes(Fresh^.Text^, Len);
+    Tail^ := Fresh;
+    Tail := @Fresh^.Next;
   end;
-  S.Write(N, SizeOf(N));
-  Para := Paragraphs;
-  while Para <> nil do
-  begin
-    S.Write(Para^.Size, SizeOf(Para^.Size));
-    S.Write(Para^.Wrap, SizeOf(Para^.Wrap));
-    if Para^.Size > 0 then
-      S.Write(Para^.Text^, Para^.Size);
-    Para := Para^.Next;
-  end;
-  { the cross references: a handler, when set, writes the target itself }
-  N := NumRefs;
-  S.Write(N, SizeOf(N));
-  Custom := Assigned(CrossRefHandler) and (Pointer(CrossRefHandler) <> Pointer(@NotAssigned));
-  for K := 0 to N - 1 do
+  Tail^ := nil;
+end;
+
+{ a cross reference: Ref and Offset (Integers), Length (a byte) }
+procedure THelpTopic.ReadCrossRefs(Ip: ipstream);
+var
+  K: Integer;
+  X: PCrossRef;
+begin
+  NumRefs := 0;
+  Ip.ReadBytes(NumRefs, SizeOf(Integer));
+  CrossRefs := nil;
+  if NumRefs > 0 then
+    CrossRefs := AllocMem(NumRefs * SizeOf(TCrossRef));
+  for K := 0 to NumRefs - 1 do
   begin
     X := CrossRefs + K;
-    if Custom then
-      CrossRefHandler(S, X^.Ref)
+    Ip.ReadBytes(X^.Ref, SizeOf(Integer));
+    Ip.ReadBytes(X^.Offset, SizeOf(Integer));
+    X^.Length := Ip.ReadByte;
+  end;
+end;
+
+procedure THelpTopic.WriteParagraphs(Os: opstream);
+var
+  Total, Flag: Integer;
+  Para: PParagraph;
+begin
+  Total := 0;
+  Para := Paragraphs;
+  while Para <> nil do
+  begin
+    Para := Para^.Next;
+    Inc(Total);
+  end;
+  Os.WriteBytes(Total, SizeOf(Integer));
+  Para := Paragraphs;
+  while Para <> nil do
+  begin
+    Os.WriteWord(Para^.Size);
+    Flag := Ord(Para^.Wrap);
+    Os.WriteBytes(Flag, SizeOf(Integer));
+    Os.WriteBytes(Para^.Text^, Para^.Size);
+    Para := Para^.Next;
+  end;
+end;
+
+{ a handler, when set, writes the target of each reference itself }
+procedure THelpTopic.WriteCrossRefs(Os: opstream);
+var
+  K: Integer;
+  X: PCrossRef;
+  ByHandler: Boolean;
+begin
+  Os.WriteBytes(NumRefs, SizeOf(Integer));
+  ByHandler := Pointer(CrossRefHandler) <> Pointer(@NotAssigned);
+  for K := 0 to NumRefs - 1 do
+  begin
+    X := CrossRefs + K;
+    if ByHandler then
+      CrossRefHandler(Os, X^.Ref)
     else
-      S.Write(X^.Ref, SizeOf(X^.Ref));
-    S.Write(X^.Offset, SizeOf(X^.Offset));
-    S.Write(X^.Length, SizeOf(X^.Length));
+      Os.WriteBytes(X^.Ref, SizeOf(Integer));
+    Os.WriteBytes(X^.Offset, SizeOf(Integer));
+    Os.WriteByte(X^.Length);
   end;
 end;
 
@@ -499,23 +550,40 @@ begin
   Index := nil;
 end;
 
-constructor THelpIndex.Load(S: TStream);
+constructor THelpIndex.Create(AInit: TStreamableInit);
 begin
   inherited Create;
-  Index := nil;
-  S.Read(Size, SizeOf(Size));
-  if Size > 0 then
-  begin
-    GetMem(Index, Size * SizeOf(LongInt));
-    S.Read(Index^, Size * SizeOf(LongInt));
-  end;
 end;
 
-procedure THelpIndex.Store(S: TStream);
+class function THelpIndex.Build: TStreamable;
 begin
-  S.Write(Size, SizeOf(Size));
+  Result := THelpIndex.Create(streamableInit);
+end;
+
+function THelpIndex.StreamableName: ShortString;
+begin
+  Result := 'THelpIndex';
+end;
+
+{ the size (an Integer), then Size positions (Integers) }
+procedure THelpIndex.Write(Os: opstream);
+begin
+  Os.WriteBytes(Size, SizeOf(Integer));
   if Size > 0 then
-    S.Write(Index^, Size * SizeOf(LongInt));
+    Os.WriteBytes(Index^, Size * SizeOf(LongInt));
+end;
+
+function THelpIndex.Read(Ip: ipstream): Pointer;
+begin
+  Size := 0;
+  Ip.ReadBytes(Size, SizeOf(Integer));
+  Index := nil;
+  if Size > 0 then
+  begin
+    Index := AllocMem(Size * SizeOf(LongInt));
+    Ip.ReadBytes(Index^, Size * SizeOf(LongInt));
+  end;
+  Result := Self;
 end;
 
 destructor THelpIndex.Destroy;
@@ -559,23 +627,23 @@ end;
 
 { --- THelpFile --------------------------------------------------------------- }
 
-constructor THelpFile.Create(S: TStream);
+constructor THelpFile.Create(S: iopstream);
 var
   Magic, Size: LongInt;
 begin
   inherited Create;
-  Stream := S;
   Magic := 0;
-  Size := S.GetSize;
-  S.Seek(0);
+  S.SeekG(0, fsFromEnd);
+  Size := S.TellG;
+  S.SeekG(0);
   if Size > SizeOf(Magic) then
-    S.Read(Magic, SizeOf(Magic));
+    S.ReadBytes(Magic, SizeOf(Magic));
   if (Magic = MagicHeader) and (Size >= 12) then
   begin
-    S.Seek(8);
-    S.Read(IndexPos, SizeOf(IndexPos));
-    S.Seek(IndexPos);
-    Index := THelpIndex(Pointer(S.Get));
+    S.SeekG(8);
+    S.ReadBytes(IndexPos, SizeOf(IndexPos));
+    S.SeekG(IndexPos);
+    Index := THelpIndex(S.ReadPointer);
     if Index = nil then
       Index := THelpIndex.Create;
     Modified := False;
@@ -586,6 +654,7 @@ begin
     Index := THelpIndex.Create;
     Modified := True;
   end;
+  Stream := S;
 end;
 
 destructor THelpFile.Destroy;
@@ -594,28 +663,19 @@ var
 begin
   if Modified and (Stream <> nil) then
   begin
-    { the stream must be as long as the index position (the topics were put before it) }
-    while Stream.GetSize < IndexPos do
-    begin
-      Stream.Seek(Stream.GetSize);
-      Magic := 0;
-      Stream.Write(Magic, 1);
-    end;
-    Stream.Seek(IndexPos);
-    Stream.Put(TStreamable(Pointer(Index)));
+    EnsureStreamSize(Stream, IndexPos);
+    Stream.SeekP(IndexPos);
+    Stream.WritePointer(Index);
     Magic := MagicHeader;
-    Size := Stream.GetSize - 8;
-    Stream.Seek(0);
-    Stream.Write(Magic, SizeOf(Magic));
-    Stream.Write(Size, SizeOf(Size));
-    Stream.Write(IndexPos, SizeOf(IndexPos));
+    Stream.SeekP(0, fsFromEnd);
+    Size := Stream.TellP - 8;
+    Stream.SeekP(0);
+    Stream.WriteBytes(Magic, SizeOf(Magic));
+    Stream.WriteBytes(Size, SizeOf(Size));
+    Stream.WriteBytes(IndexPos, SizeOf(IndexPos));
   end;
-  if Stream <> nil then
-    Stream.Free;
-  Stream := nil;
-  if Index <> nil then
-    Index.Free;
-  Index := nil;
+  FreeAndNil(Stream);
+  FreeAndNil(Index);
   inherited Destroy;
 end;
 
@@ -623,15 +683,14 @@ function THelpFile.GetTopic(I: Integer): THelpTopic;
 var
   Pos: LongInt;
 begin
+  Result := nil;
   Pos := Index.Position(I);
   if Pos > 0 then
   begin
-    Stream.Seek(Pos);
-    Result := THelpTopic(Pointer(Stream.Get));
-    if Result = nil then
-      Result := InvalidTopic;
-  end
-  else
+    Stream.SeekG(Pos);
+    Result := THelpTopic(Stream.ReadPointer);
+  end;
+  if Result = nil then
     Result := InvalidTopic;
 end;
 
@@ -657,19 +716,30 @@ begin
 end;
 
 procedure THelpFile.PutTopic(Topic: THelpTopic);
-var
-  Zero: Byte;
 begin
-  while Stream.GetSize < IndexPos do
-  begin
-    Stream.Seek(Stream.GetSize);
-    Zero := 0;
-    Stream.Write(Zero, 1);
-  end;
-  Stream.Seek(IndexPos);
-  Stream.Put(TStreamable(Pointer(Topic)));
-  IndexPos := Stream.GetPos;
+  EnsureStreamSize(Stream, IndexPos);
+  Stream.SeekP(IndexPos);
+  Stream.WritePointer(Topic);
+  IndexPos := Stream.TellP;
   Modified := True;
+end;
+
+{ a stream that is shorter than DesiredSize is filled up to it with zero bytes }
+class procedure THelpFile.EnsureStreamSize(S: iopstream; DesiredSize: Integer);
+var
+  CurrentSize: Int64;
+begin
+  S.SeekG(0, fsFromEnd);
+  CurrentSize := S.TellG;
+  if CurrentSize < DesiredSize then
+  begin
+    S.SeekP(0, fsFromEnd);
+    while CurrentSize < DesiredSize do
+    begin
+      S.WriteByte(0);
+      Inc(CurrentSize);
+    end;
+  end;
 end;
 
 { --- THelpViewer ------------------------------------------------------------- }
@@ -911,36 +981,8 @@ begin
   Result := TPalette.Create(CHelpWindow, Length(CHelpWindow));
 end;
 
-{ --- stream records ---------------------------------------------------------- }
-
-function BuildHelpTopic(S: TStream): TStreamable;
-begin
-  Result := TStreamable(Pointer(THelpTopic.Load(S)));
-end;
-
-procedure StoreHelpTopic(P: TStreamable; S: TStream);
-begin
-  THelpTopic(Pointer(P)).Store(S);
-end;
-
-function BuildHelpIndex(S: TStream): TStreamable;
-begin
-  Result := TStreamable(Pointer(THelpIndex.Load(S)));
-end;
-
-procedure StoreHelpIndex(P: TStreamable; S: TStream);
-begin
-  THelpIndex(Pointer(P)).Store(S);
-end;
-
 initialization
-  RHelpTopic.ObjType := 10000;
-  RHelpTopic.VmtLink := PtrUInt(System.TClass(THelpTopic));
-  RHelpTopic.Load := @BuildHelpTopic;
-  RHelpTopic.Store := @StoreHelpTopic;
-  RHelpIndex.ObjType := 10001;
-  RHelpIndex.VmtLink := PtrUInt(System.TClass(THelpIndex));
-  RHelpIndex.Load := @BuildHelpIndex;
-  RHelpIndex.Store := @StoreHelpIndex;
+  RHelpTopic := TStreamableClass.Create('THelpTopic', @THelpTopic.Build);
+  RHelpIndex := TStreamableClass.Create('THelpIndex', @THelpIndex.Build);
 
 end.

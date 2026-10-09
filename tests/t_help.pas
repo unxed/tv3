@@ -38,13 +38,13 @@ var
   Rf: Integer;
   Ev: TEvent;
   Used0: PtrUInt;
+  Raw: AnsiString;
+  Fh: THandle;
 const
   FName = 't_help.tmp';
 begin
   Used0 := GetFPCHeapStatus.CurrHeapUsed;
   MemInit(80, 25);
-  RegisterType(RHelpTopic);
-  RegisterType(RHelpIndex);
 
   { a topic: a line that is not wrapped, with a cross reference }
   T := THelpTopic.Create;
@@ -73,13 +73,20 @@ begin
   { the help file: put, close, open, get }
   if FileExists(FName) then
     DeleteFile(FName);
-  HF := THelpFile.Create(TBufStream.Create(FName, stCreate, 1024));
+  HF := THelpFile.Create(fpstream.Create(FName, stCreate));
   HF.RecordPositionInIndex(0);
   HF.PutTopic(T);
   HF.RecordPositionInIndex(5);
   HF.PutTopic(T2);
   HF.Free;
-  HF := THelpFile.Create(TBufStream.Create(FName, stOpenRead, 1024));
+  Fh := FileOpen(FName, fmOpenRead);
+  SetLength(Raw, FileSeek(Fh, 0, fsFromEnd));
+  FileSeek(Fh, 0, fsFromBeginning);
+  FileRead(Fh, Raw[1], Length(Raw));
+  FileClose(Fh);
+  Check((Pos('THelpTopic', Raw) > 0) and (Pos('THelpIndex', Raw) > 0), 'the topics and the index are written with their names');
+  Raw := '';
+  HF := THelpFile.Create(fpstream.Create(FName, stOpenRead));
   Check(HF.Index.Position(5) > 0, 'the index is read');
   Check(HF.Index.Position(3) = -1, 'a topic that is not in the file has no position');
   T.Free;
