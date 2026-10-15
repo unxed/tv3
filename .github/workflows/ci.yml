@@ -36,7 +36,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Free Pascal 3.2.2
-        run: choco install freepascal --version=3.2.2 --yes --no-progress
+        shell: pwsh
+        run: |
+          choco install freepascal --version=3.2.2 --yes --no-progress
+          $roots = @('C:\tools\freepascal', 'C:\FPC\3.2.2')
+          $compiler = Get-ChildItem $roots -Filter fpc.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $compiler) { throw 'Free Pascal 3.2.2 compiler was not installed' }
+          $crossCompiler = Get-ChildItem $compiler.DirectoryName -Filter ppcrossx64.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $crossCompiler) { throw 'Free Pascal x86_64 Windows cross compiler was not installed' }
+          $compiler.DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - name: Compile the Windows terminal backend
         shell: pwsh
         run: |
