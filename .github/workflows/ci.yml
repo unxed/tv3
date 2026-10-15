@@ -1,6 +1,7 @@
 name: ci
 
 # tv3 on Linux x86_64: the library compiles (every unit), the unit tests (tests/t_*.pas) pass, the programs run in a pty (tests/pty).
+# On native Linux AArch64 (ubuntu-24.04-arm) the library compiles and the unit tests pass (the pty tests run on x86_64 only).
 # The jobs run side by side. The same commands work on a developer machine: tools/test.sh (the unit tests side by side),
 # tools/pty-test.sh (the tests in a pty side by side, as tools/ci-par.sh runs them here).
 on:
@@ -16,6 +17,31 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install Free Pascal and Python
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fp-compiler fp-units-rtl fp-units-fcl fp-units-base fp-units-misc python3
+      - name: The text of the repository (UTF-8, English, glyphs by name)
+        run: python3 tools/text-policy.py
+      - name: Paths are spelled only by TvPath (a ratchet; tools/paths-baseline.txt)
+        run: python3 tools/check-paths.py
+      - name: The library builds (every unit that is not for another system)
+        run: |
+          mkdir -p out/lib
+          for f in src/*.pas; do
+            case "$f" in src/tvtermoswin.pas) continue ;; esac     # needs the units of Windows
+            fpc -Mobjfpc -Fusrc -Fisrc -FUout/lib -FEout/lib -Un "$f" | grep -E 'Error|Fatal' && exit 1
+          done
+          exit 0
+      - name: Unit tests (side by side)
+        run: tools/test.sh
+
+  linux-aarch64:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Free Pascal and Python
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fp-compiler fp-units-rtl fp-units-fcl fp-units-base fp-units-misc python3
+      - name: The compiler is a native AArch64 one
+        run: |
+          fpc -iTP | grep -x aarch64
+          uname -m | grep -x aarch64
       - name: The text of the repository (UTF-8, English, glyphs by name)
         run: python3 tools/text-policy.py
       - name: Paths are spelled only by TvPath (a ratchet; tools/paths-baseline.txt)
