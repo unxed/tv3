@@ -51,12 +51,17 @@ jobs:
             throw 'Free Pascal x86_64 Windows compiler was not installed'
           }
           $fpc.DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-      - name: Compile the Windows terminal backend
+      - name: Compile Windows-compatible library units
         shell: pwsh
         run: |
           if ((fpc -iV).Trim() -ne '3.2.2') { throw 'Free Pascal 3.2.2 is required' }
           New-Item -ItemType Directory -Force out/win64 | Out-Null
-          fpc -Mobjfpc -Fusrc -Fisrc -FUout/win64 -FEout/win64 -Twin64 -Px86_64 -Un src/tvtermoswin.pas
+          $linuxOnly = @('tvtermosunix.pas', 'tvpty.pas', 'tvvtview.pas')
+          Get-ChildItem src/*.pas | Where-Object { $_.Name -notin $linuxOnly } | ForEach-Object {
+            Write-Host "Compile $($_.Name) for Windows x86_64"
+            & fpc -Mobjfpc -Fusrc -Fisrc -FUout/win64 -FEout/win64 -Twin64 -Px86_64 -Un $_.FullName
+            if ($LASTEXITCODE -ne 0) { throw "Free Pascal failed to compile $($_.Name)" }
+          }
 
   pty:
     runs-on: ubuntu-24.04
