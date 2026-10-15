@@ -35,16 +35,20 @@ jobs:
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
-      - name: Install Free Pascal 3.2.2
+      # The Chocolatey package and fpc-3.2.2.i386-win32.exe carry no x86_64 compiler; the "win32.and.win64" installer
+      # puts the native x86_64-win64 compiler (ppcx64.exe) in bin\x86_64-win64, which the runner can run itself.
+      - name: Install Free Pascal 3.2.2 (win32 and win64)
         shell: pwsh
         run: |
-          choco install freepascal --version=3.2.2 --yes --no-progress
-          $roots = @('C:\tools\freepascal', 'C:\FPC\3.2.2')
-          $compiler = Get-ChildItem $roots -Filter fpc.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-          if (-not $compiler) { throw 'Free Pascal 3.2.2 compiler was not installed' }
-          $crossCompiler = Get-ChildItem $compiler.DirectoryName -Filter ppcrossx64.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-          if (-not $crossCompiler) { throw 'Free Pascal x86_64 Windows cross compiler was not installed' }
-          $compiler.DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          $installer = Join-Path $env:RUNNER_TEMP 'fpc-3.2.2.win32.and.win64.exe'
+          Invoke-WebRequest -Uri 'https://sourceforge.net/projects/freepascal/files/Win32/3.2.2/fpc-3.2.2.win32.and.win64.exe/download' -OutFile $installer -UserAgent 'curl/8' -MaximumRetryCount 5 -RetryIntervalSec 10
+          Start-Process -FilePath $installer -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/DIR=C:\FPC\3.2.2' -Wait
+          $bin = 'C:\FPC\3.2.2\bin\x86_64-win64'
+          if (-not (Test-Path (Join-Path $bin 'ppcx64.exe'))) {
+            Get-ChildItem 'C:\FPC\3.2.2' -Filter '*.exe' -Recurse -ErrorAction SilentlyContinue | Select-Object -First 40 -ExpandProperty FullName
+            throw 'Free Pascal x86_64-win64 compiler (ppcx64.exe) was not installed'
+          }
+          $bin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - name: Compile the Windows terminal backend
         shell: pwsh
         run: |
