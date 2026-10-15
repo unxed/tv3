@@ -30,6 +30,19 @@ jobs:
       - name: Unit tests (side by side)
         run: tools/test.sh
 
+  windows-x86_64:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Free Pascal 3.2.2
+        run: choco install freepascal --version=3.2.2 --yes --no-progress
+      - name: Compile the Windows terminal backend
+        shell: pwsh
+        run: |
+          if ((fpc -iV).Trim() -ne '3.2.2') { throw 'Free Pascal 3.2.2 is required' }
+          New-Item -ItemType Directory -Force out/win64 | Out-Null
+          fpc -Mobjfpc -Fusrc -Fisrc -FUout/win64 -FEout/win64 -Twin64 -Px86_64 -Un src/tvtermoswin.pas
+
   pty:
     runs-on: ubuntu-24.04
     steps:
