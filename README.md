@@ -7,15 +7,16 @@ page (a setting). Free Pascal 3.2.x; targets: DOS (go32v2), Linux (x86_64, i386,
 
 ## Stable snapshot
 
-What is verified, and only that, is called stable. The CI (`.github/workflows/ci.yml`, Linux x86_64, Free Pascal 3.2.x from Ubuntu 24.04) runs on every push and pull request:
+What is verified, and only that, is called stable. The CI (`.github/workflows/ci.yml`) runs on every push and pull request:
 
-- `linux`: the text policy, the path ratchet, every unit of `src/` compiles (except `tvtermoswin`, which needs the units of Windows), and all the unit tests `tests/t_*.pas` print `ALL OK`;
+- `linux` (Ubuntu 24.04, Free Pascal 3.2.x): the text policy, the path ratchet, every unit of `src/` compiles (except `tvtermoswin`, which needs the units of Windows), and all the unit tests `tests/t_*.pas` print `ALL OK`;
+- `windows-x86_64` (Windows Server 2022, Free Pascal 3.2.2): every Windows-compatible unit in `src/` compiles for Win64; the Linux-only `tvtermosunix`, `tvpty`, and `tvvtview` units are excluded. This verifies compilation only, not Windows runtime behavior;
 - `pty`: the programs of `tests/pty/` run in a pseudo terminal (the demo, the terminal view, the switcher, the clipboard, the ASCII chart, the far2l extensions, the win32 input mode);
 - `generated`: the generated tables (`tvcharset.inc`, `tvcp.inc`, `tvwidth.inc`) are what their generators make.
 
-A stable snapshot is a git tag on a commit for which these three jobs are green; the release notes link the run. The list of the snapshots is in [unxed/tv3#1](https://github.com/unxed/tv3/issues/1).
+A stable snapshot is a git tag on a commit for which all required jobs in that commit's CI run are green; the release notes link the run. The list of the snapshots is in [unxed/tv3#1](https://github.com/unxed/tv3/issues/1).
 
-Not verified by any CI yet: Windows, DOS (`dostests/` need DOSBox-X), i386, aarch64, macOS. The targets named above are the goals of the code, not a claim that a snapshot was tested on them.
+Not verified by CI: Windows runtime behavior, DOS (`dostests/` need DOSBox-X), i386, aarch64, macOS. The targets named above are the goals of the code, not a claim that a snapshot was tested on them.
 
 ## Where it comes from
 
