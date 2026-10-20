@@ -235,6 +235,7 @@ begin
     begin
       Why := vtsCommandDone;
       Status := Host.CommandStatus;
+      Host.CommandDone := False;
       Exit;
     end;
     { what the user does }
