@@ -15,7 +15,19 @@ interface
 
 {$IFDEF LINUX}
 uses
-  TvVt;
+  TvVt, TvPty;
+
+type
+  TVtSessionExit = (vtsProcessEnded, vtsCommandDone, vtsHideScreen);
+
+{ Starts a terminal session. Emu and Pty may both be nil before the call. }
+function VtSessionStart(var Emu: TVtEmu; var Pty: TPty; const Prog: AnsiString; const Args: array of AnsiString; const Cwd: AnsiString): Boolean;
+
+{ Pumps a session until the program ends, a dn-done:<code> title is received, or Ctrl+O is pressed. }
+procedure VtSessionPump(Emu: TVtEmu; Pty: TPty; out Why: TVtSessionExit; out Status: Integer);
+
+{ Stops the session and releases Pty. Emu remains available for VtShowScreen. }
+procedure VtSessionStop(Emu: TVtEmu; var Pty: TPty);
 
 { Runs Prog (Args[0] is its name for itself) in the directory Cwd ('' = the current one) on the screen of the application; the text Echo (if not empty) is written to
   the emulator before the program starts (the command line, like the prompt of a shell). Pause: 0 goes back at once, 1 shows "Press Enter" after the program ended and waits for Enter, 2 does it only when the status is not 0. Emu is made (the size of the screen) when it is not yet (a zeroed variable: Cols = 0). Result: the exit status of the program, -1 when it could not be started. }
@@ -34,8 +46,35 @@ uses
 type
   TRunHost = class(TVtExtHost)
   public
+    PreviousHost: TVtExtHost;
+    PreviousTitle: TVtTitleProc;
+    PreviousClip: TVtClipProc;
+    PreviousClipGet: TVtClipGetFunc;
+    PreviousData: Pointer;
+    CommandDone: Boolean;
+    CommandStatus: Integer;
     function AskClipboard(const ClientId: AnsiString): TVtClipAnswer; override;
   end;
+
+procedure RunTitle(Data: Pointer; const Title: AnsiString);
+var
+  Host: TRunHost;
+  Code, Err: Integer;
+begin
+  Host := TRunHost(Data);
+  if Copy(Title, 1, 8) = 'dn-done:' then
+  begin
+    Val(Copy(Title, 9, MaxInt), Code, Err);
+    if (Err = 0) and (Code >= 0) and (Code <= 255) then
+    begin
+      Host.CommandDone := True;
+      Host.CommandStatus := Code;
+      Exit;
+    end;
+  end;
+  if Assigned(Host.PreviousTitle) then
+    Host.PreviousTitle(Host.PreviousData, Title);
+end;
 
 function TRunHost.AskClipboard(const ClientId: AnsiString): TVtClipAnswer;
 begin
@@ -115,9 +154,34 @@ begin
   THardwareInfo.SetScreenMode(TDisplay.smUpdate);
 end;
 
-function VtRunScreen(var Emu: TVtEmu; const Prog: AnsiString; const Args: array of AnsiString; const Cwd, Echo: AnsiString; Pause: Integer): Integer;
+function VtSessionStart(var Emu: TVtEmu; var Pty: TPty; const Prog: AnsiString; const Args: array of AnsiString; const Cwd: AnsiString): Boolean;
 var
-  Pty: TPty;
+  Host: TRunHost;
+begin
+  if Emu = nil then
+    Emu := TVtEmu.Create(TScreen.ScreenWidth, TScreen.ScreenHeight, 2000);
+  FitEmu(Emu);
+  Pty := TPty.Create;
+  Host := TRunHost.Create;
+  Host.PreviousHost := Emu.Ext.Host;
+  Host.PreviousTitle := Emu.OnTitle;
+  Host.PreviousClip := Emu.OnClip;
+  Host.PreviousClipGet := Emu.OnClipGet;
+  Host.PreviousData := Emu.Data;
+  Host.CommandDone := False;
+  Host.CommandStatus := 0;
+  Emu.Ext.Host := Host;
+  Emu.OnTitle := @RunTitle;
+  Emu.Data := Host;
+  Emu.OnClip := @RunClip;
+  Emu.OnClipGet := @RunClipGet;
+  Result := Pty.Open(Emu.Cols, Emu.RowCount, Prog, Args, Cwd);
+  if not Result then
+    VtSessionStop(Emu, Pty);
+end;
+
+procedure VtSessionPump(Emu: TVtEmu; Pty: TPty; out Why: TVtSessionExit; out Status: Integer);
+var
   Buf: array[0..8191] of Byte;
   Ev: TEvent;
   N, Total: Integer;
@@ -134,23 +198,9 @@ var
   end;
 
 begin
-  if Emu = nil then
-    Emu := TVtEmu.Create(TScreen.ScreenWidth, TScreen.ScreenHeight, 2000);
-  Pty := TPty.Create;
-  FitEmu(Emu);
-  Emu.OnClip := @RunClip;
-  Emu.OnClipGet := @RunClipGet;
-  Host := TRunHost.Create;
-  Emu.Ext.Host := Host;
-  if Echo <> '' then
-    Emu.Feed(Echo + #13#10);
-  if not Pty.Open(Emu.Cols, Emu.RowCount, Prog, Args, Cwd) then
-  begin
-    Emu.Ext.Host := nil;
-    Host.Free;
-    Pty.Free;
-    Exit(-1);
-  end;
+  Why := vtsProcessEnded;
+  Status := 0;
+  Host := TRunHost(Emu.Data);
   Over := False;
   PasteOpen := False;
   All := True;
@@ -176,9 +226,24 @@ begin
     Blit(Emu, All);
     All := False;
     if Over then
+    begin
+      Pty.Wait(True);
+      Status := Pty.ExitStatus;
       Break;
+    end;
+    if Host.CommandDone then
+    begin
+      Why := vtsCommandDone;
+      Status := Host.CommandStatus;
+      Exit;
+    end;
     { what the user does }
     NextEvent(20, Ev);
+    if (Ev.What = evKeyDown) and (Ev.KeyDown.KeyCode = kbCtrlO) then
+    begin
+      Why := vtsHideScreen;
+      Exit;
+    end;
     if Emu.Ext.Active then
       case Ev.What of
         evKeyDown, evKeyUp:
@@ -260,13 +325,61 @@ begin
         end;
     end;
   until False;
-  Pty.Wait(True);
-  Result := Pty.ExitStatus;
+end;
+
+procedure VtSessionStop(Emu: TVtEmu; var Pty: TPty);
+var
+  Host: TRunHost;
+begin
   KeyUpEvents := False;
-  Emu.Ext.Stop;
-  Emu.Ext.Host := nil;
-  Host.Free;
-  Pty.Close;
+  if Emu <> nil then
+  begin
+    Emu.Ext.Stop;
+    Host := TRunHost(Emu.Data);
+    if Host <> nil then
+    begin
+      Emu.Ext.Host := Host.PreviousHost;
+      Emu.OnTitle := Host.PreviousTitle;
+      Emu.OnClip := Host.PreviousClip;
+      Emu.OnClipGet := Host.PreviousClipGet;
+      Emu.Data := Host.PreviousData;
+      Host.Free;
+    end;
+  end;
+  if Pty <> nil then
+  begin
+    Pty.Close;
+    Pty.Free;
+    Pty := nil;
+  end;
+end;
+
+function VtRunScreen(var Emu: TVtEmu; const Prog: AnsiString; const Args: array of AnsiString; const Cwd, Echo: AnsiString; Pause: Integer): Integer;
+var
+  Pty: TPty;
+  Why: TVtSessionExit;
+  Status: Integer;
+  Ev: TEvent;
+begin
+  Pty := nil;
+  if not VtSessionStart(Emu, Pty, Prog, Args, Cwd) then
+    Exit(-1);
+  if Echo <> '' then
+    Emu.Feed(Echo + #13#10);
+  repeat
+    VtSessionPump(Emu, Pty, Why, Status);
+    case Why of
+      vtsProcessEnded:
+        begin
+          Result := Status;
+          Break;
+        end;
+      vtsCommandDone:
+        TRunHost(Emu.Data).CommandDone := False;
+      vtsHideScreen:
+        VtShowScreen(Emu);
+    end;
+  until False;
   if (Pause = 1) or ((Pause = 2) and (Result <> 0)) then
   begin
     Emu.Feed(#13#10#27'[7m [ Process ended (' + Chr(48 + (Result div 100) mod 10) + Chr(48 + (Result div 10) mod 10) + Chr(48 + Result mod 10) +
@@ -292,7 +405,7 @@ begin
   end
   else
     ScreenAgain;
-  Pty.Free;
+  VtSessionStop(Emu, Pty);
 end;
 
 procedure VtShowScreen(Emu: TVtEmu);

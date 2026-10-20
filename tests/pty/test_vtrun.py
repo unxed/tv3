@@ -38,6 +38,8 @@ for _ in range(20):
     t.pump(0.2)
 check(not t.alive(), 'a key leaves the user screen, the program ends')
 check(b'DONE 5' in t.raw, 'the exit status is the result of the call', t.raw[-200:])
+check(b'EXIT 3 3' in t.raw, 'a shell command that exits with status 3 returns 3', t.raw[-200:])
+check(b'SESSION 7 2' in t.raw, 'a session reports the command marker and final process status', t.raw[-200:])
 t.close()
 print('%d/%d' % (count - fails, count))
 sys.exit(1 if fails else 0)
