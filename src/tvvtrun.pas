@@ -41,7 +41,7 @@ implementation
 
 {$IFDEF LINUX}
 uses
-  SysUtils, TvGeom, TvCell, TvEvents, TvKeys, TvSys, TvScreen, TvViews, TvPty, TvVtKeys, TvVtExt, TvClip;
+  SysUtils, TvGeom, TvCell, TvEvents, TvKeys, TvSys, TvScreen, TvViews, TvVtKeys, TvVtExt, TvClip;
 
 type
   TRunHost = class(TVtExtHost)
