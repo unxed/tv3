@@ -30,16 +30,13 @@ without DN: a program on Turbo Vision needs TV, not a file manager.
 
 ## License
 
-- The translated units are a derivative work of magiblot/tvision, and so of the Turbo Vision 2.0
-  release published by Borland: the Borland disclaimer and the MIT license of magiblot apply
-  ([`COPYRIGHT.magiblot`](COPYRIGHT.magiblot)). The header of each such unit names the magiblot
-  files it was translated from.
-- The units translated from magiblot/tvterm are a derivative work of magiblot/tvterm: its MIT license applies
-  ([`COPYRIGHT.tvterm`](COPYRIGHT.tvterm)). The header of each such unit names the magiblot/tvterm files it was
-  translated from.
-- The other units (the backends `TvSys`, `TvMem`, `TvDos`, the terminal units, `TvUtil` in the part that is not a
-  translation, the help compiler, the tests, the demos) are under the MIT license ([`LICENSE`](LICENSE)), so that the
-  package as a whole has one clear license.
+- A unit whose header says `Translated from magiblot/tvision @ <commit>` is a derivative work of magiblot/tvision, and so of
+  the Turbo Vision 2.0 release published by Borland: the Borland disclaimer and the MIT license of magiblot apply
+  ([`COPYRIGHT.magiblot`](COPYRIGHT.magiblot)). Its header names the magiblot files it was translated from.
+- A unit whose header says `Translated from magiblot/tvterm @ <commit>` is a derivative work of magiblot/tvterm: its MIT
+  license applies ([`COPYRIGHT.tvterm`](COPYRIGHT.tvterm)). Its header names the tvterm files it was translated from.
+- Every other file (the units without such a notice, the help compiler, the tests, the demos) is under the MIT license
+  ([`LICENSE`](LICENSE)).
 - `dn` links to this repository as a submodule; DN has its own license (see the `dn` repository).
 - `tools/audit/borrow-audit.py` compares the sources with the code of other projects (see `CLAUDE.md`); CI runs it.
 
