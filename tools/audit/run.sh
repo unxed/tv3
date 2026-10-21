@@ -13,11 +13,14 @@ flock 9
 tools/audit/fetch-corpora.sh
 allowed=""
 if [ -d tools/audit/facts ]; then allowed="--allowed $CORPORA/allowed.txt"; fi
+# the matches that were reviewed one by one (tools/audit/known.txt): only the same run at the same place is not counted
+known=""
+if [ -f tools/audit/known.txt ]; then known="--known tools/audit/known.txt"; fi
 paths=$(for d in src app tests tools demo; do if [ -d "$d" ]; then printf "%s " "$d"; fi; done)
 rc=0
 audit() {
     r=0
-    python3 tools/audit/borrow-audit.py --cache "$CORPORA/index" --ref "$CORPORA/list.txt" $allowed "$@" > "$CORPORA/last.txt" || r=$?
+    python3 tools/audit/borrow-audit.py --cache "$CORPORA/index" --ref "$CORPORA/list.txt" $allowed $known "$@" > "$CORPORA/last.txt" || r=$?
     grep -v '^generated' "$CORPORA/last.txt" || true
     [ $r = 0 ] || rc=1
 }

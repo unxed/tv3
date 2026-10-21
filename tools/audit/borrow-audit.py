@@ -31,6 +31,14 @@ The heading of a routine (procedure, function, constructor, destructor, operator
 that ends it, with its directives) is a token that matches nothing in raw and ren, so no chain goes over it: an
 override has to repeat the signature of the API it overrides.
 
+--known names the matches that were reviewed and are not counted (tools/audit/known.txt): one per line, tab
+separated: the comparison (raw, ren, lit), the number of tokens of the run, the SHA-256 of the tokens of the run (as
+printed under the match on the line "window"), the reference file relative to the directory of LIST and the line of
+the reference where the run starts, the link to the review, and the reason. A match is not counted only when all
+five of the comparison, the length, the window, the reference file and its line are the same: a run that changes by
+one token, grows, shrinks or meets another place of a reference is a match again. Known matches are printed with the
+word "known" in front.
+
 --max prints, for each comparison, the longest run found in each file (to calibrate the limits, which the options
 --raw-k, --ren-k, --lit-k, --lit-distinct change).
 """
@@ -331,6 +339,31 @@ def files(paths, exts):
             yield p
 
 
+KNOWN_LINE = re.compile(r'^(raw|ren|lit)\t(\d+)\t([0-9a-f]{64})\t(\S+):(\d+)\t(https://github\.com/\S+)\t(\S.*)$')
+
+
+def load_known(path):
+    """{(comparison, tokens, window, reference, line): reason} from a --known file; a bad line stops the audit."""
+    known = {}
+    with open(path, encoding='utf-8') as fh:
+        for n, line in enumerate(fh, 1):
+            line = line.rstrip('\n')
+            if not line.strip() or line.startswith('#'):
+                continue
+            m = KNOWN_LINE.match(line)
+            if not m:
+                sys.exit('%s:%d: not "comparison<TAB>tokens<TAB>window<TAB>reference:line<TAB>review<TAB>reason"'
+                         % (path, n))
+            known[(m.group(1), int(m.group(2)), m.group(3), m.group(4), int(m.group(5)))] = m.group(7)
+    return known
+
+
+def window(seq, s, e):
+    """The SHA-256 of the tokens of seq[s:e], the run of a match."""
+    import hashlib
+    return hashlib.sha256(repr(tuple(t for t, _ in seq[s:e])).encode()).hexdigest()
+
+
 def main():
     if os.environ.get('PYTHONHASHSEED') != '0':      # the indexes are kept between runs: the hashes must be the same
         os.environ['PYTHONHASHSEED'] = '0'
@@ -339,6 +372,7 @@ def main():
     ap.add_argument('--ref', required=True)
     ap.add_argument('--allowed')
     ap.add_argument('--report')
+    ap.add_argument('--known')
     ap.add_argument('--max', action='store_true')
     ap.add_argument('--raw-k', type=int, default=RAW_K)
     ap.add_argument('--ren-k', type=int, default=REN_K)
@@ -351,6 +385,8 @@ def main():
     a = ap.parse_args()
     refs = [l.strip() for l in open(a.ref, encoding='utf-8') if l.strip()]
     allowed = [l.strip() for l in open(a.allowed, encoding='utf-8') if l.strip()] if a.allowed else []
+    known = load_known(a.known) if a.known else {}
+    refroot = os.path.dirname(os.path.abspath(a.ref))
     import hashlib, pickle
     key = hashlib.sha1(repr((open(__file__, 'rb').read(), a.raw_k, a.ren_k, a.lit_k,
                              [(r, os.path.getmtime(r)) for r in refs + allowed])).encode()).hexdigest()
@@ -401,7 +437,7 @@ def main():
                 steps += 1
         return steps < 0.5 * (len(w) - 1)
     wordy = lambda w: sum(1 for t in w if t == 'ID' or str(t).startswith('K:')) >= REN_WORDS * len(w)
-    found, count = [], 0
+    found, seen, count = [], [], 0
     work = []
     if a.git_range:
         import subprocess, tempfile
@@ -437,13 +473,20 @@ def main():
                     if e - s > best.get(name, (0,))[0]:
                         best[name] = (e - s, seq[s][1], hit)
                 else:
-                    found.append('%s %5d  %s:%d-%d  ==  %s:%d' % (name, e - s, f, seq[s][1], seq[e - 1][1], hit[0], hit[1]))
+                    line = '%s %5d  %s:%d-%d  ==  %s:%d' % (name, e - s, f, seq[s][1], seq[e - 1][1], hit[0], hit[1])
+                    w = window(seq, s, e)
+                    if (name, e - s, w, os.path.relpath(hit[0], refroot), hit[1]) in known:
+                        seen.append('known ' + line)
+                    else:
+                        found.append(line + '\n    window ' + w)
         if a.max:
             found.append('%-50s ' % f + '  '.join('%s %d (%d %s:%d)' % (n, b[0], b[1], os.path.basename(b[2][0]), b[2][1])
                                                   for n, b in sorted(best.items())))
     tail = '%d files, %d reference files: %d matches (raw >= %d, ren >= %d, lit >= %d)' % (
         count, len(refs), 0 if a.max else len(found), a.raw_k, a.ren_k, a.lit_k)
-    out = '\n'.join(found + [tail])
+    if known:
+        tail += '; %d known matches not counted' % len(seen)
+    out = '\n'.join(seen + found + [tail])
     print(out)
     if a.report:
         open(a.report, 'w', encoding='utf-8').write(out + '\n')

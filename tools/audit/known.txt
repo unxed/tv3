@@ -1,0 +1,5 @@
+# Matches of tools/audit/borrow-audit.py that were reviewed one by one and are not counted (option --known).
+# A line names one run exactly: the comparison, the number of tokens, the SHA-256 of its tokens (the line "window"
+# under the match), the reference file relative to the corpora and the line where the run starts there, the review,
+# the reason. Any other run, or the same run at another place, is a match again.
+# comparison	tokens	window	reference:line	review	reason
