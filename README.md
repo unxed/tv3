@@ -34,6 +34,9 @@ without DN: a program on Turbo Vision needs TV, not a file manager.
   release published by Borland: the Borland disclaimer and the MIT license of magiblot apply
   ([`COPYRIGHT.magiblot`](COPYRIGHT.magiblot)). The header of each such unit names the magiblot
   files it was translated from.
+- The units translated from magiblot/tvterm are a derivative work of magiblot/tvterm: its MIT license applies
+  ([`COPYRIGHT.tvterm`](COPYRIGHT.tvterm)). The header of each such unit names the magiblot/tvterm files it was
+  translated from.
 - The other units (the backends `TvSys`, `TvMem`, `TvDos`, the terminal units, `TvUtil` in the part that is not a
   translation, the help compiler, the tests, the demos) are under the MIT license ([`LICENSE`](LICENSE)), so that the
   package as a whole has one clear license.

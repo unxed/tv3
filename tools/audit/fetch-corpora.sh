@@ -1,8 +1,8 @@
 #!/bin/sh
 # Fetches the reference corpora of tools/audit/borrow-audit.py into $CORPORA (default build/corpora, never committed)
 # and writes $CORPORA/list.txt (the references, one source file per line) and $CORPORA/allowed.txt (the sources that
-# tv3 may use: magiblot/tvision at the commit its translation names, the specification of the far2l extensions, and
-# the documents of standards in tools/audit/facts/ of the repository that runs the script).
+# tv3 may use: magiblot/tvision and magiblot/tvterm at the commits their translations name, the specification of the
+# far2l extensions, and the documents of standards in tools/audit/facts/ of the repository that runs the script).
 #   fpc      Free Pascal 3.2.2: packages fv, ide, fcl-base, rtl-objpas, fcl-passrc (GPL / LGPL with exception)
 #   fpcmain  the same packages of the main branch of Free Pascal
 #   fpide    the Free Pascal IDE on tv3 (unxed/bp, GPL)
@@ -12,6 +12,7 @@
 #   far2l    far2l (C/C++, GPL)
 # allowed:
 #   magiblot magiblot/tvision @ b4831e2 (C++, MIT)
+#   tvterm   magiblot/tvterm @ 210eb23 (C++, MIT): its own sources (include/, source/), not the libraries of deps/
 #   vtexts   VTExts.md, the specification of the far2l terminal extensions (branch extsdocs of unxed/far2l)
 # usage: tools/audit/fetch-corpora.sh        needs: git, curl, sha256sum, unrar, unzip
 set -eu
@@ -73,6 +74,12 @@ if [ ! -d magiblot ]; then
     git -C magiblot.tmp -c advice.detachedHead=false checkout -q b4831e2
     mv magiblot.tmp magiblot
 fi
+if [ ! -d tvterm ]; then
+    rm -rf tvterm.tmp
+    git clone -q --filter=blob:none --no-checkout https://github.com/magiblot/tvterm tvterm.tmp
+    git -C tvterm.tmp -c advice.detachedHead=false checkout -q 210eb23564da06c358d2623388939bb02f7f3419
+    mv tvterm.tmp tvterm
+fi
 if [ ! -s VTExts.md ]; then
     curl -fsSL --retry 4 -o VTExts.md.part https://raw.githubusercontent.com/unxed/far2l/extsdocs/VTExts.md
     mv VTExts.md.part VTExts.md
@@ -86,6 +93,7 @@ fi
 } | LC_ALL=C sort | sed "s|^|$C/|" > list.txt
 {
     find magiblot/source magiblot/include -type f \( -name '*.cpp' -o -name '*.h' \) | sed "s|^|$C/|"
+    find tvterm/source tvterm/include -type f \( -name '*.cc' -o -name '*.cpp' -o -name '*.h' \) | sed "s|^|$C/|"
     echo "$C/VTExts.md"
     find "$here/tools/audit/facts" -type f -name '*.md' 2>/dev/null
 } | LC_ALL=C sort > allowed.txt
