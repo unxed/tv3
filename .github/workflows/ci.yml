@@ -21,6 +21,8 @@ jobs:
         run: python3 tools/text-policy.py
       - name: Paths are spelled only by TvPath (a ratchet; tools/paths-baseline.txt)
         run: python3 tools/check-paths.py
+      - name: The list of known matches of the audit (tools/audit/known.txt)
+        run: python3 -m unittest discover -s tools/audit -p 'test_*.py'
       - name: The library builds (every unit that is not for another system)
         run: |
           mkdir -p out/lib

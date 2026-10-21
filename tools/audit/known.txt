@@ -1,0 +1,11 @@
+# Matches of tools/audit/borrow-audit.py that were reviewed one by one and are not counted (option --known).
+# A line names one run exactly: the comparison, the number of tokens, the SHA-256 of its tokens (the line "window"
+# under the match), the reference file relative to the corpora and the line where the run starts there, the review,
+# the reason. Any other run, or the same run at another place, is a match again.
+# comparison	tokens	window	reference:line	review	reason
+raw	30	e8788d1f73546b4913aaf0faf211f527695cfc026fb65a403d60928425709d55	sp/fpide/src/fpide.pas:859	https://github.com/unxed/tv3/issues/3#issuecomment-6320902977	group A: the window is calls and fields of the TProgram API (GetExtent, TRect.A and B, DeskTop) that both texts use
+raw	25	99585d168fa66df662bb8572ca1c1478f6608f7eb295e6db9c1caf9742c90382	sp/fpide/src/wviews.pas:419	https://github.com/unxed/tv3/issues/3#issuecomment-6320902977	group B: the window is two calls of the menu API (MakeLocal, GetItemRect) whose form the API fixes
+raw	25	3af4e7774d8d6c2cee725dc76265b005b90ebb44bc9465b3b53dd4f9dea9e5a2	sp/fpide/compat/shims/manual/drivers.impl.inc:233	https://github.com/unxed/tv3/issues/3#issuecomment-6320902977	group C: the window is only in versions of src/tvformat.pas in the history, which main no longer has; see the review
+raw	26	9b781739480b07600c3589e952914ac062616e1a99cb96e4af678f05e2f8cc8b	sp/fpide/compat/shims/manual/drivers.impl.inc:239	https://github.com/unxed/tv3/issues/3#issuecomment-6320902977	group C: the window is only in versions of src/tvformat.pas in the history, which main no longer has; see the review
+raw	65	0a212e098a095fd2257087d6ce12250c34f318563980fe8e3866f910fd8ca5d9	sp/fpide/compat/shims/manual/drivers.impl.inc:252	https://github.com/unxed/tv3/issues/3#issuecomment-6320902977	group C: the window is only in versions of src/tvformat.pas in the history, which main no longer has; see the review
+raw	27	ccbdcb758560f68862e80d7378eee4a12cc50da6e6fedcc959df14c2dc8b0553	dn151/MICROED.PAS:1869	https://github.com/unxed/tv3/issues/3#issuecomment-6320902977	group D: the window is two clamps of a point to zero (if X < 0 then X := 0), 27 tokens
