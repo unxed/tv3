@@ -115,358 +115,345 @@ function ColorBits: Integer;
 implementation
 
 uses
-  {$IFDEF UNIX}
+{$IFDEF UNIX}
   BaseUnix,
-  {$ENDIF}
-  {$IFDEF WINDOWS}
+{$ENDIF}
+{$IFDEF WINDOWS}
   Windows,
-  {$ENDIF}
+{$ENDIF}
   TvKeys, TvUtf8;
 
 const
-  QueueSize = 64;
-  {$IFDEF UNIX}
-  FdCloExec = 1;
-  {$ENDIF}
+  MouseQSize = 64;
+
+type
+  TPostedEvents = array of TvEvents.TEvent;
 
 var
-  MouseQueue: array[0..QueueSize - 1] of TEvent;
-  MouseHead: Integer = 0;
-  MouseCount: Integer = 0;
+  { the mouse events read from the backend and not yet taken }
+  MouseQ: array[0..MouseQSize - 1] of TvEvents.TEvent;
+  MouseQHead: Integer = 0;
+  MouseQCount: Integer = 0;
+  { an event of the backend that is not a mouse event, read and not yet taken }
+  KeyPending: Boolean = False;
+  KeyPendingEvent: TvEvents.TEvent;
+  { the last wait asked the backend and got nothing (or ended by a wake-up): the next reads do not ask it again }
+  NothingFound: Boolean = False;
 
-  KeyQueue: array[0..QueueSize - 1] of TEvent;
-  KeyHead: Integer = 0;
-  KeyCount: Integer = 0;
+  PasteSet: Boolean = False;
+  PasteText: AnsiString = '';
+  PasteIndex: SizeInt = 0;
+  ShouldSkipLf: Boolean = False;
 
-  PostQueue: array of TEvent;
+  PostLock: TRTLCriticalSection;
+  PostQ: TPostedEvents;
   PostHead: Integer = 0;
   PostCount: Integer = 0;
-  PostLock: TRTLCriticalSection;
-
-  PasteBuf: AnsiString = '';
-  PasteIndex: Integer = 0;
-  PastePresent: Boolean = False;
-
-  ShouldSkipLf: Boolean = False;
-  WaitFoundNothing: Boolean = False;
 
   WakeSignaled: LongInt = 0;
-  {$IFDEF UNIX}
-  WakeReadFd: LongInt = -1;
-  WakeWriteFd: LongInt = -1;
-  {$ENDIF}
-  {$IFDEF WINDOWS}
+{$IFDEF UNIX}
+  WakeFds: TFilDes;
+  WakeOk: Boolean = False;
+{$ENDIF}
+{$IFDEF WINDOWS}
   WakeEvent: THandle = 0;
-  {$ENDIF}
+{$ENDIF}
 
 { the wake-up handle }
 
-procedure CreateWakeUpHandle;
+procedure SysCreate;
 {$IFDEF UNIX}
 var
-  Fds: TFilDes;
   I: Integer;
-  Flags: LongInt;
+{$ENDIF}
 begin
-  if FpPipe(Fds) <> -1 then
+{$IFDEF UNIX}
+  if FpPipe(WakeFds) = 0 then
   begin
     for I := 0 to 1 do
-    begin
-      FpFcntl(Fds[I], F_SETFD, FdCloExec);
-      Flags := FpFcntl(Fds[I], F_GETFL);
-      if Flags <> -1 then
-        FpFcntl(Fds[I], F_SETFL, Flags or O_NONBLOCK);
-    end;
-    WakeReadFd := Fds[0];
-    WakeWriteFd := Fds[1];
+      FpFcntl(WakeFds[I], F_SETFL, FpFcntl(WakeFds[I], F_GETFL, 0) or O_NONBLOCK);
+    WakeOk := True;
   end;
-end;
-{$ELSE}
+{$ENDIF}
 {$IFDEF WINDOWS}
-begin
   WakeEvent := CreateEvent(nil, False, False, nil);
+{$ENDIF}
 end;
-{$ELSE}
+
+procedure SysDestroy;
 begin
+{$IFDEF UNIX}
+  if WakeOk then
+  begin
+    FpClose(WakeFds[0]);
+    FpClose(WakeFds[1]);
+    WakeOk := False;
+  end;
+{$ENDIF}
+{$IFDEF WINDOWS}
+  if WakeEvent <> 0 then
+  begin
+    CloseHandle(WakeEvent);
+    WakeEvent := 0;
+  end;
+{$ENDIF}
 end;
-{$ENDIF}
-{$ENDIF}
 
 procedure SysSignal;
 {$IFDEF UNIX}
 var
   C: Char;
+{$ENDIF}
 begin
-  C := #0;
-  if WakeWriteFd <> -1 then
-    while FpWrite(WakeWriteFd, PChar(@C), 1) = 0 do
+{$IFDEF UNIX}
+  if WakeOk then
+  begin
+    C := #0;
+    while FpWrite(WakeFds[1], C, 1) = 0 do
       ;
-end;
-{$ELSE}
+  end;
+{$ENDIF}
 {$IFDEF WINDOWS}
-begin
   if WakeEvent <> 0 then
     SetEvent(WakeEvent);
-end;
-{$ELSE}
-begin
-end;
 {$ENDIF}
-{$ENDIF}
+end;
 
 procedure SysClear;
 {$IFDEF UNIX}
 var
-  Buf: array[0..15] of Char;
+  C: Char;
+{$ENDIF}
 begin
-  if WakeReadFd <> -1 then
-    while FpRead(WakeReadFd, PChar(@Buf[0]), SizeOf(Buf)) > 0 do
+{$IFDEF UNIX}
+  if WakeOk then
+    while FpRead(WakeFds[0], C, 1) = 1 do
       ;
-end;
-{$ELSE}
+{$ENDIF}
 {$IFDEF WINDOWS}
-begin
   if WakeEvent <> 0 then
     ResetEvent(WakeEvent);
-end;
-{$ELSE}
-begin
-end;
 {$ENDIF}
-{$ENDIF}
-
-function TakeWakeUp: Boolean;
-begin
-  Result := InterLockedExchange(WakeSignaled, 0) <> 0;
-  if Result then
-    SysClear;
 end;
 
-procedure WaitOnWakeUpHandle(TimeoutMs: Integer);
+procedure SysWait(TimeoutMs: Integer);
 {$IFDEF UNIX}
 var
   Pfd: pollfd;
-begin
-  if WakeReadFd = -1 then
-  begin
-    if TimeoutMs > 0 then
-      SysUtils.Sleep(TimeoutMs);
-    Exit;
-  end;
-  Pfd.fd := WakeReadFd;
-  Pfd.events := POLLIN;
-  Pfd.revents := 0;
-  if FpPoll(@Pfd, 1, TimeoutMs) > 0 then
-  begin
-    InterLockedExchange(WakeSignaled, 0);
-    SysClear;
-  end;
-end;
-{$ELSE}
+{$ENDIF}
 {$IFDEF WINDOWS}
 var
-  Timeout: DWORD;
+  Ms: DWORD;
+{$ENDIF}
 begin
-  if WakeEvent = 0 then
+{$IFDEF UNIX}
+  if WakeOk then
   begin
-    if TimeoutMs > 0 then
-      SysUtils.Sleep(TimeoutMs);
-    Exit;
+    if TimeoutMs < 0 then
+      TimeoutMs := -1;
+    Pfd.fd := WakeFds[0];
+    Pfd.events := POLLIN;
+    Pfd.revents := 0;
+    FpPoll(@Pfd, 1, TimeoutMs);
   end;
-  if TimeoutMs < 0 then
-    Timeout := INFINITE
-  else
-    Timeout := DWORD(TimeoutMs);
-  if WaitForSingleObject(WakeEvent, Timeout) = WAIT_OBJECT_0 then
-    InterLockedExchange(WakeSignaled, 0);
+{$ENDIF}
+{$IFDEF WINDOWS}
+  if WakeEvent <> 0 then
+  begin
+    if TimeoutMs < 0 then
+      Ms := INFINITE
+    else
+      Ms := DWORD(TimeoutMs);
+    WaitForSingleObject(WakeEvent, Ms);
+  end;
+{$ENDIF}
 end;
-{$ELSE}
+
+procedure WakeSignal;
 begin
+  if InterlockedExchange(WakeSignaled, 1) = 0 then
+    SysSignal;
 end;
-{$ENDIF}
-{$ENDIF}
+
+function WakeClear: Boolean;
+begin
+  if WakeSignaled <> 0 then
+  begin
+    SysClear;
+    InterlockedExchange(WakeSignaled, 0);
+    Result := True;
+  end
+  else
+    Result := False;
+end;
 
 { the queues }
 
-function IsMouseEvent(const Ev: TEvent): Boolean; inline;
+function IsMouseEvent(const Event: TvEvents.TEvent): Boolean; inline;
 begin
-  Result := (Ev.What and evMouse) <> 0;
+  Result := (Event.What and evMouse) <> 0;
 end;
 
-procedure PushMouse(const Ev: TEvent);
+procedure ReadBackend(TimeoutMs: Integer; var Event: TvEvents.TEvent);
 begin
-  if MouseCount < QueueSize then
+  TvEvents.ClearEvent(Event);
+  OnPollEvent(TimeoutMs, Event);
+end;
+
+procedure PushMouse(const Event: TvEvents.TEvent);
+begin
+  if MouseQCount < MouseQSize then
   begin
-    MouseQueue[(MouseHead + MouseCount) mod QueueSize] := Ev;
-    Inc(MouseCount);
+    MouseQ[(MouseQHead + MouseQCount) mod MouseQSize] := Event;
+    Inc(MouseQCount);
   end;
 end;
 
-function PopMouse(var Ev: TEvent): Boolean;
+procedure PopMouse(var Event: TvEvents.TEvent);
 begin
-  Result := MouseCount > 0;
-  if Result then
-  begin
-    Ev := MouseQueue[MouseHead];
-    MouseHead := (MouseHead + 1) mod QueueSize;
-    Dec(MouseCount);
-  end;
+  Event := MouseQ[MouseQHead];
+  MouseQHead := (MouseQHead + 1) mod MouseQSize;
+  Dec(MouseQCount);
 end;
 
-procedure PushKey(const Ev: TEvent);
+procedure StoreBackendEvent(const Event: TvEvents.TEvent);
 begin
-  if KeyCount < QueueSize then
+  if IsMouseEvent(Event) then
+    PushMouse(Event)
+  else if Event.What <> evNothing then
   begin
-    KeyQueue[(KeyHead + KeyCount) mod QueueSize] := Ev;
-    Inc(KeyCount);
-  end;
-end;
-
-function PopKey(var Ev: TEvent): Boolean;
-begin
-  Result := KeyCount > 0;
-  if Result then
-  begin
-    Ev := KeyQueue[KeyHead];
-    KeyHead := (KeyHead + 1) mod QueueSize;
-    Dec(KeyCount);
-  end;
-end;
-
-function PopPosted(var Ev: TEvent): Boolean;
-begin
-  EnterCriticalSection(PostLock);
-  try
-    Result := PostCount > 0;
-    if Result then
-    begin
-      Ev := PostQueue[PostHead];
-      Inc(PostHead);
-      Dec(PostCount);
-      if PostCount = 0 then
-        PostHead := 0;
-    end;
-  finally
-    LeaveCriticalSection(PostLock);
+    KeyPendingEvent := Event;
+    KeyPending := True;
   end;
 end;
 
 function PostedWaiting: Boolean;
 begin
   EnterCriticalSection(PostLock);
-  try
-    Result := PostCount > 0;
-  finally
-    LeaveCriticalSection(PostLock);
-  end;
+  Result := PostCount > 0;
+  LeaveCriticalSection(PostLock);
 end;
 
-function ReadBackend(var Ev: TEvent): Boolean;
+function TakePosted(var Event: TvEvents.TEvent): Boolean;
 begin
-  ClearEvent(Ev);
-  if Assigned(OnPollEvent) then
-    OnPollEvent(0, Ev);
-  Result := Ev.What <> evNothing;
+  EnterCriticalSection(PostLock);
+  Result := PostCount > 0;
+  if Result then
+  begin
+    Event := PostQ[PostHead];
+    PostHead := (PostHead + 1) mod Length(PostQ);
+    Dec(PostCount);
+  end;
+  LeaveCriticalSection(PostLock);
 end;
 
-{ the paste text and the keys }
-
-function GetPasteEvent(var Ev: TEvent): Boolean;
+function GetPasteEvent(var Event: TvEvents.TEvent): Boolean;
 var
-  Left, Len: Integer;
-  P: PByte;
+  Len, Used: SizeInt;
+  U: Integer;
   CodePoint: LongWord;
 begin
-  if PastePresent then
-  begin
-    Left := Length(PasteBuf) - PasteIndex;
-    if Left > 0 then
-    begin
-      P := PByte(@PasteBuf[PasteIndex + 1]);
-      TvUtf8.Utf8Decode(P, Left, CodePoint, Len);
-      if Len < 1 then
-        Len := 1;
-      if Len > Left then
-        Len := Left;
-      if Len > MaxCharSize then
-        Len := MaxCharSize;
-      ClearEvent(Ev);
-      Ev.What := evKeyDown;
-      Ev.KeyDown.KeyCode := 0;
-      Ev.KeyDown.ControlKeyState := kbPaste;
-      Move(P^, Ev.KeyDown.Text[0], Len);
-      Ev.KeyDown.TextLength := Len;
-      Inc(PasteIndex, Len);
-      Exit(True);
-    end;
-    PasteBuf := '';
-    PasteIndex := 0;
-    PastePresent := False;
-  end;
   Result := False;
+  if PasteSet then
+  begin
+    Len := Length(PasteText) - PasteIndex;
+    if Len > 0 then
+    begin
+      TvUtf8.Utf8Decode(PByte(@PasteText[PasteIndex + 1]), Len, CodePoint, U);
+      Used := U;
+      if Used < 1 then
+        Used := 1;
+      if Used > Len then
+        Used := Len;
+      if Used > MaxCharSize then
+        Used := MaxCharSize;
+      TvEvents.ClearEvent(Event);
+      Event.What := evKeyDown;
+      Event.KeyDown.KeyCode := 0;
+      Event.KeyDown.ControlKeyState := kbPaste;
+      Event.KeyDown.TextLength := Byte(Used);
+      Move(PasteText[PasteIndex + 1], Event.KeyDown.Text[0], Used);
+      Inc(PasteIndex, Used);
+      Result := True;
+      Exit;
+    end;
+    PasteText := '';
+    PasteIndex := 0;
+    PasteSet := False;
+  end;
 end;
 
-procedure GetKeyOrPasteEvent(var Ev: TEvent; NoPoll: Boolean);
+procedure GetKeyOrPasteEvent(var Event: TvEvents.TEvent);
 var
-  E: TEvent;
+  E: TvEvents.TEvent;
 begin
-  if GetPasteEvent(Ev) then
+  if GetPasteEvent(Event) then
     Exit;
-  if PopKey(Ev) then
+  if KeyPending then
+  begin
+    Event := KeyPendingEvent;
+    KeyPending := False;
     Exit;
-  if not NoPoll then
-    while ReadBackend(E) do
-      if IsMouseEvent(E) then
-        PushMouse(E)
-      else
+  end;
+  if NothingFound then
+    NothingFound := False
+  else if Assigned(OnPollEvent) then
+    repeat
+      ReadBackend(0, E);
+      if E.What = evNothing then
+        Break;
+      if not IsMouseEvent(E) then
       begin
-        Ev := E;
+        Event := E;
         Exit;
       end;
-  if not PopPosted(Ev) then
-    ClearEvent(Ev);
+      PushMouse(E);
+    until False;
+  if TakePosted(Event) then
+    Exit;
+  TvEvents.ClearEvent(Event);
 end;
 
 { TEventQueue }
 
-class procedure TEventQueue.GetMouseEvent(var Event: TEvent);
+class procedure TEventQueue.GetMouseEvent(var Event: TvEvents.TEvent);
 var
-  E: TEvent;
+  E: TvEvents.TEvent;
 begin
-  if (MouseCount = 0) and not WaitFoundNothing then
-    while (KeyCount < QueueSize) and ReadBackend(E) do
-      if IsMouseEvent(E) then
-      begin
-        PushMouse(E);
-        Break;
-      end
-      else
-        PushKey(E);
-  if PopMouse(Event) then
+  if MouseQCount > 0 then
+    PopMouse(Event)
+  else if KeyPending or NothingFound or not Assigned(OnPollEvent) then
   begin
-    if MouseReverse and (Event.Mouse.Buttons <> 0) and (Event.Mouse.Buttons <> 3) then
-      Event.Mouse.Buttons := Event.Mouse.Buttons xor 3;
+    TvEvents.ClearEvent(Event);
+    Exit;
   end
   else
-    ClearEvent(Event);
+  begin
+    ReadBackend(0, E);
+    if IsMouseEvent(E) then
+      Event := E
+    else
+    begin
+      StoreBackendEvent(E);
+      TvEvents.ClearEvent(Event);
+      Exit;
+    end;
+  end;
+  if MouseReverse and (Event.Mouse.Buttons <> 0) and (Event.Mouse.Buttons <> 3) then
+    Event.Mouse.Buttons := Event.Mouse.Buttons xor 3;
 end;
 
-class procedure TEventQueue.GetKeyEvent(var Event: TEvent);
-var
-  NoPoll: Boolean;
+class procedure TEventQueue.GetKeyEvent(var Event: TvEvents.TEvent);
 begin
-  NoPoll := WaitFoundNothing;
-  WaitFoundNothing := False;
-
-  GetKeyOrPasteEvent(Event, NoPoll);
+  GetKeyOrPasteEvent(Event);
 
   if ShouldSkipLf then
   begin
     ShouldSkipLf := False;
     if (Event.What = evKeyDown) and ((Event.KeyDown.ControlKeyState and kbPaste) <> 0) and
-       (((Event.KeyDown.TextLength = 0) and (Event.KeyDown.CharScan.CharCode = 10)) or
-        ((Event.KeyDown.TextLength = 1) and (Event.KeyDown.Text[0] = #10))) then
-      GetKeyOrPasteEvent(Event, NoPoll);
+       ( ((Event.KeyDown.TextLength = 0) and (Event.KeyDown.CharScan.CharCode = 10)) or
+         ((Event.KeyDown.TextLength = 1) and (Event.KeyDown.Text[0] = #10)) ) then
+      GetKeyOrPasteEvent(Event);
   end;
 
   if (Event.What = evKeyDown) and ((Event.KeyDown.ControlKeyState and kbPaste) <> 0) then
@@ -487,80 +474,87 @@ end;
 
 class procedure TEventQueue.WaitForEvents(TimeoutMs: Integer);
 var
-  E: TEvent;
+  E: TvEvents.TEvent;
 begin
-  if TakeWakeUp then
+  if WakeClear then
+  begin
+    NothingFound := True;
     Exit;
-  if (MouseCount > 0) or (KeyCount > 0) or PastePresent or PostedWaiting then
+  end;
+  if (MouseQCount > 0) or KeyPending or PasteSet or PostedWaiting then
     Exit;
   if Assigned(OnPollEvent) then
   begin
-    ClearEvent(E);
-    OnPollEvent(TimeoutMs, E);
+    ReadBackend(TimeoutMs, E);
+    WakeClear;
     if E.What = evNothing then
-      WaitFoundNothing := True
-    else if IsMouseEvent(E) then
-      PushMouse(E)
+      NothingFound := True
     else
-      PushKey(E);
-    TakeWakeUp;
+    begin
+      NothingFound := False;
+      StoreBackendEvent(E);
+    end;
   end
   else
-    WaitOnWakeUpHandle(TimeoutMs);
+  begin
+    SysWait(TimeoutMs);
+    WakeClear;
+    SysClear;
+  end;
 end;
 
 class procedure TEventQueue.SetPasteText(const Text: AnsiString);
 begin
-  PasteBuf := Text;
+  PasteText := Text;
   PasteIndex := 0;
-  PastePresent := True;
+  PasteSet := True;
 end;
 
 class procedure TEventQueue.WakeUp;
 begin
-  if InterLockedExchange(WakeSignaled, 1) = 0 then
-    SysSignal;
+  WakeSignal;
 end;
 
-class procedure TEventQueue.PostEvent(const Event: TEvent);
+class procedure TEventQueue.PostEvent(const Event: TvEvents.TEvent);
 var
-  I: Integer;
+  NewQ: TPostedEvents;
+  I, N: Integer;
 begin
   EnterCriticalSection(PostLock);
-  try
-    if PostHead + PostCount >= Length(PostQueue) then
-    begin
-      if PostHead > 0 then
-      begin
-        for I := 0 to PostCount - 1 do
-          PostQueue[I] := PostQueue[PostHead + I];
-        PostHead := 0;
-      end
-      else
-        SetLength(PostQueue, Length(PostQueue) * 2 + 16);
-    end;
-    PostQueue[PostHead + PostCount] := Event;
-    Inc(PostCount);
-  finally
-    LeaveCriticalSection(PostLock);
+  if PostCount = Length(PostQ) then
+  begin
+    N := Length(PostQ) * 2;
+    if N < 16 then
+      N := 16;
+    SetLength(NewQ, N);
+    for I := 0 to PostCount - 1 do
+      NewQ[I] := PostQ[(PostHead + I) mod Length(PostQ)];
+    PostQ := NewQ;
+    PostHead := 0;
   end;
-  WakeUp;
+  PostQ[(PostHead + PostCount) mod Length(PostQ)] := Event;
+  Inc(PostCount);
+  LeaveCriticalSection(PostLock);
+  WakeSignal;
 end;
 
 class function TEventQueue.WakeUpHandle: THandle;
 begin
-  {$IFDEF UNIX}
-  Result := THandle(WakeReadFd);
-  {$ELSE}
-  {$IFDEF WINDOWS}
+{$IFDEF UNIX}
+  if WakeOk then
+    Result := THandle(WakeFds[0])
+  else
+    Result := THandle(-1);
+{$ELSE}
+{$IFDEF WINDOWS}
   if WakeEvent <> 0 then
     Result := WakeEvent
   else
     Result := THandle(-1);
-  {$ELSE}
+{$ELSE}
   Result := THandle(-1);
-  {$ENDIF}
-  {$ENDIF}
+{$ENDIF}
+{$ENDIF}
 end;
 
 { the hooks }
@@ -611,5 +605,10 @@ initialization
   TEventQueue.DoubleDelay := 8;
   TEventQueue.MouseReverse := False;
   InitCriticalSection(PostLock);
-  CreateWakeUpHandle;
+  SysCreate;
+
+finalization
+  SysDestroy;
+  DoneCriticalSection(PostLock);
+
 end.
