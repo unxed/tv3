@@ -10,6 +10,11 @@
 #   dn151    DOS Navigator 1.51 sources (RIT Research Labs)
 #   bp7tv    Borland Pascal 7.0 / 7.01 Turbo Vision sources (proprietary)
 #   far2l    far2l (C/C++, GPL)
+#   sigala   the GCC port of Turbo Vision by Sergio Sigala (C++; benwbooth/tvision, a fork of it, at a fixed commit)
+#   jserv    a GCC/Linux port of Turbo Vision (C++; jserv/tvision at a fixed commit)
+#   rhtv     rhtvision / TV SET by Salvador Tropea (C++; set-soft/tvision at a fixed commit)
+#   tv20     Turbo Vision 2.0 for C++ as released by Borland (FSharpCSharp/TurboVision at a fixed commit)
+#   tvdelphi a Delphi port of Turbo Vision (Pascal; MikeFalcon77/turbovision-delphi at a fixed commit)
 # allowed:
 #   magiblot magiblot/tvision @ b4831e2 (C++, MIT)
 #   tvterm   magiblot/tvterm @ 210eb23 (C++, MIT): its own sources (include/, source/), not the libraries of deps/
@@ -68,6 +73,19 @@ fi
 if [ ! -d far2l ]; then
     rm -rf far2l.tmp && git clone -q --depth 1 https://github.com/elfmz/far2l far2l.tmp && mv far2l.tmp far2l
 fi
+pin() {   # pin DIR REPOSITORY COMMIT: a clone of the repository at the commit, once
+    if [ ! -d "$1" ]; then
+        rm -rf "$1.tmp"
+        git clone -q --filter=blob:none --no-checkout "https://github.com/$2" "$1.tmp"
+        git -C "$1.tmp" -c advice.detachedHead=false checkout -q "$3"
+        mv "$1.tmp" "$1"
+    fi
+}
+pin sigala benwbooth/tvision cb0849252a43be9d81ee8fa54519f778fad1a599
+pin jserv jserv/tvision 3537200715baf7de7c61c9ebbb639373b7a6b1ac
+pin rhtv set-soft/tvision 197ea6801a98faacb82d0456201d73c5a3ea5dfa
+pin tv20 FSharpCSharp/TurboVision b73b2ed7672df5d8f789c309076752ddee1c8adf
+pin tvdelphi MikeFalcon77/turbovision-delphi 6c6f66ad4c3e37a1daea9ae28449e11802a994b0
 if [ ! -d magiblot ]; then
     rm -rf magiblot.tmp
     git clone -q --filter=blob:none --no-checkout https://github.com/magiblot/tvision magiblot.tmp
@@ -87,6 +105,8 @@ fi
 
 {
     find far2l -type f \( -name '*.c' -o -name '*.cc' -o -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \)
+    find sigala jserv rhtv tv20 tvdelphi -type f \( -iname '*.c' -o -iname '*.cc' -o -iname '*.cpp' -o -iname '*.h' \
+        -o -iname '*.hpp' -o -iname '*.pas' -o -iname '*.pp' -o -iname '*.inc' \) -not -path '*/.git/*'
     find fpc/packages fpcmain/packages -type f \( -iname '*.pas' -o -iname '*.pp' -o -iname '*.inc' \)
     find sp/fpide -type f \( -iname '*.pas' -o -iname '*.pp' -o -iname '*.inc' \)
     find dn214 dn151 bp7tv -type f \( -iname '*.pas' -o -iname '*.pp' -o -iname '*.inc' \)
