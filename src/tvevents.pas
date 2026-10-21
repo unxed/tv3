@@ -3,12 +3,15 @@
   Translated from magiblot/tvision @ b4831e2:
     include/tvision/system.h (event codes and masks, mouse button/wheel/flag
                               constants, MouseEventType, KeyDownEvent,
-                              MessageEvent, TEvent)
+                              MessageEvent, TEvent),
+    source/platform/win32con.cpp (virtualKeyCodeToTVisionKeyCode, getWin32Key,
+                              getWin32KeyText: the win32 fields, in reverse),
+    source/platform/termio.cpp (moddedKeyCodes, normalizeKey: in reverse)
   The event queue, mouse and screen classes of system.h are platform code and
-  are replaced by the backends (tv/DESIGN.md). Borland disclaimer and MIT
+  are replaced by the backends (DESIGN.md). Borland disclaimer and MIT
   notice: COPYRIGHT.magiblot.
 
-  TEvent is one flat record (as in the Pascal Turbo Vision) instead of nested
+  TEvent is one flat record instead of nested
   structs: What, ControlKeyState, then the part of the event kind:
     mouse    Where, EventFlags, Buttons, Wheel
     key down KeyCode (= CharCode + ScanCode shl 8), Text/TextLength (UTF-8); and what the win32 input mode of terminals
@@ -154,6 +157,158 @@ function EventUtf16(const Event: TEvent; out Hi, Lo: Word): Integer;
 
 implementation
 
+type
+  TVkEntry = record
+    Vk: Byte;
+    Code: Word;
+  end;
+
+  TModEntry = record
+    Base: Word;
+    Codes: array[0..2] of Word;
+  end;
+
+const
+  VkTableSize = 79;
+  VkTable: array[0..VkTableSize - 1] of TVkEntry = (
+    (Vk: $08; Code: kbBack),         (Vk: $09; Code: kbTab),
+    (Vk: $0D; Code: kbEnter),        (Vk: $1B; Code: kbEsc),
+    (Vk: $30; Code: $0B00 or $30),   (Vk: $31; Code: $0200 or $31),
+    (Vk: $32; Code: $0300 or $32),   (Vk: $33; Code: $0400 or $33),
+    (Vk: $34; Code: $0500 or $34),   (Vk: $35; Code: $0600 or $35),
+    (Vk: $36; Code: $0700 or $36),   (Vk: $37; Code: $0800 or $37),
+    (Vk: $38; Code: $0900 or $38),   (Vk: $39; Code: $0A00 or $39),
+    (Vk: $20; Code: $3900 or $20),   (Vk: $41; Code: $1E00 or $41),
+    (Vk: $42; Code: $3000 or $42),   (Vk: $43; Code: $2E00 or $43),
+    (Vk: $44; Code: $2000 or $44),   (Vk: $45; Code: $1200 or $45),
+    (Vk: $46; Code: $2100 or $46),   (Vk: $47; Code: $2200 or $47),
+    (Vk: $48; Code: $2300 or $48),   (Vk: $49; Code: $1700 or $49),
+    (Vk: $4A; Code: $2400 or $4A),   (Vk: $4B; Code: $2500 or $4B),
+    (Vk: $4C; Code: $2600 or $4C),   (Vk: $4D; Code: $3200 or $4D),
+    (Vk: $4E; Code: $3100 or $4E),   (Vk: $4F; Code: $1800 or $4F),
+    (Vk: $50; Code: $1900 or $50),   (Vk: $51; Code: $1000 or $51),
+    (Vk: $52; Code: $1300 or $52),   (Vk: $53; Code: $1F00 or $53),
+    (Vk: $54; Code: $1400 or $54),   (Vk: $55; Code: $1600 or $55),
+    (Vk: $56; Code: $2F00 or $56),   (Vk: $57; Code: $1100 or $57),
+    (Vk: $58; Code: $2D00 or $58),   (Vk: $59; Code: $1500 or $59),
+    (Vk: $5A; Code: $2C00 or $5A),   (Vk: $21; Code: kbPgUp),
+    (Vk: $22; Code: kbPgDn),         (Vk: $23; Code: kbEnd),
+    (Vk: $24; Code: kbHome),         (Vk: $25; Code: kbLeft),
+    (Vk: $26; Code: kbUp),           (Vk: $27; Code: kbRight),
+    (Vk: $28; Code: kbDown),         (Vk: $2D; Code: kbIns),
+    (Vk: $2E; Code: kbDel),          (Vk: $60; Code: $5200 or $30),
+    (Vk: $61; Code: $4F00 or $31),   (Vk: $62; Code: $5000 or $32),
+    (Vk: $63; Code: $5100 or $33),   (Vk: $64; Code: $4B00 or $34),
+    (Vk: $65; Code: $4C00 or $35),   (Vk: $66; Code: $4D00 or $36),
+    (Vk: $67; Code: $4700 or $37),   (Vk: $68; Code: $4800 or $38),
+    (Vk: $69; Code: $4900 or $39),   (Vk: $6A; Code: $3700 or $2A),
+    (Vk: $6B; Code: $4E00 or $2B),   (Vk: $6C; Code: $7E00 or $2C),
+    (Vk: $6D; Code: $4A00 or $2D),   (Vk: $6E; Code: $5300 or $2E),
+    (Vk: $6F; Code: $3500 or $2F),   (Vk: $70; Code: kbF1),
+    (Vk: $71; Code: kbF2),           (Vk: $72; Code: kbF3),
+    (Vk: $73; Code: kbF4),           (Vk: $74; Code: kbF5),
+    (Vk: $75; Code: kbF6),           (Vk: $76; Code: kbF7),
+    (Vk: $77; Code: kbF8),           (Vk: $78; Code: kbF9),
+    (Vk: $79; Code: kbF10),          (Vk: $7A; Code: kbF11),
+    (Vk: $7B; Code: kbF12)
+  );
+
+  ModTableSize = 65;
+  ModTable: array[0..ModTableSize - 1] of TModEntry = (
+    (Base: Ord('A'); Codes: (0, kbCtrlA, kbAltA)), (Base: Ord('B'); Codes: (0, kbCtrlB, kbAltB)),
+    (Base: Ord('C'); Codes: (0, kbCtrlC, kbAltC)), (Base: Ord('D'); Codes: (0, kbCtrlD, kbAltD)),
+    (Base: Ord('E'); Codes: (0, kbCtrlE, kbAltE)), (Base: Ord('F'); Codes: (0, kbCtrlF, kbAltF)),
+    (Base: Ord('G'); Codes: (0, kbCtrlG, kbAltG)), (Base: Ord('H'); Codes: (0, kbCtrlH, kbAltH)),
+    (Base: Ord('I'); Codes: (0, kbCtrlI, kbAltI)), (Base: Ord('J'); Codes: (0, kbCtrlJ, kbAltJ)),
+    (Base: Ord('K'); Codes: (0, kbCtrlK, kbAltK)), (Base: Ord('L'); Codes: (0, kbCtrlL, kbAltL)),
+    (Base: Ord('M'); Codes: (0, kbCtrlM, kbAltM)), (Base: Ord('N'); Codes: (0, kbCtrlN, kbAltN)),
+    (Base: Ord('O'); Codes: (0, kbCtrlO, kbAltO)), (Base: Ord('P'); Codes: (0, kbCtrlP, kbAltP)),
+    (Base: Ord('Q'); Codes: (0, kbCtrlQ, kbAltQ)), (Base: Ord('R'); Codes: (0, kbCtrlR, kbAltR)),
+    (Base: Ord('S'); Codes: (0, kbCtrlS, kbAltS)), (Base: Ord('T'); Codes: (0, kbCtrlT, kbAltT)),
+    (Base: Ord('U'); Codes: (0, kbCtrlU, kbAltU)), (Base: Ord('V'); Codes: (0, kbCtrlV, kbAltV)),
+    (Base: Ord('W'); Codes: (0, kbCtrlW, kbAltW)), (Base: Ord('X'); Codes: (0, kbCtrlX, kbAltX)),
+    (Base: Ord('Y'); Codes: (0, kbCtrlY, kbAltY)), (Base: Ord('Z'); Codes: (0, kbCtrlZ, kbAltZ)),
+    (Base: Ord('1'); Codes: (0, 0, kbAlt1)),       (Base: Ord('2'); Codes: (0, 0, kbAlt2)),
+    (Base: Ord('3'); Codes: (0, 0, kbAlt3)),       (Base: Ord('4'); Codes: (0, 0, kbAlt4)),
+    (Base: Ord('5'); Codes: (0, 0, kbAlt5)),       (Base: Ord('6'); Codes: (0, 0, kbAlt6)),
+    (Base: Ord('7'); Codes: (0, 0, kbAlt7)),       (Base: Ord('8'); Codes: (0, 0, kbAlt8)),
+    (Base: Ord('9'); Codes: (0, 0, kbAlt9)),       (Base: Ord('0'); Codes: (0, 0, kbAlt0)),
+    (Base: Ord(' '); Codes: (0, 0, kbAltSpace)),   (Base: Ord('-'); Codes: (0, 0, kbAltMinus)),
+    (Base: Ord('='); Codes: (0, 0, kbAltEqual)),
+    (Base: kbF1; Codes: (kbShiftF1, kbCtrlF1, kbAltF1)),     (Base: kbF2; Codes: (kbShiftF2, kbCtrlF2, kbAltF2)),
+    (Base: kbF3; Codes: (kbShiftF3, kbCtrlF3, kbAltF3)),     (Base: kbF4; Codes: (kbShiftF4, kbCtrlF4, kbAltF4)),
+    (Base: kbF5; Codes: (kbShiftF5, kbCtrlF5, kbAltF5)),     (Base: kbF6; Codes: (kbShiftF6, kbCtrlF6, kbAltF6)),
+    (Base: kbF7; Codes: (kbShiftF7, kbCtrlF7, kbAltF7)),     (Base: kbF8; Codes: (kbShiftF8, kbCtrlF8, kbAltF8)),
+    (Base: kbF9; Codes: (kbShiftF9, kbCtrlF9, kbAltF9)),     (Base: kbF10; Codes: (kbShiftF10, kbCtrlF10, kbAltF10)),
+    (Base: kbF11; Codes: (kbShiftF11, kbCtrlF11, kbAltF11)), (Base: kbF12; Codes: (kbShiftF12, kbCtrlF12, kbAltF12)),
+    (Base: kbEsc; Codes: (0, 0, kbAltEsc)),                  (Base: kbBack; Codes: (0, kbCtrlBack, kbAltBack)),
+    (Base: kbTab; Codes: (kbShiftTab, kbCtrlTab, kbAltTab)), (Base: kbEnter; Codes: (0, kbCtrlEnter, kbAltEnter)),
+    (Base: kbHome; Codes: (0, kbCtrlHome, kbAltHome)),       (Base: kbUp; Codes: (0, kbCtrlUp, kbAltUp)),
+    (Base: kbPgUp; Codes: (0, kbCtrlPgUp, kbAltPgUp)),       (Base: kbLeft; Codes: (0, kbCtrlLeft, kbAltLeft)),
+    (Base: kbRight; Codes: (0, kbCtrlRight, kbAltRight)),    (Base: kbEnd; Codes: (0, kbCtrlEnd, kbAltEnd)),
+    (Base: kbDown; Codes: (0, kbCtrlDown, kbAltDown)),       (Base: kbPgDn; Codes: (0, kbCtrlPgDn, kbAltPgDn)),
+    (Base: kbIns; Codes: (kbShiftIns, kbCtrlIns, kbAltIns)), (Base: kbDel; Codes: (kbShiftDel, kbCtrlDel, kbAltDel))
+  );
+
+  ModBits: array[0..2] of Word = (kbShift, kbCtrlShift, kbAltShift);
+
+{ The key without the modifier that its key code carries (kbCtrlLeft: kbLeft
+  and kbCtrlShift); other key codes are their own base. }
+procedure UnmodKey(KeyCode: Word; out Base, Mods: Word);
+var
+  I, J: Integer;
+begin
+  Base := KeyCode;
+  Mods := 0;
+  if KeyCode = 0 then
+    Exit;
+  for I := 0 to ModTableSize - 1 do
+    for J := 0 to 2 do
+      if ModTable[I].Codes[J] = KeyCode then
+      begin
+        Base := ModTable[I].Base;
+        Mods := ModBits[J];
+        Exit;
+      end;
+end;
+
+function VkOfBase(Base: Word): Word;
+var
+  I: Integer;
+  C: Byte;
+begin
+  Result := 0;
+  if Base = 0 then
+    Exit;
+  for I := 0 to VkTableSize - 1 do
+    if VkTable[I].Code = Base then
+      Exit(VkTable[I].Vk);
+  C := Lo(Base);
+  if (C >= Ord('a')) and (C <= Ord('z')) then
+    Dec(C, $20);
+  if ((C >= Ord('A')) and (C <= Ord('Z'))) or ((C >= Ord('0')) and (C <= Ord('9'))) or (C = Ord(' ')) then
+    Result := C;
+end;
+
+function CodeOfVk(Vk: Word): Word;
+var
+  I: Integer;
+begin
+  Result := 0;
+  if Vk = 0 then
+    Exit;
+  for I := 0 to VkTableSize - 1 do
+    if VkTable[I].Vk = Vk then
+      Exit(VkTable[I].Code);
+end;
+
+function IsCursorBlockKey(Base: Word): Boolean;
+begin
+  Result := (Base = kbIns) or (Base = kbDel) or (Base = kbHome) or (Base = kbEnd) or
+            (Base = kbPgUp) or (Base = kbPgDn) or (Base = kbLeft) or (Base = kbUp) or
+            (Base = kbRight) or (Base = kbDown);
+end;
+
 procedure ClearEvent(out Event: TEvent);
 begin
   FillChar(Event, SizeOf(Event), 0);
@@ -161,14 +316,14 @@ end;
 
 function EventText(const Event: TEvent): ShortString;
 var
-  N: Integer;
+  N, I: Integer;
 begin
   N := Event.KeyDown.TextLength;
   if N > MaxCharSize then
     N := MaxCharSize;
   SetLength(Result, N);
-  if N > 0 then
-    Move(Event.KeyDown.Text[0], Result[1], N);
+  for I := 0 to N - 1 do
+    Result[I + 1] := Event.KeyDown.Text[I];
 end;
 
 function EventKey(const Event: TEvent): TKey;
@@ -177,173 +332,51 @@ begin
 end;
 
 procedure MakeKeyEvent(out Event: TEvent; KeyCode, ControlKeyState: Word);
+var
+  C: Byte;
 begin
   ClearEvent(Event);
   Event.What := evKeyDown;
   Event.KeyDown.KeyCode := KeyCode;
   Event.KeyDown.ControlKeyState := ControlKeyState;
-  if (Event.KeyDown.CharScan.CharCode >= $20) and (Event.KeyDown.CharScan.CharCode < $7F) then
+  C := Lo(KeyCode);
+  if (C >= Ord(' ')) and (C < $7F) then
   begin
-    Event.KeyDown.Text[0] := Char(Event.KeyDown.CharScan.CharCode);
+    Event.KeyDown.Text[0] := Chr(C);
     Event.KeyDown.TextLength := 1;
   end;
 end;
 
-{ the scan code of a key that a modifier changed: the code of the key itself (Shift+F1 is $54, F1 is $3B) }
-function BaseScan(Scan: Byte): Byte;
-begin
-  case Scan of
-    $54..$5D: Result := Scan - $54 + $3B;       { Shift+F1..F10 }
-    $5E..$67: Result := Scan - $5E + $3B;       { Ctrl+F1..F10 }
-    $68..$71: Result := Scan - $68 + $3B;       { Alt+F1..F10 }
-    $87, $89, $8B: Result := $85;
-    $88, $8A, $8C: Result := $86;
-    $73: Result := $4B;                          { Ctrl+Left, Right, End, PgDn, Home, PgUp, Up, Down, Ins, Del }
-    $74: Result := $4D;
-    $75: Result := $4F;
-    $76: Result := $51;
-    $77: Result := $47;
-    $84: Result := $49;
-    $8D: Result := $48;
-    $91: Result := $50;
-    $92: Result := $52;
-    $93: Result := $53;
-    $97: Result := $47;                          { Alt+Home, Up, PgUp, Left, Right, End, Down, PgDn, Ins, Del }
-    $98: Result := $48;
-    $99: Result := $49;
-    $9B: Result := $4B;
-    $9D: Result := $4D;
-    $9F: Result := $4F;
-    $A0: Result := $50;
-    $A1: Result := $51;
-    $A2: Result := $52;
-    $A3: Result := $53;
-  else
-    Result := Scan;
-  end;
-end;
-
-function KeyOfScan(Scan: Byte): Word;
-begin
-  case BaseScan(Scan) of
-    $3B..$44: Result := $70 + (BaseScan(Scan) - $3B);   { F1..F10 }
-    $85: Result := $7A;
-    $86: Result := $7B;
-    $47: Result := $24;                                 { Home }
-    $48: Result := $26;
-    $49: Result := $21;
-    $4B: Result := $25;
-    $4D: Result := $27;
-    $4F: Result := $23;
-    $50: Result := $28;
-    $51: Result := $22;
-    $52: Result := $2D;
-    $53: Result := $2E;
-    $94, $0F: Result := $09;
-    $01: Result := $1B;
-    $0E: Result := $08;
-    $1C: Result := $0D;
-  else
-    Result := 0;
-  end;
-end;
-
-function IsCursorBlock(Vk: Word): Boolean;
-begin
-  Result := Vk in [$21..$28, $2D, $2E];
-end;
-
-function OemVk(Ch: Byte): Word;
-const
-  { the characters of Shift+0 .. Shift+9 on a US keyboard }
-  ShiftedDigits = ')!@#$%^&*(';
-  { the OEM keys in pairs (without and with Shift) and their virtual keys VK_OEM_1 .. VK_OEM_7 }
-  OemPairs = ';:=+,<-_.>/?`~[{\|]}''"';
-  OemKeys: array[0..10] of Byte = ($BA, $BB, $BC, $BD, $BE, $BF, $C0, $DB, $DC, $DD, $DE);
-var
-  P: Integer;
-begin
-  case Chr(Ch) of
-    'a'..'z': Exit(Ch - 32);
-    'A'..'Z', '0'..'9', ' ': Exit(Ch);
-  end;
-  P := Pos(Chr(Ch), ShiftedDigits);
-  if P > 0 then
-    Exit(Ord('0') + P - 1);
-  P := Pos(Chr(Ch), OemPairs);
-  if P > 0 then
-    Exit(OemKeys[(P - 1) div 2]);
-  Result := 0;
-end;
-
 function EventVirtualKey(const Event: TEvent): Word;
+var
+  Base, Mods: Word;
 begin
-  if Event.KeyDown.VirtualKey <> 0 then
-    Exit(Event.KeyDown.VirtualKey);
-  Result := 0;
-  if (Event.KeyDown.CharScan.CharCode >= 1) and (Event.KeyDown.CharScan.CharCode <= 26) and (Event.KeyDown.CharScan.CharCode <> 8) and (Event.KeyDown.CharScan.CharCode <> 9) and (Event.KeyDown.CharScan.CharCode <> 13) then
-    Exit(Event.KeyDown.CharScan.CharCode + 64);                      { Ctrl+A.. }
-  if Event.KeyDown.CharScan.CharCode = 0 then
-    Exit(KeyOfScan(Event.KeyDown.CharScan.ScanCode));
-  Result := KeyOfScan(Event.KeyDown.CharScan.ScanCode);
-  if (Result = 0) or (Event.KeyDown.CharScan.CharCode > 32) then
-    Result := OemVk(Event.KeyDown.CharScan.CharCode);
-  if (Result = 0) and (Event.KeyDown.TextLength = 1) then
-    Result := OemVk(Ord(Event.KeyDown.Text[0]));
+  Result := Event.KeyDown.VirtualKey;
+  if Result <> 0 then
+    Exit;
+  UnmodKey(Event.KeyDown.KeyCode, Base, Mods);
+  Result := VkOfBase(Base);
 end;
 
 function EventScanCode(const Event: TEvent): Word;
 var
-  Vk: Word;
+  Base, Mods: Word;
 begin
-  Vk := EventVirtualKey(Event);
-  if Event.KeyDown.CharScan.CharCode = 0 then
-    Exit(BaseScan(Event.KeyDown.CharScan.ScanCode));
-  case Vk of
-    $41..$5A:
-      begin
-        case Chr(Vk) of
-          'Q': Result := $10; 'W': Result := $11; 'E': Result := $12; 'R': Result := $13; 'T': Result := $14;
-          'Y': Result := $15; 'U': Result := $16; 'I': Result := $17; 'O': Result := $18; 'P': Result := $19;
-          'A': Result := $1E; 'S': Result := $1F; 'D': Result := $20; 'F': Result := $21; 'G': Result := $22;
-          'H': Result := $23; 'J': Result := $24; 'K': Result := $25; 'L': Result := $26;
-          'Z': Result := $2C; 'X': Result := $2D; 'C': Result := $2E; 'V': Result := $2F; 'B': Result := $30;
-          'N': Result := $31; 'M': Result := $32;
-        else
-          Result := 0;
-        end;
-      end;
-    $31..$39: Result := $02 + (Vk - $31);
-    $30: Result := $0B;
-    $20: Result := $39;
-    $BA: Result := $27;
-    $BB: Result := $0D;
-    $BC: Result := $33;
-    $BD: Result := $0C;
-    $BE: Result := $34;
-    $BF: Result := $35;
-    $C0: Result := $29;
-    $DB: Result := $1A;
-    $DC: Result := $2B;
-    $DD: Result := $1B;
-    $DE: Result := $28;
-    $0D: Result := $1C;
-    $09: Result := $0F;
-    $08: Result := $0E;
-    $1B: Result := $01;
-  else
-    Result := BaseScan(Event.KeyDown.CharScan.ScanCode);
-  end;
+  UnmodKey(Event.KeyDown.KeyCode, Base, Mods);
+  Result := Hi(Base);
+  if Result = 0 then
+    Result := Hi(CodeOfVk(EventVirtualKey(Event)));
 end;
 
 function EventWin32State(const Event: TEvent): Word;
 var
-  M: Word;
+  Base, Mods, M: Word;
 begin
-  if Event.KeyDown.Win32State <> 0 then
-    Exit(Event.KeyDown.Win32State);
-  M := Event.KeyDown.ControlKeyState;
-  Result := 0;
+  Result := Event.KeyDown.Win32State;
+  if Result <> 0 then
+    Exit;
+  UnmodKey(Event.KeyDown.KeyCode, Base, Mods);
+  M := Event.KeyDown.ControlKeyState or Mods;
   if (M and kbShift) <> 0 then
     Result := Result or wkShift;
   if (M and kbCtrlShift) <> 0 then
@@ -356,34 +389,70 @@ begin
     Result := Result or wkNumLock;
   if (M and kbCapsState) <> 0 then
     Result := Result or wkCapsLock;
-  if ((M and kbEnhanced) <> 0) or ((Event.KeyDown.CharScan.CharCode = 0) and IsCursorBlock(EventVirtualKey(Event))) then
+  if ((M and kbEnhanced) <> 0) or IsCursorBlockKey(Base) then
     Result := Result or wkEnhanced;
 end;
 
 function EventUtf16(const Event: TEvent; out Hi, Lo: Word): Integer;
 var
-  Cp: LongWord;
-  L: Integer;
+  Buf: array[0..MaxCharSize - 1] of Byte;
+  N, I, Used: Integer;
+  CodePoint: LongWord;
+  Base, Mods, KeyCode: Word;
+  C, L: Byte;
 begin
   Hi := 0;
   Lo := 0;
   Result := 0;
-  if Event.KeyDown.TextLength > 0 then
+
+  N := Event.KeyDown.TextLength;
+  if N > MaxCharSize then
+    N := MaxCharSize;
+  for I := 0 to N - 1 do
+    Buf[I] := Ord(Event.KeyDown.Text[I]);
+  if (N > 0) and Utf8Decode(@Buf[0], N, CodePoint, Used) then
   begin
-    if not Utf8Decode(@Event.KeyDown.Text[0], Event.KeyDown.TextLength, Cp, L) then
-      Exit;
-    if Cp >= $10000 then
+    if CodePoint < $10000 then
     begin
-      Dec(Cp, $10000);
-      Hi := $D800 + (Cp shr 10);
-      Lo := $DC00 + (Cp and $3FF);
-      Exit(2);
+      Lo := Word(CodePoint);
+      Result := 1;
+    end
+    else
+    begin
+      Dec(CodePoint, $10000);
+      Hi := Word($D800 + (CodePoint shr 10));
+      Lo := Word($DC00 + (CodePoint and $3FF));
+      Result := 2;
     end;
-    Lo := Cp;
-    Exit(1);
+    Exit;
   end;
-  case Event.KeyDown.CharScan.CharCode of
-    1..26, 27: begin Lo := Event.KeyDown.CharScan.CharCode; Result := 1; end;
+
+  KeyCode := Event.KeyDown.KeyCode;
+  C := KeyCode and $FF;
+  UnmodKey(KeyCode, Base, Mods);
+  if ((KeyCode shr 8) = 0) and (C >= $01) and (C <= $1A) then
+  begin
+    Lo := C;
+    Result := 1;
+  end
+  else if (Base = kbEnter) or (Base = kbTab) or (Base = kbEsc) or (Base = kbBack) then
+  begin
+    if (C <> 0) and ((C < $20) or (C = $7F)) then
+      Lo := C
+    else
+      Lo := Base and $FF;
+    Result := 1;
+  end
+  else if ((Event.KeyDown.ControlKeyState or Mods) and kbCtrlShift) <> 0 then
+  begin
+    L := Base and $FF;
+    if (L >= Ord('a')) and (L <= Ord('z')) then
+      Dec(L, $20);
+    if (L >= Ord('A')) and (L <= Ord('Z')) then
+    begin
+      Lo := L - $40;
+      Result := 1;
+    end;
   end;
 end;
 
