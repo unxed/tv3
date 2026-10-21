@@ -48,48 +48,7 @@ begin
   Result.Y := AY;
 end;
 
-procedure TRect.Move(ADX, ADY: Integer);
-begin
-  Inc(A.X, ADX);
-  Inc(B.X, ADX);
-  Inc(A.Y, ADY);
-  Inc(B.Y, ADY);
-end;
-
-procedure TRect.Grow(ADX, ADY: Integer);
-begin
-  Dec(A.X, ADX);
-  Inc(B.X, ADX);
-  Dec(A.Y, ADY);
-  Inc(B.Y, ADY);
-end;
-
-procedure TRect.Intersect(const R: TRect);
-begin
-  if R.A.X > A.X then A.X := R.A.X;
-  if R.A.Y > A.Y then A.Y := R.A.Y;
-  if R.B.X < B.X then B.X := R.B.X;
-  if R.B.Y < B.Y then B.Y := R.B.Y;
-end;
-
-procedure TRect.Union(const R: TRect);
-begin
-  if R.A.X < A.X then A.X := R.A.X;
-  if R.A.Y < A.Y then A.Y := R.A.Y;
-  if R.B.X > B.X then B.X := R.B.X;
-  if R.B.Y > B.Y then B.Y := R.B.Y;
-end;
-
-function TRect.Contains(const P: TPoint): Boolean;
-begin
-  { A is inside, B is outside }
-  Result := (A.X <= P.X) and (A.Y <= P.Y) and (P.X < B.X) and (P.Y < B.Y);
-end;
-
-function TRect.IsEmpty: Boolean;
-begin
-  Result := (B.X <= A.X) or (B.Y <= A.Y);
-end;
+{ TPoint }
 
 class operator TPoint.+(const P1, P2: TPoint): TPoint;
 begin
@@ -110,8 +69,10 @@ end;
 
 class operator TPoint.<>(const P1, P2: TPoint): Boolean;
 begin
-  Result := not (P1 = P2);
+  Result := (P1.X <> P2.X) or (P1.Y <> P2.Y);
 end;
+
+{ TRect }
 
 constructor TRect.Create(AX, AY, BX, BY: Integer);
 begin
@@ -125,6 +86,56 @@ constructor TRect.Create(const P1, P2: TPoint);
 begin
   A := P1;
   B := P2;
+end;
+
+procedure TRect.Move(ADX, ADY: Integer);
+begin
+  A.X := A.X + ADX;
+  A.Y := A.Y + ADY;
+  B.X := B.X + ADX;
+  B.Y := B.Y + ADY;
+end;
+
+procedure TRect.Grow(ADX, ADY: Integer);
+begin
+  A.X := A.X - ADX;
+  A.Y := A.Y - ADY;
+  B.X := B.X + ADX;
+  B.Y := B.Y + ADY;
+end;
+
+procedure TRect.Intersect(const R: TRect);
+begin
+  if R.A.X > A.X then
+    A.X := R.A.X;
+  if R.A.Y > A.Y then
+    A.Y := R.A.Y;
+  if R.B.X < B.X then
+    B.X := R.B.X;
+  if R.B.Y < B.Y then
+    B.Y := R.B.Y;
+end;
+
+procedure TRect.Union(const R: TRect);
+begin
+  if R.A.X < A.X then
+    A.X := R.A.X;
+  if R.A.Y < A.Y then
+    A.Y := R.A.Y;
+  if R.B.X > B.X then
+    B.X := R.B.X;
+  if R.B.Y > B.Y then
+    B.Y := R.B.Y;
+end;
+
+function TRect.Contains(const P: TPoint): Boolean;
+begin
+  Result := (P.X >= A.X) and (P.X < B.X) and (P.Y >= A.Y) and (P.Y < B.Y);
+end;
+
+function TRect.IsEmpty: Boolean;
+begin
+  Result := (A.X >= B.X) or (A.Y >= B.Y);
 end;
 
 class operator TRect.=(const R1, R2: TRect): Boolean;
