@@ -119,151 +119,306 @@ function CtrlToArrow(KeyCode: Word): Word;
 implementation
 
 type
-  TLookupEntry = record
-    Normal: Word;           { 0: keep the key code }
-    Mods: Byte;
+  TKeyCodeLookupEntry = record
+    NormalKeyCode: Word;
+    ShiftState: Byte;
   end;
 
-var
-  CtrlLookup: array[0..$1A] of TLookupEntry;
-  ExtLookup: array[0..$A6] of TLookupEntry;     { indexed by the scan code }
-  CtrlBackEntry, CtrlEnterEntry: TLookupEntry;
+const
+  CtrlKeyLookup: array[0..$1A] of TKeyCodeLookupEntry = (
+    { $00 } (NormalKeyCode: 0;        ShiftState: 0),
+    { $01 } (NormalKeyCode: Ord('A'); ShiftState: kbCtrlShift),
+    { $02 } (NormalKeyCode: Ord('B'); ShiftState: kbCtrlShift),
+    { $03 } (NormalKeyCode: Ord('C'); ShiftState: kbCtrlShift),
+    { $04 } (NormalKeyCode: Ord('D'); ShiftState: kbCtrlShift),
+    { $05 } (NormalKeyCode: Ord('E'); ShiftState: kbCtrlShift),
+    { $06 } (NormalKeyCode: Ord('F'); ShiftState: kbCtrlShift),
+    { $07 } (NormalKeyCode: Ord('G'); ShiftState: kbCtrlShift),
+    { $08 } (NormalKeyCode: Ord('H'); ShiftState: kbCtrlShift),
+    { $09 } (NormalKeyCode: Ord('I'); ShiftState: kbCtrlShift),
+    { $0A } (NormalKeyCode: Ord('J'); ShiftState: kbCtrlShift),
+    { $0B } (NormalKeyCode: Ord('K'); ShiftState: kbCtrlShift),
+    { $0C } (NormalKeyCode: Ord('L'); ShiftState: kbCtrlShift),
+    { $0D } (NormalKeyCode: Ord('M'); ShiftState: kbCtrlShift),
+    { $0E } (NormalKeyCode: Ord('N'); ShiftState: kbCtrlShift),
+    { $0F } (NormalKeyCode: Ord('O'); ShiftState: kbCtrlShift),
+    { $10 } (NormalKeyCode: Ord('P'); ShiftState: kbCtrlShift),
+    { $11 } (NormalKeyCode: Ord('Q'); ShiftState: kbCtrlShift),
+    { $12 } (NormalKeyCode: Ord('R'); ShiftState: kbCtrlShift),
+    { $13 } (NormalKeyCode: Ord('S'); ShiftState: kbCtrlShift),
+    { $14 } (NormalKeyCode: Ord('T'); ShiftState: kbCtrlShift),
+    { $15 } (NormalKeyCode: Ord('U'); ShiftState: kbCtrlShift),
+    { $16 } (NormalKeyCode: Ord('V'); ShiftState: kbCtrlShift),
+    { $17 } (NormalKeyCode: Ord('W'); ShiftState: kbCtrlShift),
+    { $18 } (NormalKeyCode: Ord('X'); ShiftState: kbCtrlShift),
+    { $19 } (NormalKeyCode: Ord('Y'); ShiftState: kbCtrlShift),
+    { $1A } (NormalKeyCode: Ord('Z'); ShiftState: kbCtrlShift)
+  );
 
-procedure Ext(Scan: Byte; Normal: Word; Mods: Byte);
-begin
-  ExtLookup[Scan].Normal := Normal;
-  ExtLookup[Scan].Mods := Mods;
-end;
+  ExtKeyLookup: array[0..$A6] of TKeyCodeLookupEntry = (
+    { $00 } (NormalKeyCode: 0;           ShiftState: 0),
+    { $01 } (NormalKeyCode: kbEsc;       ShiftState: kbAltShift),
+    { $02 } (NormalKeyCode: Ord(' ');    ShiftState: kbAltShift),
+    { $03 } (NormalKeyCode: 0;           ShiftState: 0),
+    { $04 } (NormalKeyCode: kbIns;       ShiftState: kbCtrlShift),
+    { $05 } (NormalKeyCode: kbIns;       ShiftState: kbShift),
+    { $06 } (NormalKeyCode: kbDel;       ShiftState: kbCtrlShift),
+    { $07 } (NormalKeyCode: kbDel;       ShiftState: kbShift),
+    { $08 } (NormalKeyCode: 0;           ShiftState: 0),
+    { $09 } (NormalKeyCode: 0;           ShiftState: 0),
+    { $0A } (NormalKeyCode: 0;           ShiftState: 0),
+    { $0B } (NormalKeyCode: 0;           ShiftState: 0),
+    { $0C } (NormalKeyCode: 0;           ShiftState: 0),
+    { $0D } (NormalKeyCode: 0;           ShiftState: 0),
+    { $0E } (NormalKeyCode: kbBack;      ShiftState: kbAltShift),
+    { $0F } (NormalKeyCode: kbTab;       ShiftState: kbShift),
+    { $10 } (NormalKeyCode: Ord('Q');    ShiftState: kbAltShift),
+    { $11 } (NormalKeyCode: Ord('W');    ShiftState: kbAltShift),
+    { $12 } (NormalKeyCode: Ord('E');    ShiftState: kbAltShift),
+    { $13 } (NormalKeyCode: Ord('R');    ShiftState: kbAltShift),
+    { $14 } (NormalKeyCode: Ord('T');    ShiftState: kbAltShift),
+    { $15 } (NormalKeyCode: Ord('Y');    ShiftState: kbAltShift),
+    { $16 } (NormalKeyCode: Ord('U');    ShiftState: kbAltShift),
+    { $17 } (NormalKeyCode: Ord('I');    ShiftState: kbAltShift),
+    { $18 } (NormalKeyCode: Ord('O');    ShiftState: kbAltShift),
+    { $19 } (NormalKeyCode: Ord('P');    ShiftState: kbAltShift),
+    { $1A } (NormalKeyCode: 0;           ShiftState: 0),
+    { $1B } (NormalKeyCode: 0;           ShiftState: 0),
+    { $1C } (NormalKeyCode: 0;           ShiftState: 0),
+    { $1D } (NormalKeyCode: 0;           ShiftState: 0),
+    { $1E } (NormalKeyCode: Ord('A');    ShiftState: kbAltShift),
+    { $1F } (NormalKeyCode: Ord('S');    ShiftState: kbAltShift),
+    { $20 } (NormalKeyCode: Ord('D');    ShiftState: kbAltShift),
+    { $21 } (NormalKeyCode: Ord('F');    ShiftState: kbAltShift),
+    { $22 } (NormalKeyCode: Ord('G');    ShiftState: kbAltShift),
+    { $23 } (NormalKeyCode: Ord('H');    ShiftState: kbAltShift),
+    { $24 } (NormalKeyCode: Ord('J');    ShiftState: kbAltShift),
+    { $25 } (NormalKeyCode: Ord('K');    ShiftState: kbAltShift),
+    { $26 } (NormalKeyCode: Ord('L');    ShiftState: kbAltShift),
+    { $27 } (NormalKeyCode: 0;           ShiftState: 0),
+    { $28 } (NormalKeyCode: 0;           ShiftState: 0),
+    { $29 } (NormalKeyCode: 0;           ShiftState: 0),
+    { $2A } (NormalKeyCode: 0;           ShiftState: 0),
+    { $2B } (NormalKeyCode: 0;           ShiftState: 0),
+    { $2C } (NormalKeyCode: Ord('Z');    ShiftState: kbAltShift),
+    { $2D } (NormalKeyCode: Ord('X');    ShiftState: kbAltShift),
+    { $2E } (NormalKeyCode: Ord('C');    ShiftState: kbAltShift),
+    { $2F } (NormalKeyCode: Ord('V');    ShiftState: kbAltShift),
+    { $30 } (NormalKeyCode: Ord('B');    ShiftState: kbAltShift),
+    { $31 } (NormalKeyCode: Ord('N');    ShiftState: kbAltShift),
+    { $32 } (NormalKeyCode: Ord('M');    ShiftState: kbAltShift),
+    { $33 } (NormalKeyCode: 0;           ShiftState: 0),
+    { $34 } (NormalKeyCode: 0;           ShiftState: 0),
+    { $35 } (NormalKeyCode: Ord('/');    ShiftState: kbCtrlShift),
+    { $36 } (NormalKeyCode: 0;           ShiftState: 0),
+    { $37 } (NormalKeyCode: Ord('*');    ShiftState: kbCtrlShift),
+    { $38 } (NormalKeyCode: 0;           ShiftState: 0),
+    { $39 } (NormalKeyCode: 0;           ShiftState: 0),
+    { $3A } (NormalKeyCode: 0;           ShiftState: 0),
+    { $3B } (NormalKeyCode: kbF1;        ShiftState: 0),
+    { $3C } (NormalKeyCode: kbF2;        ShiftState: 0),
+    { $3D } (NormalKeyCode: kbF3;        ShiftState: 0),
+    { $3E } (NormalKeyCode: kbF4;        ShiftState: 0),
+    { $3F } (NormalKeyCode: kbF5;        ShiftState: 0),
+    { $40 } (NormalKeyCode: kbF6;        ShiftState: 0),
+    { $41 } (NormalKeyCode: kbF7;        ShiftState: 0),
+    { $42 } (NormalKeyCode: kbF8;        ShiftState: 0),
+    { $43 } (NormalKeyCode: kbF9;        ShiftState: 0),
+    { $44 } (NormalKeyCode: kbF10;       ShiftState: 0),
+    { $45 } (NormalKeyCode: 0;           ShiftState: 0),
+    { $46 } (NormalKeyCode: 0;           ShiftState: 0),
+    { $47 } (NormalKeyCode: kbHome;      ShiftState: 0),
+    { $48 } (NormalKeyCode: kbUp;        ShiftState: 0),
+    { $49 } (NormalKeyCode: kbPgUp;      ShiftState: 0),
+    { $4A } (NormalKeyCode: Ord('-');    ShiftState: kbCtrlShift),
+    { $4B } (NormalKeyCode: kbLeft;      ShiftState: 0),
+    { $4C } (NormalKeyCode: 0;           ShiftState: 0),
+    { $4D } (NormalKeyCode: kbRight;     ShiftState: 0),
+    { $4E } (NormalKeyCode: Ord('+');    ShiftState: kbCtrlShift),
+    { $4F } (NormalKeyCode: kbEnd;       ShiftState: 0),
+    { $50 } (NormalKeyCode: kbDown;      ShiftState: 0),
+    { $51 } (NormalKeyCode: kbPgDn;      ShiftState: 0),
+    { $52 } (NormalKeyCode: kbIns;       ShiftState: 0),
+    { $53 } (NormalKeyCode: kbDel;       ShiftState: 0),
+    { $54 } (NormalKeyCode: kbF1;        ShiftState: kbShift),
+    { $55 } (NormalKeyCode: kbF2;        ShiftState: kbShift),
+    { $56 } (NormalKeyCode: kbF3;        ShiftState: kbShift),
+    { $57 } (NormalKeyCode: kbF4;        ShiftState: kbShift),
+    { $58 } (NormalKeyCode: kbF5;        ShiftState: kbShift),
+    { $59 } (NormalKeyCode: kbF6;        ShiftState: kbShift),
+    { $5A } (NormalKeyCode: kbF7;        ShiftState: kbShift),
+    { $5B } (NormalKeyCode: kbF8;        ShiftState: kbShift),
+    { $5C } (NormalKeyCode: kbF9;        ShiftState: kbShift),
+    { $5D } (NormalKeyCode: kbF10;       ShiftState: kbShift),
+    { $5E } (NormalKeyCode: kbF1;        ShiftState: kbCtrlShift),
+    { $5F } (NormalKeyCode: kbF2;        ShiftState: kbCtrlShift),
+    { $60 } (NormalKeyCode: kbF3;        ShiftState: kbCtrlShift),
+    { $61 } (NormalKeyCode: kbF4;        ShiftState: kbCtrlShift),
+    { $62 } (NormalKeyCode: kbF5;        ShiftState: kbCtrlShift),
+    { $63 } (NormalKeyCode: kbF6;        ShiftState: kbCtrlShift),
+    { $64 } (NormalKeyCode: kbF7;        ShiftState: kbCtrlShift),
+    { $65 } (NormalKeyCode: kbF8;        ShiftState: kbCtrlShift),
+    { $66 } (NormalKeyCode: kbF9;        ShiftState: kbCtrlShift),
+    { $67 } (NormalKeyCode: kbF10;       ShiftState: kbCtrlShift),
+    { $68 } (NormalKeyCode: kbF1;        ShiftState: kbAltShift),
+    { $69 } (NormalKeyCode: kbF2;        ShiftState: kbAltShift),
+    { $6A } (NormalKeyCode: kbF3;        ShiftState: kbAltShift),
+    { $6B } (NormalKeyCode: kbF4;        ShiftState: kbAltShift),
+    { $6C } (NormalKeyCode: kbF5;        ShiftState: kbAltShift),
+    { $6D } (NormalKeyCode: kbF6;        ShiftState: kbAltShift),
+    { $6E } (NormalKeyCode: kbF7;        ShiftState: kbAltShift),
+    { $6F } (NormalKeyCode: kbF8;        ShiftState: kbAltShift),
+    { $70 } (NormalKeyCode: kbF9;        ShiftState: kbAltShift),
+    { $71 } (NormalKeyCode: kbF10;       ShiftState: kbAltShift),
+    { $72 } (NormalKeyCode: kbCtrlPrtSc; ShiftState: kbCtrlShift),
+    { $73 } (NormalKeyCode: kbLeft;      ShiftState: kbCtrlShift),
+    { $74 } (NormalKeyCode: kbRight;     ShiftState: kbCtrlShift),
+    { $75 } (NormalKeyCode: kbEnd;       ShiftState: kbCtrlShift),
+    { $76 } (NormalKeyCode: kbPgDn;      ShiftState: kbCtrlShift),
+    { $77 } (NormalKeyCode: kbHome;      ShiftState: kbCtrlShift),
+    { $78 } (NormalKeyCode: Ord('1');    ShiftState: kbAltShift),
+    { $79 } (NormalKeyCode: Ord('2');    ShiftState: kbAltShift),
+    { $7A } (NormalKeyCode: Ord('3');    ShiftState: kbAltShift),
+    { $7B } (NormalKeyCode: Ord('4');    ShiftState: kbAltShift),
+    { $7C } (NormalKeyCode: Ord('5');    ShiftState: kbAltShift),
+    { $7D } (NormalKeyCode: Ord('6');    ShiftState: kbAltShift),
+    { $7E } (NormalKeyCode: Ord('7');    ShiftState: kbAltShift),
+    { $7F } (NormalKeyCode: Ord('8');    ShiftState: kbAltShift),
+    { $80 } (NormalKeyCode: Ord('9');    ShiftState: kbAltShift),
+    { $81 } (NormalKeyCode: Ord('0');    ShiftState: kbAltShift),
+    { $82 } (NormalKeyCode: Ord('-');    ShiftState: kbAltShift),
+    { $83 } (NormalKeyCode: Ord('=');    ShiftState: kbAltShift),
+    { $84 } (NormalKeyCode: kbPgUp;      ShiftState: kbCtrlShift),
+    { $85 } (NormalKeyCode: kbF11;       ShiftState: 0),
+    { $86 } (NormalKeyCode: kbF12;       ShiftState: 0),
+    { $87 } (NormalKeyCode: kbF11;       ShiftState: kbShift),
+    { $88 } (NormalKeyCode: kbF12;       ShiftState: kbShift),
+    { $89 } (NormalKeyCode: kbF11;       ShiftState: kbCtrlShift),
+    { $8A } (NormalKeyCode: kbF12;       ShiftState: kbCtrlShift),
+    { $8B } (NormalKeyCode: kbF11;       ShiftState: kbAltShift),
+    { $8C } (NormalKeyCode: kbF12;       ShiftState: kbAltShift),
+    { $8D } (NormalKeyCode: kbUp;        ShiftState: kbCtrlShift),
+    { $8E } (NormalKeyCode: 0;           ShiftState: 0),
+    { $8F } (NormalKeyCode: 0;           ShiftState: 0),
+    { $90 } (NormalKeyCode: 0;           ShiftState: 0),
+    { $91 } (NormalKeyCode: kbDown;      ShiftState: kbCtrlShift),
+    { $92 } (NormalKeyCode: 0;           ShiftState: 0),
+    { $93 } (NormalKeyCode: 0;           ShiftState: 0),
+    { $94 } (NormalKeyCode: kbTab;       ShiftState: kbCtrlShift),
+    { $95 } (NormalKeyCode: 0;           ShiftState: 0),
+    { $96 } (NormalKeyCode: 0;           ShiftState: 0),
+    { $97 } (NormalKeyCode: kbHome;      ShiftState: kbAltShift),
+    { $98 } (NormalKeyCode: kbUp;        ShiftState: kbAltShift),
+    { $99 } (NormalKeyCode: kbPgUp;      ShiftState: kbAltShift),
+    { $9A } (NormalKeyCode: 0;           ShiftState: 0),
+    { $9B } (NormalKeyCode: kbLeft;      ShiftState: kbAltShift),
+    { $9C } (NormalKeyCode: 0;           ShiftState: 0),
+    { $9D } (NormalKeyCode: kbRight;     ShiftState: kbAltShift),
+    { $9E } (NormalKeyCode: 0;           ShiftState: 0),
+    { $9F } (NormalKeyCode: kbEnd;       ShiftState: kbAltShift),
+    { $A0 } (NormalKeyCode: kbDown;      ShiftState: kbAltShift),
+    { $A1 } (NormalKeyCode: kbPgDn;      ShiftState: kbAltShift),
+    { $A2 } (NormalKeyCode: kbIns;       ShiftState: kbAltShift),
+    { $A3 } (NormalKeyCode: kbDel;       ShiftState: kbAltShift),
+    { $A4 } (NormalKeyCode: 0;           ShiftState: 0),
+    { $A5 } (NormalKeyCode: kbTab;       ShiftState: kbAltShift),
+    { $A6 } (NormalKeyCode: kbEnter;     ShiftState: kbAltShift)
+  );
 
-procedure InitLookups;
-var
-  I: Integer;
-begin
-  FillChar(CtrlLookup, SizeOf(CtrlLookup), 0);
-  FillChar(ExtLookup, SizeOf(ExtLookup), 0);
-  for I := 1 to $1A do
-  begin
-    CtrlLookup[I].Normal := Ord('A') + I - 1;
-    CtrlLookup[I].Mods := kbCtrlShift;
-  end;
+  CtrlBackEntry: TKeyCodeLookupEntry = (NormalKeyCode: kbBack; ShiftState: kbCtrlShift);
+  CtrlEnterEntry: TKeyCodeLookupEntry = (NormalKeyCode: kbEnter; ShiftState: kbCtrlShift);
 
-  Ext($01, kbEsc, kbAltShift);   Ext($02, Ord(' '), kbAltShift);
-  Ext($04, kbIns, kbCtrlShift);  Ext($05, kbIns, kbShift);
-  Ext($06, kbDel, kbCtrlShift);  Ext($07, kbDel, kbShift);
-  Ext($0E, kbBack, kbAltShift);  Ext($0F, kbTab, kbShift);
-  for I := 0 to 9 do
-    Ext($10 + I, Ord('QWERTYUIOP'[I + 1]), kbAltShift);
-  for I := 0 to 8 do
-    Ext($1E + I, Ord('ASDFGHJKL'[I + 1]), kbAltShift);
-  for I := 0 to 6 do
-    Ext($2C + I, Ord('ZXCVBNM'[I + 1]), kbAltShift);
-  Ext($35, Ord('/'), kbCtrlShift);  Ext($37, Ord('*'), kbCtrlShift);
-  for I := 0 to 9 do
-  begin
-    Ext($3B + I, kbF1 + I * $100, 0);
-    Ext($54 + I, kbF1 + I * $100, kbShift);
-    Ext($5E + I, kbF1 + I * $100, kbCtrlShift);
-    Ext($68 + I, kbF1 + I * $100, kbAltShift);
-  end;
-  Ext($47, kbHome, 0);   Ext($48, kbUp, 0);    Ext($49, kbPgUp, 0);
-  Ext($4A, Ord('-'), kbCtrlShift);
-  Ext($4B, kbLeft, 0);   Ext($4D, kbRight, 0);
-  Ext($4E, Ord('+'), kbCtrlShift);
-  Ext($4F, kbEnd, 0);    Ext($50, kbDown, 0);  Ext($51, kbPgDn, 0);
-  Ext($52, kbIns, 0);    Ext($53, kbDel, 0);
-  Ext($72, kbCtrlPrtSc, kbCtrlShift);
-  Ext($73, kbLeft, kbCtrlShift);   Ext($74, kbRight, kbCtrlShift);
-  Ext($75, kbEnd, kbCtrlShift);    Ext($76, kbPgDn, kbCtrlShift);
-  Ext($77, kbHome, kbCtrlShift);
-  for I := 0 to 8 do
-    Ext($78 + I, Ord('1') + I, kbAltShift);
-  Ext($81, Ord('0'), kbAltShift);
-  Ext($82, Ord('-'), kbAltShift);  Ext($83, Ord('='), kbAltShift);
-  Ext($84, kbPgUp, kbCtrlShift);
-  Ext($85, kbF11, 0);          Ext($86, kbF12, 0);
-  Ext($87, kbF11, kbShift);    Ext($88, kbF12, kbShift);
-  Ext($89, kbF11, kbCtrlShift); Ext($8A, kbF12, kbCtrlShift);
-  Ext($8B, kbF11, kbAltShift);  Ext($8C, kbF12, kbAltShift);
-  Ext($8D, kbUp, kbCtrlShift);    Ext($91, kbDown, kbCtrlShift);
-  Ext($94, kbTab, kbCtrlShift);
-  Ext($97, kbHome, kbAltShift);   Ext($98, kbUp, kbAltShift);
-  Ext($99, kbPgUp, kbAltShift);   Ext($9B, kbLeft, kbAltShift);
-  Ext($9D, kbRight, kbAltShift);  Ext($9F, kbEnd, kbAltShift);
-  Ext($A0, kbDown, kbAltShift);   Ext($A1, kbPgDn, kbAltShift);
-  Ext($A2, kbIns, kbAltShift);    Ext($A3, kbDel, kbAltShift);
-  Ext($A5, kbTab, kbAltShift);    Ext($A6, kbEnter, kbAltShift);
-
-  CtrlBackEntry.Normal := kbBack;   CtrlBackEntry.Mods := kbCtrlShift;
-  CtrlEnterEntry.Normal := kbEnter; CtrlEnterEntry.Mods := kbCtrlShift;
-end;
-
-{ Ctrl+letter delivered as scan code of the letter and character 1..26 }
 function IsRawCtrlKey(ScanCode, CharCode: Byte): Boolean;
 const
-  ScanKeys: array[0..34] of Char = 'QWERTYUIOP'#0#0#0#0'ASDFGHJKL'#0#0#0#0#0'ZXCVBNM';
+  ScanKeys: string[35] = 'QWERTYUIOP'#0#0#0#0'ASDFGHJKL'#0#0#0#0#0'ZXCVBNM';
 begin
-  Result := (ScanCode >= 16) and (ScanCode < 16 + 35)
-    and (Ord(ScanKeys[ScanCode - 16]) = CharCode - 1 + Ord('A'));
+  Result := (16 <= ScanCode) and (ScanCode < 16 + 35)
+    and (Ord(ScanKeys[ScanCode - 16 + 1]) = Integer(CharCode) - 1 + Ord('A'));
 end;
 
 function IsPrintableCharacter(CharCode: Byte): Boolean;
 begin
-  Result := (CharCode >= Ord(' ')) and (CharCode <> $7F) and (CharCode <> $FF);
+  Result := (Ord(' ') <= CharCode) and (CharCode <> $7F) and (CharCode <> $FF);
 end;
 
 function IsKeypadCharacter(ScanCode: Byte): Boolean;
 begin
-  Result := (ScanCode = $35) or (ScanCode = $37) or (ScanCode = $4A) or (ScanCode = $4E);
+  Result := (ScanCode = $35) or (ScanCode = $37)
+    or (ScanCode = $4A) or (ScanCode = $4E);
 end;
 
 constructor TKey.Create(KeyCode: Word; ShiftState: Word);
 var
-  ACode, AMods: Word;
+  NewCode, NewMods: Word;
   ScanCode, CharCode: Byte;
-  Entry: ^TLookupEntry;
+  Entry: TKeyCodeLookupEntry;
+  HasEntry: Boolean;
 begin
-  ACode := KeyCode;
-  AMods := 0;
-  if (ShiftState and kbShift) <> 0 then AMods := AMods or kbShift;
-  if (ShiftState and kbCtrlShift) <> 0 then AMods := AMods or kbCtrlShift;
-  if (ShiftState and kbAltShift) <> 0 then AMods := AMods or kbAltShift;
-  ScanCode := KeyCode shr 8;
-  CharCode := KeyCode and $FF;
-  Entry := nil;
+  NewCode := KeyCode;
+  NewMods := 0;
+  if (ShiftState and kbShift) <> 0 then
+    NewMods := NewMods or kbShift;
+  if (ShiftState and kbCtrlShift) <> 0 then
+    NewMods := NewMods or kbCtrlShift;
+  if (ShiftState and kbAltShift) <> 0 then
+    NewMods := NewMods or kbAltShift;
+  ScanCode := Byte(KeyCode shr 8);
+  CharCode := Byte(KeyCode and $FF);
+
+  HasEntry := False;
+  Entry.NormalKeyCode := 0;
+  Entry.ShiftState := 0;
   if (KeyCode <= kbCtrlZ) or IsRawCtrlKey(ScanCode, CharCode) then
-    Entry := @CtrlLookup[CharCode]
+  begin
+    Entry := CtrlKeyLookup[CharCode];
+    HasEntry := True;
+  end
   else if CharCode = 0 then
   begin
-    if ScanCode <= High(ExtLookup) then
-      Entry := @ExtLookup[ScanCode];
+    if ScanCode <= High(ExtKeyLookup) then
+    begin
+      Entry := ExtKeyLookup[ScanCode];
+      HasEntry := True;
+    end;
   end
   else if IsPrintableCharacter(CharCode) then
   begin
-    if (CharCode >= Ord('a')) and (CharCode <= Ord('z')) then
-      ACode := CharCode - Ord('a') + Ord('A')
+    if (Ord('a') <= CharCode) and (CharCode <= Ord('z')) then
+      NewCode := CharCode - Ord('a') + Ord('A')
     else if not IsKeypadCharacter(ScanCode) then
-      ACode := ACode and $FF;
+      NewCode := NewCode and $FF;
   end
-  else if KeyCode = kbCtrlBack then
-    Entry := @CtrlBackEntry
-  else if KeyCode = kbCtrlEnter then
-    Entry := @CtrlEnterEntry;
-  if Entry <> nil then
+  else
+    case KeyCode of
+      kbCtrlBack:
+        begin
+          Entry := CtrlBackEntry;
+          HasEntry := True;
+        end;
+      kbCtrlEnter:
+        begin
+          Entry := CtrlEnterEntry;
+          HasEntry := True;
+        end;
+    end;
+
+  if HasEntry then
   begin
-    AMods := AMods or Entry^.Mods;
-    if Entry^.Normal <> 0 then
-      ACode := Entry^.Normal;
+    NewMods := NewMods or Entry.ShiftState;
+    if Entry.NormalKeyCode <> 0 then
+      NewCode := Entry.NormalKeyCode;
   end;
-  Code := ACode;
-  if ACode <> kbNoKey then
-    Mods := AMods
+
+  Code := NewCode;
+  if NewCode <> kbNoKey then
+    Mods := NewMods
   else
     Mods := 0;
 end;
 
 class operator TKey.:=(KeyCode: Word): TKey;
 begin
-  Result := TKey.Create(KeyCode);
+  Result := TKey.Create(KeyCode, 0);
 end;
 
 class operator TKey.=(const A, B: TKey): Boolean;
@@ -278,20 +433,21 @@ end;
 
 function CtrlToArrow(KeyCode: Word): Word;
 const
-  Map: array[0..10, 0..1] of Word = (
-    (kbCtrlA, kbHome), (kbCtrlC, kbPgDn), (kbCtrlD, kbRight),
-    (kbCtrlE, kbUp), (kbCtrlF, kbEnd), (kbCtrlG, kbDel),
-    (kbCtrlH, kbBack), (kbCtrlR, kbPgUp), (kbCtrlS, kbLeft),
-    (kbCtrlV, kbIns), (kbCtrlX, kbDown));
+  CtrlCodes: array[0..10] of Byte = (
+    kbCtrlS, kbCtrlD, kbCtrlE, kbCtrlX, kbCtrlA,
+    kbCtrlF, kbCtrlG, kbCtrlV, kbCtrlR, kbCtrlC, kbCtrlH
+  );
+  ArrowCodes: array[0..10] of Word = (
+    kbLeft, kbRight, kbUp, kbDown, kbHome,
+    kbEnd, kbDel, kbIns, kbPgUp, kbPgDn, kbBack
+  );
 var
   I: Integer;
 begin
+  for I := Low(CtrlCodes) to High(CtrlCodes) do
+    if (KeyCode and $00FF) = CtrlCodes[I] then
+      Exit(ArrowCodes[I]);
   Result := KeyCode;
-  for I := Low(Map) to High(Map) do
-    if Map[I, 0] = KeyCode and $FF then
-      Exit(Map[I, 1]);
 end;
 
-initialization
-  InitLookups;
 end.
