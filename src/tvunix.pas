@@ -263,6 +263,12 @@ end;
 
 function Osc52Get(out Text: AnsiString): Boolean; forward;
 
+function IsSshSession: Boolean;
+begin
+  Result := (GetEnvironmentVariable('SSH_CONNECTION') <> '') or
+    (GetEnvironmentVariable('SSH_TTY') <> '');
+end;
+
 { The clipboard of the system (Windows) or of the terminal (OSC 52: most terminals take it, some ask the user or have it off; the Linux console
   prints it, so it is not sent there). TV_CLIPBOARD=0 turns the OSC 52 off. Reading the clipboard of a terminal is not done: it is not
   allowed in most of them; TvClip keeps the text of the program for the paste inside it. TV_OSC52_READ=1 asks the terminal for its clipboard (OSC 52
@@ -271,10 +277,10 @@ function ClipSetHook(const Text: AnsiString): Boolean;
 var
   Seq: AnsiString;
 begin
-  { the programs of the system (wl-copy, xsel, xclip, pbcopy, clip.exe of WSL), the terminal of the far2l extensions, the clipboard of Windows, then OSC 52 }
-  if ClipCmdSet(Text) then
-    Exit(True);
+  { When far2l's terminal extensions are on, use their clipboard before the system programs. In an SSH session, system clipboard programs refer to the remote host, so use the terminal's OSC 52 clipboard instead. }
   if F2lOn and F2l.ClipSet([cfText], [Text]) then
+    Exit(True);
+  if not IsSshSession and ClipCmdSet(Text) then
     Exit(True);
   if OsClipSet(Text) then
     Exit(True);
@@ -289,9 +295,9 @@ end;
 
 function ClipGetHook(out Text: AnsiString): Boolean;
 begin
-  if ClipCmdGet(Text) then
-    Exit(True);
   if F2lOn and F2l.ClipGet(cfText, Text) then
+    Exit(True);
+  if not IsSshSession and ClipCmdGet(Text) then
     Exit(True);
   if OsClipGet(Text) then
     Exit(True);

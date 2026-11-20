@@ -5,6 +5,7 @@ import base64
 import os
 import re
 import sys
+import tempfile
 
 sys.path.insert(0, os.environ.get('PTY_TOOLS', os.path.join(os.path.dirname(__file__), '..', '..', 'tools')))
 from pty_screen import PtyTerm
@@ -29,6 +30,34 @@ def run(env):
     raw = t.raw
     t.close()
     return re.findall(rb'\x1b\]52;c;([A-Za-z0-9+/=]*)\x07', raw)
+
+
+with tempfile.TemporaryDirectory(prefix='tv3-clip-') as d:
+    marker = os.path.join(d, 'xclip-called')
+    fake_clip = '#!/bin/sh\nprintf called > "$TV3_XCLIP_MARKER"\ncat >/dev/null\n'
+    for program in ('xclip', 'xsel'):
+        with open(os.path.join(d, program), 'w', encoding='utf-8') as f:
+            f.write(fake_clip)
+        os.chmod(os.path.join(d, program), 0o755)
+    env = {
+        'PATH': d + os.pathsep + os.environ.get('PATH', ''),
+        'DISPLAY': ':99',
+        'WAYLAND_DISPLAY': '',
+        'SSH_CONNECTION': '',
+        'SSH_TTY': '',
+        'TV3_XCLIP_MARKER': marker,
+    }
+    ordinary = run(env)
+    check(os.path.exists(marker), 'a local X session may use the system clipboard')
+    check(ordinary == [], 'a successful system clipboard write does not also send OSC 52')
+    os.unlink(marker)
+    env['SSH_TTY'] = '/dev/pts/1'
+    ssh = run(env)
+    check(not os.path.exists(marker), 'an SSH session does not write to the remote X clipboard')
+    check(
+        len(ssh) == 1 and base64.b64decode(ssh[0]).decode('utf-8') == 'Привет, мир',
+        'an SSH session sends the text through OSC 52', repr(ssh),
+    )
 
 
 m = run({'TERM': 'xterm-256color'})
